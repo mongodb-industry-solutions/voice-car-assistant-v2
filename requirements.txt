@@ -1,0 +1,23 @@
+# Core dependencies
+objectbox>=4.0.0
+ollama>=0.1.0
+
+# Speech Recognition (STT) - Whisper small for high accuracy
+SpeechRecognition>=3.10.0
+PyAudio>=0.2.13
+
+# Whisper for offline STT (small model - best accuracy)
+openai-whisper>=20231117
+torch>=2.0.0
+torchaudio>=2.0.0
+soundfile>=0.12.1
+ffmpeg-python>=0.2.0
+numba>=0.57.0
+
+# Text-to-Speech (TTS)
+pyttsx3>=2.90
+
+# Utilities
+numpy>=1.24.0
+tqdm>=4.65.0
+more-itertools>=10.1.0

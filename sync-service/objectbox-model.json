@@ -1,0 +1,101 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "modelVersionParserMinimum": 5,
+  "entities": [
+    {
+      "id": "1:2807783899453578393",
+      "name": "manual_chunks",
+      "flags": 2,
+      "lastPropertyId": "6:1234567890123456789",
+      "properties": [
+        {
+          "id": "1:871349036716677797",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:6563616578029045320",
+          "name": "text",
+          "type": 9
+        },
+        {
+          "id": "3:8818095693993590927",
+          "name": "source_file",
+          "type": 9
+        },
+        {
+          "id": "4:6846133054869205678",
+          "name": "chunk_index",
+          "type": 5
+        },
+        {
+          "id": "5:6898708364220688226",
+          "name": "embedding",
+          "type": 28,
+          "flags": 8,
+          "indexId": "1:4357812374228481003"
+        },
+        {
+          "id": "6:1234567890123456789",
+          "name": "syncClock",
+          "type": 6
+        }
+      ]
+    },
+    {
+      "id": "2:3456789012345678901",
+      "name": "manuals",
+      "flags": 2,
+      "lastPropertyId": "7:9876543210987654321",
+      "properties": [
+        {
+          "id": "1:2345678901234567890",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3456789012345678902",
+          "name": "filename",
+          "type": 9
+        },
+        {
+          "id": "3:4567890123456789013",
+          "name": "make",
+          "type": 9
+        },
+        {
+          "id": "4:5678901234567890124",
+          "name": "model",
+          "type": 9
+        },
+        {
+          "id": "5:6789012345678901235",
+          "name": "total_chunks",
+          "type": 5
+        },
+        {
+          "id": "6:7890123456789012346",
+          "name": "status",
+          "type": 9
+        },
+        {
+          "id": "7:9876543210987654321",
+          "name": "syncClock",
+          "type": 6
+        }
+      ]
+    }
+  ],
+  "lastEntityId": "2:3456789012345678901",
+  "lastIndexId": "1:4357812374228481003",
+  "lastRelationId": "0:0",
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}

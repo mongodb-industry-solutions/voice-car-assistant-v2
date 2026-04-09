@@ -1,0 +1,28 @@
+services:
+  sync-server:
+    image: objectboxio/sync-server-trial
+    container_name: sync-server
+    restart: always
+    user: "${UID:-1000}:${GID:-1000}"
+    ports:
+      - "9980:9980"  # Admin UI
+      - "9999:9999"  # Sync port for clients
+    volumes:
+      - .:/data
+    working_dir: /data
+    environment:
+      - MONGODB_USER=${MONGODB_USER}
+      - MONGODB_PASS=${MONGODB_PASS}
+      - MONGODB_CLUSTER=${MONGODB_CLUSTER}
+      - MONGODB_DATABASE=${MONGODB_DATABASE}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        exec /sync-server \
+          --model objectbox-model.json \
+          --unsecured-no-authentication \
+          --admin-bind 0.0.0.0:9980 \
+          --mongo-url "mongodb+srv://$${MONGODB_USER}:$${MONGODB_PASS}@$${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true" \
+          --mongo-db "$${MONGODB_DATABASE}" \
+          --mongo-initial-import
+

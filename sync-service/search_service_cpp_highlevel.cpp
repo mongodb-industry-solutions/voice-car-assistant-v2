@@ -51,8 +51,10 @@ OBX_model* create_obx_model() {
     obx_model_property(model, "source_file", OBXPropertyType_String, 3, 8818095693993590927);
     obx_model_property(model, "chunk_index", OBXPropertyType_Int, 4, 6846133054869205678);
     obx_model_property(model, "embedding", OBXPropertyType_FloatVector, 5, 6898708364220688226);
-    obx_model_property_index_id(model, 1, 4357812374228481003);
     obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
+    obx_model_property_index_hnsw_dimensions(model, 1024);
+    obx_model_property_index_hnsw_distance_type(model, OBXVectorDistanceType_Cosine);
+    obx_model_property_index_id(model, 1, 4357812374228481003);
     obx_model_property(model, "syncClock", OBXPropertyType_Long, 6, 1234567890123456789);
     obx_model_entity_last_property_id(model, 6, 1234567890123456789);
     

@@ -32,3 +32,16 @@ Thumbs.db
 # User documents (keep sample only)
 documents/*
 !documents/sample_car_manual.txt
+
+# Sync server secrets and credentials
+sync-server-setup/objectbox
+sync-server-setup/.env
+.env
+*.env
+!.env.example
+
+# MongoDB loader secrets
+mongodb-loader/.env
+
+# Sensitive documentation with credentials
+objectbox_mongodb_connector.txt

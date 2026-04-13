@@ -33,26 +33,32 @@ Docker Compose **automatically loads** `.env` file from the same directory:
 
 **No extra configuration needed!** Docker Compose reads `.env` automatically.
 
-### 3. Start the Sync Server
+### 3. Start the Services
 
 ```powershell
 # Navigate to sync-server-setup directory
 cd sync-server-setup
 
-# Start the server
+# Start both sync server and search service
 docker compose up
 
 # Or run in background
 docker compose up -d
 ```
 
-### 4. Access Admin UI
+This will start:
+- **Sync Server** (port 9980 admin, 9999 sync)
+- **Search Service** (port 8080 HTTP API with HNSW vector search)
 
-Open: http://localhost:9980/
+### 4. Access Services
 
-Activate your trial license when prompted.
+**Admin UI:** http://localhost:9980/
+- Activate your trial license when prompted
 
-### 5. Verify MongoDB Connection
+**Search Service Health:** http://localhost:8080/health
+- Check if search service is running and synced
+
+### 5. Verify Setup
 
 Check the logs:
 ```powershell
@@ -89,14 +95,45 @@ sync-server-setup/
 
 ```
 sync-server-setup/
-├── .env                   # Your credentials (DO NOT COMMIT)
-├── .env.example          # Template (safe to commit)
-├── docker-compose.yml    # Sync server configuration
-├── objectbox-model.json  # Your database schema
-└── README.md            # This file
+├── .env                     # Your credentials (DO NOT COMMIT)
+├── .env.example            # Template (safe to commit)
+├── docker-compose.yml      # Services configuration
+├── objectbox-model.json    # Database schema
+├── search-service-data/    # Persistent ObjectBox database (auto-created)
+└── README.md              # This file
 ```
 
-## Stopping the Server
+## Persistent Storage
+
+The search service database is stored in `search-service-data/` directory:
+- ✅ **Persists across container restarts**
+- ✅ **Survives container removal**
+- ✅ **Accessible from host system**
+- ✅ **Automatically synced with MongoDB Atlas**
+
+**Location on Host:**
+```
+sync-server-setup/search-service-data/
+```
+
+**Location in Container:**
+```
+/app/search-service-db
+```
+
+**To reset the database:**
+```powershell
+# Stop services
+docker compose down
+
+# Remove database
+Remove-Item -Recurse -Force search-service-data
+
+# Restart (will re-sync from MongoDB)
+docker compose up -d
+```
+
+## Stopping the Services
 
 ```powershell
 # Stop and remove containers

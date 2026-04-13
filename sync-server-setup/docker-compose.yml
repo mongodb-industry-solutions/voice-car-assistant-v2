@@ -22,7 +22,43 @@ services:
           --model objectbox-model.json \
           --unsecured-no-authentication \
           --admin-bind 0.0.0.0:9980 \
+          --log-level debug \
           --mongo-url "mongodb+srv://$${MONGODB_USER}:$${MONGODB_PASS}@$${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true" \
-          --mongo-db "$${MONGODB_DATABASE}" \
-          --mongo-initial-import
+          --mongo-db "$${MONGODB_DATABASE}"
+
+  search-service:
+    build:
+      context: ../search-service
+      dockerfile: Dockerfile
+    container_name: search-service
+    restart: always
+    ports:
+      - "8080:8080"  # Search API
+    volumes:
+      - ./search-service-data:/app/search-service-db
+    depends_on:
+      - sync-server
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  conversation-service:
+    build:
+      context: ../conversation-service
+      dockerfile: Dockerfile
+    container_name: conversation-service
+    restart: always
+    ports:
+      - "8081:8081"  # Conversation API
+    volumes:
+      - ./conversation-data:/app/conversation-db
+    depends_on:
+      - sync-server
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 

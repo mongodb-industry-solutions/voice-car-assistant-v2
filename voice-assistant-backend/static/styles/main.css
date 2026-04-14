@@ -1,0 +1,474 @@
+/* Car Dashboard UI - MongoDB + ObjectBox Theme */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* MongoDB Colors */
+    --mongodb-green: #00ED64;
+    --mongodb-dark-green: #00684A;
+    --mongodb-slate: #001E2B;
+    
+    /* Car Dashboard Theme */
+    --dashboard-bg: #0a0e1a;
+    --dashboard-accent: #1a2332;
+    --touchscreen-bg: #0d1520;
+    --touchscreen-border: #2a3f5f;
+    --user-bubble: #00684A;
+    --assistant-bubble: #1e2838;
+    --text-primary: #FFFFFF;
+    --text-secondary: #B8C5D0;
+    --accent: var(--mongodb-green);
+    --accent-glow: rgba(0, 237, 100, 0.4);
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(180deg, var(--dashboard-bg) 0%, #050810 100%);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    overflow: hidden;
+}
+
+/* Car Dashboard Container */
+.car-dashboard {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    gap: 2rem;
+    max-width: 1600px;
+    width: 100%;
+    height: 85vh;
+    align-items: center;
+}
+
+/* Dashboard Side Panels */
+.dashboard-left,
+.dashboard-right {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    height: 100%;
+    justify-content: center;
+}
+
+/* Gauge Styling */
+.gauge {
+    background: linear-gradient(135deg, var(--dashboard-accent) 0%, #0f1620 100%);
+    border: 3px solid var(--touchscreen-border);
+    border-radius: 50%;
+    width: 160px;
+    height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 30px rgba(42, 63, 95, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.gauge-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 0.5rem;
+}
+
+.gauge-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent-glow);
+}
+
+.indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--dashboard-accent);
+    border-radius: 12px;
+    border: 1px solid var(--touchscreen-border);
+}
+
+.indicator-icon {
+    font-size: 1.5rem;
+}
+
+.indicator-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* Touchscreen Container */
+.touchscreen {
+    background: var(--touchscreen-bg);
+    border: 6px solid var(--touchscreen-border);
+    border-radius: 24px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 
+        0 0 50px rgba(42, 63, 95, 0.6),
+        inset 0 0 30px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+}
+
+/* Touchscreen Header */
+.touchscreen-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    background: linear-gradient(180deg, #1a2332 0%, var(--touchscreen-bg) 100%);
+    border-bottom: 2px solid var(--touchscreen-border);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.mongodb-leaf {
+    font-size: 2.5rem;
+    filter: drop-shadow(0 0 10px var(--accent-glow));
+}
+
+.header-title h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0;
+}
+
+.header-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.header-stats {
+    display: flex;
+    gap: 1rem;
+}
+
+.stat-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--dashboard-accent);
+    border-radius: 20px;
+    border: 1px solid var(--touchscreen-border);
+}
+
+.stat-icon {
+    font-size: 1.1rem;
+}
+
+.stat-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* Chat Container */
+.chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 1.5rem;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-right: 1rem;
+}
+
+/* Custom Scrollbar */
+.chat-messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: var(--dashboard-accent);
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: var(--touchscreen-border);
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* Chat Messages */
+.message {
+    display: flex;
+    gap: 0.75rem;
+    animation: messageSlide 0.4s ease-out;
+}
+
+@keyframes messageSlide {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-message {
+    flex-direction: row-reverse;
+    align-self: flex-end;
+    max-width: 70%;
+}
+
+.assistant-message {
+    flex-direction: row;
+    align-self: flex-start;
+    max-width: 85%;
+}
+
+.message-avatar {
+    font-size: 2rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.message-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.user-message .message-content {
+    align-items: flex-end;
+}
+
+.message-text {
+    padding: 1rem 1.25rem;
+    border-radius: 18px;
+    font-size: 1rem;
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+.user-message .message-text {
+    background: linear-gradient(135deg, var(--user-bubble) 0%, #004d36 100%);
+    color: var(--text-primary);
+    border-bottom-right-radius: 4px;
+}
+
+.assistant-message .message-text {
+    background: linear-gradient(135deg, var(--assistant-bubble) 0%, #151d2a 100%);
+    color: var(--text-primary);
+    border-bottom-left-radius: 4px;
+    border-left: 3px solid var(--accent);
+}
+
+.message-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    padding: 0 0.5rem;
+}
+
+/* Sources in Message */
+.message-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.source-chip {
+    background: var(--dashboard-accent);
+    padding: 0.75rem;
+    border-radius: 10px;
+    border-left: 3px solid var(--accent);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.source-chip-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--accent);
+}
+
+/* Chat Status */
+.chat-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    background: var(--dashboard-accent);
+    border-radius: 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.chat-status.active {
+    opacity: 1;
+}
+
+.status-dots {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.status-dots span {
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: dotPulse 1.4s infinite ease-in-out;
+}
+
+.status-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.status-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes dotPulse {
+    0%, 60%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    30% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+}
+
+.status-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* Touchscreen Controls */
+.touchscreen-controls {
+    padding: 1.5rem 2rem 2rem;
+    background: linear-gradient(180deg, var(--touchscreen-bg) 0%, #1a2332 100%);
+    border-top: 2px solid var(--touchscreen-border);
+    display: flex;
+    justify-content: center;
+}
+
+.mic-button {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--mongodb-dark-green) 100%);
+    border: none;
+    border-radius: 50px;
+    padding: 1.25rem 3rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+.mic-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px var(--accent-glow);
+}
+
+.mic-button:active {
+    transform: translateY(0);
+}
+
+.mic-button.listening {
+    animation: micPulse 1.5s infinite;
+}
+
+@keyframes micPulse {
+    0%, 100% {
+        box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    50% {
+        box-shadow: 0 8px 40px var(--accent-glow), 0 0 30px var(--accent);
+    }
+}
+
+.mic-icon {
+    font-size: 1.8rem;
+}
+
+.mic-label {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Tech Footer */
+.tech-footer {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.tech-badge {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    padding: 0.5rem 1rem;
+    background: var(--dashboard-accent);
+    border-radius: 20px;
+    border: 1px solid var(--touchscreen-border);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .car-dashboard {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .dashboard-left,
+    .dashboard-right {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .touchscreen-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .user-message,
+    .assistant-message {
+        max-width: 90%;
+    }
+}

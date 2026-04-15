@@ -3,4 +3,4 @@ flask-cors==6.0.0
 flask-socketio==5.3.6
 python-socketio==5.14.0
 eventlet==0.40.3
-requests==2.31.0
+requests==2.33.0

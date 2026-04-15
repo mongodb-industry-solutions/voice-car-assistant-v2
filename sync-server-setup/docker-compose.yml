@@ -62,3 +62,39 @@ services:
       timeout: 5s
       retries: 3
 
+  telemetry-service:
+    build:
+      context: ../telemetry-service
+      dockerfile: Dockerfile
+    container_name: telemetry-service
+    restart: always
+    ports:
+      - "8084:8084"  # Telemetry API
+    volumes:
+      - ./telemetry-data:/app/telemetry-db
+    depends_on:
+      - sync-server
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  telemetry-simulator:
+    build:
+      context: ../telemetry-simulator
+      dockerfile: Dockerfile
+    container_name: telemetry-simulator
+    restart: always
+    ports:
+      - "8082:8082"  # Simulator API
+    depends_on:
+      - telemetry-service
+    environment:
+      - TELEMETRY_SERVICE_URL=http://telemetry-service:8084
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+

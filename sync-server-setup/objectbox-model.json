@@ -143,10 +143,81 @@
           "type": 6
         }
       ]
+    },
+    {
+      "id": "4:2222333344445555777",
+      "name": "telemetry_snapshots",
+      "flags": 2,
+      "lastPropertyId": "12:4444555566668888111",
+      "properties": [
+        {
+          "id": "1:2222333344445555778",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3333444455556666888",
+          "name": "timestamp",
+          "type": 6,
+          "flags": 8,
+          "indexId": "5:5555555555555555555"
+        },
+        {
+          "id": "3:4444555566667777999",
+          "name": "vehicle_id",
+          "type": 9
+        },
+        {
+          "id": "4:5555666677778888000",
+          "name": "driving_mode",
+          "type": 9
+        },
+        {
+          "id": "5:6666777788889999222",
+          "name": "anomaly_count",
+          "type": 5
+        },
+        {
+          "id": "6:7777888899990000333",
+          "name": "engine_data",
+          "type": 9
+        },
+        {
+          "id": "7:8888999900001111444",
+          "name": "tire_data",
+          "type": 9
+        },
+        {
+          "id": "8:9999000011112222555",
+          "name": "battery_data",
+          "type": 9
+        },
+        {
+          "id": "9:1111222233334444666",
+          "name": "fuel_data",
+          "type": 9
+        },
+        {
+          "id": "10:2222333344445555888",
+          "name": "transmission_data",
+          "type": 9
+        },
+        {
+          "id": "11:3333444455556666999",
+          "name": "brake_data",
+          "type": 9
+        },
+        {
+          "id": "12:4444555566668888111",
+          "name": "syncClock",
+          "type": 6
+        }
+      ]
     }
   ],
-  "lastEntityId": "3:1111222233334444555",
-  "lastIndexId": "4:4444444444444444444",
+  "lastEntityId": "4:2222333344445555777",
+  "lastIndexId": "5:5555555555555555555",
   "lastRelationId": "0:0",
   "retiredEntityUids": [],
   "retiredIndexUids": [],

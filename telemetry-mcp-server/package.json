@@ -1,0 +1,24 @@
+{
+  "name": "telemetry-mcp-server",
+  "version": "1.0.0",
+  "description": "MongoDB MCP Server for automotive telemetry data queries",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "mcp",
+    "mongodb",
+    "telemetry",
+    "automotive"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "mongodb": "^6.15.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -38,6 +38,9 @@ COPY --from=builder /build/objectbox-model.json /app/
 # Update library cache
 RUN ldconfig
 
+# Declare volume for persistent database storage
+VOLUME ["/app/search-service-db"]
+
 # Expose port
 EXPOSE 8080
 

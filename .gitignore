@@ -2,6 +2,12 @@
 car-manual-db/
 *.obx
 
+# Search service persistent data
+sync-server-setup/search-service-data/
+
+# Conversation service persistent data
+sync-server-setup/conversation-data/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -35,6 +41,8 @@ documents/*
 
 # Sync server secrets and credentials
 sync-server-setup/objectbox
+sync-server-setup/conversation-data
+sync-server-setup/telemetry-data
 sync-server-setup/.env
 .env
 *.env
@@ -45,3 +53,5 @@ mongodb-loader/.env
 
 # Sensitive documentation with credentials
 objectbox_mongodb_connector.txt
+
+telemetry-mcp-server/node_modules/

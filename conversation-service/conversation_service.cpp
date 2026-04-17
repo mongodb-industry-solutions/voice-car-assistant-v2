@@ -86,8 +86,27 @@ OBX_model* create_obx_model() {
     obx_model_property(model, "syncClock", OBXPropertyType_Long, 8, 8888999911112222333);
     obx_model_entity_last_property_id(model, 8, 8888999911112222333);
     
-    obx_model_last_entity_id(model, 3, 1111222233334444555);
-    obx_model_last_index_id(model, 4, 4444444444444444444);
+    // Entity 4: telemetry_snapshots (required for sync compatibility, not used)
+    obx_model_entity(model, "telemetry_snapshots", 4, 2222333344445555777);
+    obx_model_property(model, "id", OBXPropertyType_Long, 1, 2222333344445555778);
+    obx_model_property_flags(model, OBXPropertyFlags_ID);
+    obx_model_property(model, "timestamp", OBXPropertyType_Long, 2, 3333444455556666888);
+    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
+    obx_model_property_index_id(model, 5, 5555555555555555555);
+    obx_model_property(model, "vehicle_id", OBXPropertyType_String, 3, 4444555566667777999);
+    obx_model_property(model, "driving_mode", OBXPropertyType_String, 4, 5555666677778888000);
+    obx_model_property(model, "anomaly_count", OBXPropertyType_Int, 5, 6666777788889999222);
+    obx_model_property(model, "engine_data", OBXPropertyType_String, 6, 7777888899990000333);
+    obx_model_property(model, "tire_data", OBXPropertyType_String, 7, 8888999900001111444);
+    obx_model_property(model, "battery_data", OBXPropertyType_String, 8, 9999000011112222555);
+    obx_model_property(model, "fuel_data", OBXPropertyType_String, 9, 1111222233334444666);
+    obx_model_property(model, "transmission_data", OBXPropertyType_String, 10, 2222333344445555888);
+    obx_model_property(model, "brake_data", OBXPropertyType_String, 11, 3333444455556666999);
+    obx_model_property(model, "syncClock", OBXPropertyType_Long, 12, 4444555566668888111);
+    obx_model_entity_last_property_id(model, 12, 4444555566668888111);
+    
+    obx_model_last_entity_id(model, 4, 2222333344445555777);
+    obx_model_last_index_id(model, 5, 5555555555555555555);
     
     return model;
 }

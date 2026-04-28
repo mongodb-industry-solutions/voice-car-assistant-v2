@@ -89,18 +89,19 @@ const tools = {
     };
   },
 
-  async check_system_status({ system_name }) {
+  async check_system_status({ system, system_name }) {
+    const name = system || system_name;
     const valid = ['engine', 'battery', 'fuel', 'tires', 'transmission', 'brakes'];
-    if (!valid.includes(system_name))
+    if (!valid.includes(name))
       return { error: `Invalid system. Must be one of: ${valid.join(', ')}` };
 
     const snap = await collection.findOne({}, { sort: { timestamp: -1 }, projection: { _id: 0 } });
     if (!snap) return { error: 'No telemetry data found' };
     const t = getTelemetryData(snap);
     if (!t?.telemetry_batch) return { error: 'Failed to parse telemetry data' };
-    const data = t.telemetry_batch[system_name];
-    if (!data) return { error: `System '${system_name}' not found` };
-    return { vehicle_id: t.vehicle_id, timestamp: t.timestamp, system: system_name, sensors: data };
+    const data = t.telemetry_batch[name];
+    if (!data) return { error: `System '${name}' not found` };
+    return { vehicle_id: t.vehicle_id, timestamp: t.timestamp, system: name, sensors: data };
   },
 
   async get_tire_pressure() {
@@ -192,7 +193,7 @@ const tools = {
 
 const TOOL_SCHEMAS = [
   { name: 'get_latest_telemetry',    description: 'Get the most recent telemetry snapshot with all vehicle systems data', inputSchema: { type: 'object', properties: {} } },
-  { name: 'check_system_status',     description: 'Check the status of a specific vehicle system (engine, battery, fuel, tires, transmission, brakes)', inputSchema: { type: 'object', properties: { system_name: { type: 'string', enum: ['engine','battery','fuel','tires','transmission','brakes'], description: 'Name of the system to check' } }, required: ['system_name'] } },
+  { name: 'check_system_status',     description: 'Check the status of a specific vehicle system (engine, battery, fuel, tires, transmission, brakes)', inputSchema: { type: 'object', properties: { system: { type: 'string', enum: ['engine','battery','fuel','tires','transmission','brakes'], description: 'Name of the system to check' } }, required: ['system'] } },
   { name: 'get_tire_pressure',       description: 'Get tire pressure readings for all four tires', inputSchema: { type: 'object', properties: {} } },
   { name: 'get_anomalies',           description: 'Get all current warnings and critical issues across all vehicle systems', inputSchema: { type: 'object', properties: {} } },
   { name: 'query_telemetry_history', description: 'Query historical telemetry data for a specific time range', inputSchema: { type: 'object', properties: { minutes: { type: 'number', description: 'Minutes of history to retrieve (default 10)', default: 10 }, system: { type: 'string', enum: ['engine','battery','fuel','tires','transmission','brakes'], description: 'Optional system filter' } } } },
@@ -254,6 +255,19 @@ async function main() {
       const transport = activeTransports[sessionId];
       if (!transport) { res.status(404).json({ error: 'Session not found' }); return; }
       await transport.handlePostMessage(req, res);
+    });
+
+    // Direct REST endpoint — bypasses MCP SSE protocol for agent use
+    app.post('/tools/:name', express.json(), async (req, res) => {
+      const { name } = req.params;
+      const args = req.body || {};
+      if (!tools[name]) { res.status(404).json({ error: `Unknown tool: ${name}` }); return; }
+      try {
+        const result = await tools[name](args);
+        res.json(result);
+      } catch (e) {
+        res.status(500).json({ error: e.message });
+      }
     });
 
     app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'telemetry-mcp-server', transport: 'sse' }));

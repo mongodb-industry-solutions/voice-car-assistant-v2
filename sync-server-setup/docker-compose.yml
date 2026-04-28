@@ -98,3 +98,97 @@ services:
       timeout: 5s
       retries: 3
 
+  telemetry-mcp-server:
+    build:
+      context: ../telemetry-mcp-server
+      dockerfile: Dockerfile
+    container_name: telemetry-mcp-server
+    restart: always
+    ports:
+      - "3001:3001"  # MCP SSE endpoint
+    environment:
+      - MONGODB_URI=mongodb+srv://${MONGODB_USER}:${MONGODB_PASS}@${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true
+      - DATABASE_NAME=${MONGODB_DATABASE}
+      - MCP_TRANSPORT=sse
+      - PORT=3001
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  navigation-service:
+    build:
+      context: ../navigation-service
+      dockerfile: Dockerfile
+    container_name: navigation-service
+    restart: always
+    ports:
+      - "5001:5001"  # Navigation API
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - LLM_MODEL=llama3.2
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  langchain-agent-service:
+    build:
+      context: ../langchain-agent-service
+      dockerfile: Dockerfile
+    container_name: langchain-agent-service
+    restart: always
+    ports:
+      - "5002:5002"  # Agent API
+    depends_on:
+      - search-service
+      - navigation-service
+      - telemetry-mcp-server
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - LLM_MODEL=llama3.2
+      - EMBEDDING_MODEL=nub235/voyage-4-nano
+      - SEARCH_SERVICE_URL=http://search-service:8080
+      - NAVIGATION_SERVICE_URL=http://navigation-service:5001
+      - TELEMETRY_MCP_URL=http://telemetry-mcp-server:3001/sse
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  voice-assistant-backend:
+    build:
+      context: ../voice-assistant-backend
+      dockerfile: Dockerfile
+    container_name: voice-assistant-backend
+    restart: always
+    ports:
+      - "5000:5000"  # Web UI
+    depends_on:
+      - search-service
+      - conversation-service
+      - navigation-service
+      - langchain-agent-service
+    environment:
+      - SEARCH_SERVICE_URL=http://search-service:8080
+      - CONVERSATION_SERVICE_URL=http://conversation-service:8081
+      - NAVIGATION_SERVICE_URL=http://navigation-service:5001
+      - AGENT_SERVICE_URL=http://langchain-agent-service:5002
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+

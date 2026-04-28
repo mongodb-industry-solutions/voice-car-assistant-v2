@@ -9,15 +9,14 @@ import os
 import uuid
 from typing import Optional
 
+
 import ollama as ollama_client
 import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import StructuredTool
-from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_ollama import ChatOllama
-from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel, Field
 
 app = Flask(__name__)
@@ -26,11 +25,11 @@ CORS(app)
 # ── Service configuration ─────────────────────────────────────────────────────
 
 OLLAMA_HOST          = os.getenv("OLLAMA_HOST",          "http://localhost:11434")
-LLM_MODEL            = os.getenv("LLM_MODEL",            "llama3.2")
+LLM_MODEL            = os.getenv("LLM_MODEL",            "llama3.1:8b")
 EMBEDDING_MODEL      = os.getenv("EMBEDDING_MODEL",      "nub235/voyage-4-nano")
 SEARCH_SERVICE_URL   = os.getenv("SEARCH_SERVICE_URL",   "http://localhost:8080")
 NAVIGATION_SERVICE_URL = os.getenv("NAVIGATION_SERVICE_URL", "http://localhost:5001")
-TELEMETRY_MCP_URL    = os.getenv("TELEMETRY_MCP_URL",    "http://localhost:3001/sse")
+TELEMETRY_SERVICE_URL = os.getenv("TELEMETRY_MCP_URL", "http://localhost:3001")
 
 # ── Conversation memory (per session) ────────────────────────────────────────
 # { conversation_id: [HumanMessage, AIMessage, ...] }
@@ -52,15 +51,28 @@ You are a unified intelligent car assistant with access to three capabilities:
 3. **Navigation** (navigate_to) — Find and route to nearby places: mechanics, gas
    stations, pharmacies, hospitals, etc.
 
-When the user reports a warning or fault:
-  • Step 1: check the relevant telemetry (get_anomalies or check_system_status)
+When the user asks for a general car status or overview:
+  → call get_anomalies to get all current warnings and issues across every system.
+
+When the user reports a warning or fault for a specific system:
+  • Step 1: call check_system_status for that system (engine, battery, fuel, tires, transmission, or brakes)
   • Step 2: search the car manual for repair / safety guidance
   • Step 3: offer to navigate to the nearest relevant service if appropriate
+
+IMPORTANT: Never fabricate or guess sensor readings. If a tool call fails or returns an
+error, say you were unable to retrieve the data — do not invent values.
+
+When the user responds with a short confirmation ("yes", "sure", "ok", "please", "go ahead",
+"yes please", etc.) to a navigation offer you just made, call navigate_to immediately.
+Do NOT search the manual again, do NOT repeat safety advice, do NOT ask again — just navigate.
 
 {location_context}
 
 Be concise and safety-focused. For critical issues (overheating, brake failure, etc.)
-lead with the safety action before anything else.\
+lead with the safety action before anything else.
+
+Never output raw JSON or tool call objects in your response. Always respond in plain,
+human-readable language after using a tool.\
 """
 
 
@@ -78,6 +90,19 @@ def _build_system_prompt(lat: Optional[float], lon: Optional[float]) -> str:
             "If navigation is requested, ask them to allow location access in the browser."
         )
     return _SYSTEM_PROMPT.format(location_context=loc)
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _is_raw_tool_call(text: str) -> bool:
+    """Return True if text is a leaked tool-call JSON (model forgot to invoke the tool)."""
+    try:
+        data = json.loads(text.strip())
+        return isinstance(data, dict) and "name" in data and (
+            "parameters" in data or "arguments" in data
+        )
+    except Exception:
+        return False
 
 
 # ── Tool helpers ──────────────────────────────────────────────────────────────
@@ -125,31 +150,66 @@ async def _run_with_tools(
     lat: Optional[float],
     lon: Optional[float],
 ) -> dict:
-    """Build and invoke the LangGraph react agent."""
+    """
+    Custom ReAct loop that handles both native structured tool calls and models
+    (like llama3.1:8b via Ollama) that emit raw JSON tool calls in message content.
+    """
     llm = ChatOllama(model=LLM_MODEL, base_url=OLLAMA_HOST, temperature=0)
+    llm_with_tools = llm.bind_tools(all_tools)
+    tool_map = {t.name: t for t in all_tools}
 
-    agent = create_react_agent(llm, all_tools)
-
-    input_messages = (
+    messages = (
         [SystemMessage(content=_build_system_prompt(lat, lon))]
         + history
         + [HumanMessage(content=message)]
     )
 
-    result = await agent.ainvoke(
-        {"messages": input_messages},
-        config={"recursion_limit": 25},
-    )
+    tools_used: list[str] = []
+    answer = ""
 
-    answer_msg = result["messages"][-1]
-    answer = answer_msg.content if hasattr(answer_msg, "content") else ""
+    for _ in range(10):
+        response = await llm_with_tools.ainvoke(messages)
+        content = response.content if isinstance(response.content, str) else ""
 
-    tools_used = [
-        tc["name"]
-        for msg in result["messages"]
-        if isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None)
-        for tc in msg.tool_calls
-    ]
+        # Case 1: model used structured tool_calls (native support)
+        if getattr(response, "tool_calls", None):
+            messages.append(response)
+            for tc in response.tool_calls:
+                tool = tool_map.get(tc["name"])
+                if tool:
+                    tools_used.append(tc["name"])
+                    try:
+                        result = await tool.ainvoke(tc["args"])
+                    except Exception as e:
+                        result = f"Error: {e}"
+                    messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
+            continue
+
+        # Case 2: model emitted a raw JSON tool call in content
+        if _is_raw_tool_call(content):
+            tool_call_data = json.loads(content.strip())
+            tool_name = tool_call_data.get("name")
+            tool_args = tool_call_data.get("parameters") or tool_call_data.get("arguments") or {}
+            tool = tool_map.get(tool_name)
+            if tool:
+                tools_used.append(tool_name)
+                print(f"[agent] raw tool call detected: {tool_name}({tool_args})", flush=True)
+                try:
+                    result = await tool.ainvoke(tool_args)
+                except Exception as e:
+                    result = f"Error calling {tool_name}: {e}"
+                messages.append(AIMessage(content=content))
+                messages.append(HumanMessage(
+                    content=f"Tool result for {tool_name}: {result}\n\nNow give a concise, helpful response based on this data."
+                ))
+                continue
+            # Unknown tool name — treat as final answer
+            answer = content
+            break
+
+        # Case 3: plain response — done
+        answer = content
+        break
 
     return {"output": answer, "tools_used": tools_used}
 
@@ -210,20 +270,49 @@ async def run_agent(
         args_schema=NavigateInput,
     )
 
-    history = _histories.get(conversation_id, [])
+    # ── Telemetry tools (direct REST calls to MCP server) ────────────────────
 
-    # ── Try MCP connection — fall back gracefully if unavailable ─────────────
-    try:
-        async with MultiServerMCPClient({
-            "telemetry": {"url": TELEMETRY_MCP_URL, "transport": "sse"},
-        }) as mcp:
-            mcp_tools = mcp.get_tools()
-            print(f"[agent] Loaded {len(mcp_tools)} MCP telemetry tools")
-            all_tools = [manual_tool, navigate_tool] + mcp_tools
-            result = await _run_with_tools(all_tools, message, history, lat, lon)
-    except Exception as e:
-        print(f"[agent] MCP unavailable ({e}), running without telemetry tools")
-        result = await _run_with_tools([manual_tool, navigate_tool], message, history, lat, lon)
+    def _call_telemetry_tool(name: str, args: dict = {}) -> str:
+        try:
+            resp = requests.post(
+                f"{TELEMETRY_SERVICE_URL}/tools/{name}",
+                json=args,
+                timeout=10,
+            )
+            return resp.text if resp.ok else f"Telemetry error: {resp.status_code}"
+        except Exception as e:
+            return f"Telemetry service unavailable: {e}"
+
+    telemetry_tools = [
+        StructuredTool.from_function(
+            func=lambda: _call_telemetry_tool("get_latest_telemetry"),
+            name="get_latest_telemetry",
+            description="Get the most recent snapshot of all vehicle sensor data.",
+        ),
+        StructuredTool.from_function(
+            func=lambda system: _call_telemetry_tool("check_system_status", {"system": system}),
+            name="check_system_status",
+            description="Check the status of a specific vehicle system. Valid systems: engine, battery, fuel, tires, transmission, brakes.",
+            args_schema=type("CheckSystemInput", (BaseModel,), {
+                "system": Field(description="System to check: engine, battery, fuel, tires, transmission, or brakes"),
+                "__annotations__": {"system": str},
+            }),
+        ),
+        StructuredTool.from_function(
+            func=lambda: _call_telemetry_tool("get_tire_pressure"),
+            name="get_tire_pressure",
+            description="Get tire pressure readings for all four tires.",
+        ),
+        StructuredTool.from_function(
+            func=lambda: _call_telemetry_tool("get_anomalies"),
+            name="get_anomalies",
+            description="Get all current warnings and critical issues across all vehicle systems.",
+        ),
+    ]
+
+    history = _histories.get(conversation_id, [])
+    all_tools = [manual_tool, navigate_tool] + telemetry_tools
+    result = await _run_with_tools(all_tools, message, history, lat, lon)
 
     answer = result.get("output", "I couldn't generate a response.")
     tools_used = result.get("tools_used", [])
@@ -278,5 +367,5 @@ if __name__ == "__main__":
     print(f"   LLM:         {LLM_MODEL} @ {OLLAMA_HOST}")
     print(f"   Search:      {SEARCH_SERVICE_URL}")
     print(f"   Navigation:  {NAVIGATION_SERVICE_URL}")
-    print(f"   Telemetry MCP: {TELEMETRY_MCP_URL}")
+    print(f"   Telemetry:     {TELEMETRY_SERVICE_URL}")
     app.run(host="0.0.0.0", port=port, debug=False)

@@ -127,7 +127,7 @@ services:
       - "5001:5001"  # Navigation API
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
-      - LLM_MODEL=llama3.2
+      - LLM_MODEL=llama3.1:8b
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -150,11 +150,11 @@ services:
       - telemetry-mcp-server
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
-      - LLM_MODEL=llama3.2
+      - LLM_MODEL=llama3.1:8b
       - EMBEDDING_MODEL=nub235/voyage-4-nano
       - SEARCH_SERVICE_URL=http://search-service:8080
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
-      - TELEMETRY_MCP_URL=http://telemetry-mcp-server:3001/sse
+      - TELEMETRY_MCP_URL=http://telemetry-mcp-server:3001
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:

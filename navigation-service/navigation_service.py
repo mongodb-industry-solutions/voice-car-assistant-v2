@@ -27,7 +27,7 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
 HEADERS = {"User-Agent": "VoiceCarAssistant/2.0"}
 
 # OSM tag mappings for common destination types

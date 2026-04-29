@@ -133,27 +133,30 @@ class VoiceAssistant:
         Returns:
             Generated answer
         """
-        # Build context from chunks
+        # Build context from chunks (without section references)
         context = "\n\n".join([
-            f"[Source: {chunk['source_file']}, Section {chunk['chunk_index']}]\n{chunk['text']}"
+            chunk['text']
             for chunk in context_chunks
         ])
         
-        # Create prompt
-        prompt = f"""You are a helpful car manual assistant. Answer the user's question based on the following sections from the car manual.
+        # Create prompt with professional instructions
+        prompt = f"""You are a professional automotive assistant with deep knowledge of vehicle systems and maintenance. Your role is to provide accurate, clear information based on the vehicle manual.
 
-Car Manual Context:
+Relevant Manual Information:
 {context}
 
-User Question: {question}
+Customer Question: {question}
 
-Instructions:
-- Provide a clear, concise answer based on the manual context
-- If the manual doesn't contain relevant information, say so
-- Reference specific sections when helpful
-- Be friendly and conversational
+Guidelines for your response:
+- Provide a direct, professional answer based on the manual information above
+- Be clear and concise - avoid unnecessary jargon unless the customer asks technical questions
+- Use a friendly but professional tone, as if you're an experienced service advisor
+- Present information naturally without referencing "sections", "chunks", or "source files"
+- If the manual doesn't contain the answer, politely say so and suggest what the customer could do instead
+- Focus on practical, actionable information the customer can use
+- Never mention that you're looking at a manual or specific sections - just answer the question directly
 
-Answer:"""
+Your Answer:"""
         
         print("🤖 Generating answer...")
         

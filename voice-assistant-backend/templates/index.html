@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Car Manual Assistant | MongoDB + ObjectBox</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/navigation.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
     <!-- Car Dashboard Container -->
@@ -45,22 +48,20 @@
                 </div>
             </div>
 
-            <!-- Chat Messages Area -->
+            <!-- Single chat view -->
             <div class="chat-container" id="chatContainer">
                 <div class="chat-messages" id="chatMessages">
-                    <!-- Welcome Message -->
                     <div class="message assistant-message">
                         <div class="message-avatar">🤖</div>
                         <div class="message-content">
                             <div class="message-text">
-                                Welcome! I'm your car manual assistant. Click the microphone and ask me anything about your vehicle.
+                                Welcome! I'm your unified car assistant. Ask me about your vehicle's status, how to fix a warning light, or say "take me to the nearest mechanic" — I'll handle it all.
                             </div>
                             <div class="message-time">Just now</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Status Indicator -->
                 <div class="chat-status" id="chatStatus">
                     <div class="status-dots">
                         <span></span><span></span><span></span>
@@ -69,9 +70,31 @@
                 </div>
             </div>
 
+            <!-- Navigation panel — hidden until agent returns a route -->
+            <div class="nav-panel hidden" id="navPanel">
+                <div class="nav-panel-header">
+                    <div class="nav-panel-title">
+                        <span>📍</span>
+                        <span id="navPanelTitle">Route</span>
+                    </div>
+                    <button class="nav-panel-close" onclick="closeNavPanel()">✕</button>
+                </div>
+                <div id="mapContainer"></div>
+            </div>
+
             <!-- Touchscreen Controls -->
             <div class="touchscreen-controls">
-                <button class="mic-button" id="micButton" title="Click to start/stop">
+                <div class="chat-input-row">
+                    <input
+                        type="text"
+                        id="chatInput"
+                        class="chat-input"
+                        placeholder="Type a message..."
+                        autocomplete="off"
+                    >
+                    <button class="send-btn" id="sendBtn" title="Send">→</button>
+                </div>
+                <button class="mic-button" id="micButton" title="Click to start/stop voice">
                     <div class="mic-icon" id="micIcon">🎤</div>
                     <span class="mic-label">Tap to Talk</span>
                 </button>
@@ -97,8 +120,10 @@
         <span class="tech-badge">🔍 ObjectBox HNSW</span>
         <span class="tech-badge">🤖 Ollama LLM</span>
         <span class="tech-badge">🗄️ MongoDB Atlas</span>
+        <span class="tech-badge">🗺️ OpenStreetMap</span>
     </div>
 
     <script src="{{ url_for('static', filename='scripts/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/navigation.js') }}"></script>
 </body>
 </html>

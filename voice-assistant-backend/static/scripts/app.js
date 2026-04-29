@@ -15,6 +15,8 @@ const chatStatus = document.getElementById('chatStatus');
 const statusText = document.getElementById('statusText');
 const searchStatus = document.getElementById('searchStatus');
 const chunkCount = document.getElementById('chunkCount');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
 
 // Helper: Get current time
 function getCurrentTime() {
@@ -42,11 +44,22 @@ function addUserMessage(text) {
     scrollToBottom();
 }
 
+const TOOL_LABELS = {
+    'search_car_manual':      { icon: '📖', label: 'Car Manual' },
+    'navigate_to':            { icon: '🗺️', label: 'Navigation' },
+    'get_latest_telemetry':   { icon: '📡', label: 'Telemetry' },
+    'check_system_status':    { icon: '🔧', label: 'System Check' },
+    'get_tire_pressure':      { icon: '🔧', label: 'Tire Pressure' },
+    'get_anomalies':          { icon: '⚠️', label: 'Anomaly Scan' },
+    'query_telemetry_history':{ icon: '📈', label: 'History' },
+    'get_telemetry_stats':    { icon: '📊', label: 'Stats' },
+};
+
 // Helper: Add assistant message to chat
-function addAssistantMessage(text, sources = null) {
+function addAssistantMessage(text, sources = null, toolsUsed = []) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message assistant-message';
-    
+
     let sourcesHtml = '';
     if (sources && sources.length > 0) {
         sourcesHtml = '<div class="message-sources">';
@@ -65,11 +78,21 @@ function addAssistantMessage(text, sources = null) {
         });
         sourcesHtml += '</div>';
     }
-    
+
+    let toolsHtml = '';
+    if (toolsUsed && toolsUsed.length > 0) {
+        const badges = toolsUsed.map(name => {
+            const t = TOOL_LABELS[name] || { icon: '🔩', label: name };
+            return `<span class="tool-badge">${t.icon} ${t.label}</span>`;
+        }).join('');
+        toolsHtml = `<div class="tool-badges">${badges}</div>`;
+    }
+
     messageDiv.innerHTML = `
         <div class="message-avatar">🤖</div>
         <div class="message-content">
             <div class="message-text">${escapeHtml(text)}${sourcesHtml}</div>
+            ${toolsHtml}
             <div class="message-time">${getCurrentTime()}</div>
         </div>
     `;
@@ -184,8 +207,9 @@ socket.on('search_results', (data) => {
 // Answer received
 socket.on('answer', (data) => {
     console.log('💬 Answer:', data.text.substring(0, 50) + '...');
-    addAssistantMessage(data.text, currentSources);
-    currentSources = []; // Clear sources after use
+    addAssistantMessage(data.text, currentSources, data.tools_used || []);
+    currentSources = [];
+    sendBtn.disabled = false;
 });
 
 // Error handling
@@ -195,35 +219,97 @@ socket.on('error', (data) => {
     isListening = false;
     micButton.classList.remove('listening');
     hideStatus();
+    sendBtn.disabled = false;
 });
 
-// Session complete (conversation ended)
 socket.on('session_complete', () => {
-    console.log('✅ Session complete');
     hideStatus();
+});
+
+// ── Browser speech recognition (Web Speech API) ───────────────────────────────
+
+let recognition = null;
+
+function initRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return false;
+
+    recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+        showStatus('🎤 Listening...');
+        micIcon.textContent = '🎤';
+    };
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.trim();
+        if (transcript) {
+            socket.emit('send_message', { text: transcript });
+        }
+    };
+
+    recognition.onerror = (event) => {
+        console.error('Speech error:', event.error);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            addAssistantMessage('Microphone access was denied. Please allow it in the browser address bar and try again.');
+        } else if (event.error !== 'no-speech') {
+            addAssistantMessage(`Microphone error: ${event.error}. You can also type your message below.`);
+        }
+        stopListening();
+    };
+
+    recognition.onend = () => stopListening();
+
+    return true;
+}
+
+function startListening() {
+    if (!recognition && !initRecognition()) {
+        addAssistantMessage('Speech recognition is not supported in this browser. Please use Chrome or Edge, or type your message below.');
+        return;
+    }
+    isListening = true;
+    micButton.classList.add('listening');
+    try { recognition.start(); } catch (e) { stopListening(); }
+}
+
+function stopListening() {
     isListening = false;
     micButton.classList.remove('listening');
-});
+    hideStatus();
+    micIcon.textContent = '🎤';
+}
 
-// Microphone button click handler
 micButton.addEventListener('click', () => {
     if (isListening) {
-        // Stop listening
-        console.log('🛑 Stopping conversation...');
-        socket.emit('stop_listening');
-        isListening = false;
-        micButton.classList.remove('listening');
-        hideStatus();
+        if (recognition) try { recognition.stop(); } catch (e) {}
+        stopListening();
     } else {
-        // Start listening
-        console.log('🎤 Starting voice assistant...');
-        console.log('⚙️  Initializing speech recognition, LLM, and TTS...');
-        socket.emit('start_listening');
-        isListening = true;
-        micButton.classList.add('listening');
+        startListening();
+    }
+});
+
+// Text input send
+function sendTextMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.value = '';
+    sendBtn.disabled = true;
+    socket.emit('send_message', { text });
+}
+
+sendBtn.addEventListener('click', sendTextMessage);
+
+chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendTextMessage();
     }
 });
 
 // Initialize
 console.log('🚗 Car Dashboard UI initialized');
-console.log('🎤 Click microphone to start conversation');
+console.log('🎤 Click microphone or type to start conversation');

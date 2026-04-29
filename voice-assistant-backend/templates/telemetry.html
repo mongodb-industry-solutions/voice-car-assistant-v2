@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Telemetry | MongoDB + ObjectBox</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/telemetry.css') }}">
+</head>
+<body>
+    <div class="page-container">
+        <!-- Left: Telemetry Dashboard -->
+        <div class="telemetry-section">
+            <div class="header">
+                <div class="header-left">
+                    <h2 class="title">🚗 Vehicle Telemetry</h2>
+                    <div class="connection-status">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="connectionText">Connecting...</span>
+                        <span class="last-update" id="lastUpdate"></span>
+                    </div>
+                </div>
+                
+                <div class="header-right">
+                    <div class="stats" id="statsContainer" style="display:none;">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Snapshots:</span>
+                            <span class="stat-value" id="totalSnapshots">0</span>
+                        </div>
+                        <div class="stat-item anomaly-alert" id="anomalyContainer" style="display:none;">
+                            <span class="stat-label">⚠️ Anomalies:</span>
+                            <span class="stat-value" id="anomalyCount">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="controls">
+                        <button class="button button-start" id="startButton">
+                            <span id="startIcon">▶️</span> Start Simulation
+                        </button>
+                        <button class="button button-stop" id="stopButton" style="display:none;">
+                            <span id="stopIcon">⏹️</span> Stop Simulation
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-message" id="statusMessage" style="display:none;"></div>
+
+            <div class="vehicle-info" id="vehicleInfo" style="display:none;">
+                <div class="info-item">
+                    <span class="info-label">Vehicle ID:</span>
+                    <span class="info-value" id="vehicleId">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Driving Mode:</span>
+                    <span class="info-value badge" id="drivingMode">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Last Update:</span>
+                    <span class="info-value" id="lastTimestamp">--</span>
+                </div>
+            </div>
+
+            <div class="systems-grid" id="systemsGrid">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading telemetry data...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: AI Chat -->
+        <div class="chat-section">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <h3>💬 Telemetry AI Assistant</h3>
+                    <button class="clear-button" id="clearButton" title="Clear chat history">
+                        🗑️ Clear
+                    </button>
+                </div>
+
+                <div class="messages-container" id="messagesContainer">
+                    <div class="message assistant">
+                        <div class="message-header">
+                            <span class="message-role">🤖 AI</span>
+                            <span class="message-time"></span>
+                        </div>
+                        <div class="message-content">
+                            👋 Hi! I can help you analyze vehicle telemetry data. Ask me questions like:
+
+• "What are the current tire pressures?"
+• "Show me all anomalies detected"
+• "What's the engine temperature?"
+• "Get telemetry statistics for the last hour"
+                        </div>
+                    </div>
+                </div>
+
+                <form class="input-form" id="chatForm">
+                    <input 
+                        type="text" 
+                        class="input" 
+                        id="chatInput" 
+                        placeholder="Ask about tire pressure, engine temp, anomalies..."
+                        autocomplete="off"
+                    />
+                    <button type="submit" class="send-button" id="sendButton">
+                        📤 Send
+                    </button>
+                </form>
+
+                <div class="example-questions">
+                    <p class="examples-label">💡 Try asking:</p>
+                    <div class="example-buttons">
+                        <button class="example-button" data-question="What are the current tire pressures?">
+                            Tire pressures
+                        </button>
+                        <button class="example-button" data-question="Show me all anomalies">
+                            Show anomalies
+                        </button>
+                        <button class="example-button" data-question="What's the engine temperature and RPM?">
+                            Engine status
+                        </button>
+                        <button class="example-button" data-question="Get telemetry stats">
+                            Statistics
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='scripts/telemetry.js') }}"></script>
+</body>
+</html>

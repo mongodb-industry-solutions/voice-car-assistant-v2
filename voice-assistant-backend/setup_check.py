@@ -68,7 +68,7 @@ def check_ollama():
             
             required_models = {
                 'nub235/voyage-4-nano': 'Embedding model',
-                'llama3.2': 'LLM model'
+                'llama3.1:8b': 'LLM model'
             }
             
             all_found = True

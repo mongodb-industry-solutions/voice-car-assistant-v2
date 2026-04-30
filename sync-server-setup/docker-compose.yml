@@ -117,6 +117,7 @@ services:
       timeout: 5s
       retries: 3
 
+
   navigation-service:
     build:
       context: ../navigation-service
@@ -181,6 +182,7 @@ services:
       - CONVERSATION_SERVICE_URL=http://conversation-service:8081
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
       - AGENT_SERVICE_URL=http://langchain-agent-service:5002
+      - TELEMETRY_SERVICE_URL=http://telemetry-service:8084
       - OLLAMA_HOST=http://host.docker.internal:11434
     extra_hosts:
       - "host.docker.internal:host-gateway"

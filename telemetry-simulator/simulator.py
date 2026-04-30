@@ -228,5 +228,11 @@ if __name__ == '__main__':
     print(f"Target service: {simulator_state['telemetry_service_url']}")
     print("=" * 60)
     print("\n📡 Starting HTTP + WebSocket server on port 8082...\n")
-    
+
+    # Auto-start simulation on container launch
+    simulator_state["running"] = True
+    simulation_thread = threading.Thread(target=simulation_loop, daemon=True)
+    simulation_thread.start()
+    print("▶️  Simulation auto-started.\n")
+
     socketio.run(app, host='0.0.0.0', port=8082, debug=False, allow_unsafe_werkzeug=True)

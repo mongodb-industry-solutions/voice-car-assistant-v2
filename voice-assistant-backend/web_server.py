@@ -150,6 +150,24 @@ def _call_agent(message: str, conversation_id: str, lat=None, lon=None) -> dict:
         }
 
 
+# ── Conversation persistence ──────────────────────────────────────────────────
+
+def _save_message(conversation_id: str, user_id: str, role: str, message: str) -> None:
+    try:
+        http_requests.post(
+            f"{CONVERSATION_SERVICE_URL}/conversations/message",
+            json={
+                "conversation_id": conversation_id,
+                "user_id":         user_id,
+                "role":            role,
+                "message":         message,
+            },
+            timeout=2,
+        )
+    except Exception:
+        pass
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/')
@@ -242,9 +260,12 @@ def handle_send_message(data):
 
     session = _sessions.get(request.sid, {})
     conversation_id = session.get('conversation_id') or str(uuid.uuid4())
+    user_id         = session.get('user_id')         or str(uuid.uuid4())
 
     emit('question', {'text': message})
     emit('status', {'state': 'processing', 'message': '🤖 Thinking...'})
+
+    _save_message(conversation_id, user_id, 'user', message)
 
     agent_result = _call_agent(
         message,
@@ -252,6 +273,9 @@ def handle_send_message(data):
         user_location['lat'],
         user_location['lon'],
     )
+
+    answer = agent_result['answer']
+    _save_message(conversation_id, user_id, 'assistant', answer)
 
     if agent_result.get('navigation'):
         emit('navigation_result', agent_result['navigation'])
@@ -262,11 +286,11 @@ def handle_send_message(data):
     if not agent_result.get('navigation'):
         threading.Thread(
             target=_push_tts,
-            args=(sid, agent_result['answer']),
+            args=(sid, answer),
             daemon=True,
         ).start()
 
-    emit('answer', {'text': agent_result['answer'], 'tools_used': agent_result.get('tools_used', [])})
+    emit('answer', {'text': answer, 'tools_used': agent_result.get('tools_used', [])})
     emit('status', {'state': 'ready', 'message': 'Ready'})
 
 

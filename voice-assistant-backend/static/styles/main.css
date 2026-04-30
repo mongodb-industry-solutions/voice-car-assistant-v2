@@ -54,10 +54,16 @@ body {
 .dashboard-right {
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 0;
     height: 100%;
-    justify-content: center;
+    justify-content: space-between;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.5rem 0;
+    scrollbar-width: none;
 }
+.dashboard-left::-webkit-scrollbar,
+.dashboard-right::-webkit-scrollbar { display: none; }
 
 /* Gauge Styling */
 .gauge {
@@ -546,4 +552,201 @@ body {
     color: var(--accent);
     letter-spacing: 0.3px;
     white-space: nowrap;
+}
+
+/* ── Telemetry Widgets ───────────────────────────────────────────────────── */
+
+/* Arc gauge SVG container */
+.telem-gauge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.arc-svg {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+.mini-arc-svg {
+    width: 88px;
+    height: auto;
+    flex-shrink: 0;
+    overflow: visible;
+}
+
+/* Arc track — background ring */
+.arc-track {
+    fill: none;
+    stroke: var(--touchscreen-border);
+    stroke-width: 8;
+    stroke-dasharray: 272.27 136.14; /* r=65: C=408.41, 240°=272.27, gap=136.14 */
+    stroke-linecap: round;
+}
+/* Arc fill — value indicator (r=65) */
+.arc-fill {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 8;
+    stroke-dasharray: 0 408.41;   /* start empty; JS overrides via inline style */
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.6s cubic-bezier(.4,0,.2,1), stroke 0.3s ease;
+}
+
+/* Mini arc overrides (r=38: C=238.76, 240°=159.17, gap=79.59) */
+.mini-arc-svg .arc-track { stroke-dasharray: 159.17 79.59; stroke-width: 7; }
+.mini-arc-svg .arc-fill  { stroke-dasharray: 0 238.76; stroke-width: 7; }
+
+/* Arc text */
+.arc-num    { fill: var(--text-primary) !important;   font-size: 22px; font-weight: 700;
+              font-family: 'Segoe UI', system-ui, sans-serif; text-anchor: middle; }
+.arc-lbl    { fill: var(--text-secondary) !important; font-size: 9px;  letter-spacing: 1px;
+              font-family: 'Segoe UI', system-ui, sans-serif; text-anchor: middle; text-transform: uppercase; }
+.arc-minmax { fill: var(--text-secondary) !important; font-size: 9px;  opacity: 0.6;
+              font-family: 'Segoe UI', system-ui, sans-serif; text-anchor: middle; }
+.arc-num-sm { fill: var(--text-primary) !important;   font-size: 17px; font-weight: 700;
+              font-family: 'Segoe UI', system-ui, sans-serif; text-anchor: middle; }
+.arc-lbl-sm { fill: var(--text-secondary) !important; font-size: 8px;
+              font-family: 'Segoe UI', system-ui, sans-serif; text-anchor: middle; }
+
+/* Gauge footer row */
+.gauge-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-top: -0.3rem;
+    margin-bottom: 0.1rem;
+}
+.gauge-footer-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+}
+.mode-pill {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 0.18rem 0.55rem;
+    background: var(--dashboard-accent);
+    border: 1px solid var(--touchscreen-border);
+    border-radius: 20px;
+    color: var(--accent);
+    text-transform: uppercase;
+}
+.alert-pill {
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 0.18rem 0.55rem;
+    background: var(--dashboard-accent);
+    border: 1px solid var(--touchscreen-border);
+    border-radius: 20px;
+    color: var(--accent);
+}
+.alert-pill.warning  { color: #F5A623; border-color: #F5A623; }
+.alert-pill.critical { color: #FF4444; border-color: #FF4444; }
+
+.gear-num {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+}
+
+/* Metric groups */
+.telem-group {
+    background: var(--dashboard-accent);
+    border: 1px solid var(--touchscreen-border);
+    border-radius: 10px;
+    padding: 0.45rem 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.telem-group-title {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--touchscreen-border);
+    padding-bottom: 0.2rem;
+    margin-bottom: 0.05rem;
+}
+
+/* Metric rows */
+.telem-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.telem-label {
+    font-size: 0.58rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    width: 42px;
+    flex-shrink: 0;
+}
+.telem-bar-svg {
+    flex: 1;
+    height: 6px;
+}
+.telem-val {
+    font-size: 0.63rem;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+    width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+    transition: color 0.3s ease;
+}
+.bar-track { fill: var(--touchscreen-border); }
+.bar-fill  { fill: var(--accent); transition: fill 0.3s ease; }
+
+/* Battery widget */
+.battery-widget {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.battery-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+}
+.batt-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+}
+
+/* Tire SVG */
+.tire-svg    { width: 100%; height: auto; }
+.car-body    { fill: var(--dashboard-accent); stroke: var(--touchscreen-border); stroke-width: 2; }
+.car-glass   { fill: var(--touchscreen-border); opacity: 0.45; }
+.tire-rect   {
+    fill: #0d1a2a;
+    stroke: var(--accent);
+    stroke-width: 2;
+    transition: stroke 0.3s ease, fill 0.3s ease;
+}
+.tire-pos-lbl {
+    fill: var(--text-secondary);
+    font-size: 8px;
+    font-weight: 600;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    text-anchor: middle;
+    letter-spacing: 0.5px;
+}
+.tire-psi-val {
+    fill: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    text-anchor: middle;
+    transition: fill 0.3s ease;
 }

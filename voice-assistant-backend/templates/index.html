@@ -13,16 +13,77 @@
 <body>
     <!-- Car Dashboard Container -->
     <div class="car-dashboard">
-        <!-- Dashboard Decorations -->
+        <!-- Left panel: Engine & Battery -->
         <div class="dashboard-left">
-            <div class="gauge speedometer">
-                <div class="gauge-label">MPH</div>
-                <div class="gauge-value">0</div>
+
+            <!-- RPM arc gauge -->
+            <div class="telem-gauge">
+                <svg viewBox="0 0 180 150" class="arc-svg">
+                    <circle cx="90" cy="100" r="65" class="arc-track" transform="rotate(150,90,100)"/>
+                    <circle cx="90" cy="100" r="65" class="arc-fill"  id="rpm-arc"  transform="rotate(150,90,100)"/>
+                    <text x="90" y="91"  class="arc-num"    id="rpm-num">0</text>
+                    <text x="90" y="109" class="arc-lbl">RPM</text>
+                    <text x="23" y="140" class="arc-minmax">0</text>
+                    <text x="157" y="140" class="arc-minmax">7K</text>
+                </svg>
+                <div class="gauge-footer">
+                    <span class="mode-pill"  id="driving-mode">--</span>
+                    <span class="alert-pill" id="anomaly-badge">✓ OK</span>
+                </div>
             </div>
-            <div class="indicator">
-                <span class="indicator-icon">🔋</span>
-                <span class="indicator-text">100%</span>
+
+            <!-- Engine metrics -->
+            <div class="telem-group">
+                <div class="telem-group-title">ENGINE</div>
+                <div class="telem-row">
+                    <span class="telem-label">COOLANT</span>
+                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
+                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
+                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="coolant-bar"/>
+                    </svg>
+                    <span class="telem-val" id="coolant-val">--°C</span>
+                </div>
+                <div class="telem-row">
+                    <span class="telem-label">OIL P.</span>
+                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
+                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
+                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="oilp-bar"/>
+                    </svg>
+                    <span class="telem-val" id="oilp-val">-- psi</span>
+                </div>
+                <div class="telem-row">
+                    <span class="telem-label">OIL LVL</span>
+                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
+                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
+                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="oill-bar"/>
+                    </svg>
+                    <span class="telem-val" id="oill-val">--%</span>
+                </div>
             </div>
+
+            <!-- Battery -->
+            <div class="telem-group">
+                <div class="telem-group-title">⚡ BATTERY</div>
+                <div class="battery-widget">
+                    <svg viewBox="0 0 100 72" class="mini-arc-svg">
+                        <circle cx="50" cy="52" r="38" class="arc-track" transform="rotate(150,50,52)"/>
+                        <circle cx="50" cy="52" r="38" class="arc-fill"  id="batt-arc" transform="rotate(150,50,52)"/>
+                        <text x="50" y="47" class="arc-num-sm" id="batt-pct">--</text>
+                        <text x="50" y="61" class="arc-lbl-sm">%</text>
+                    </svg>
+                    <div class="battery-details">
+                        <div class="batt-row">
+                            <span class="telem-label">VOLTAGE</span>
+                            <span class="telem-val" id="batt-v">--V</span>
+                        </div>
+                        <div class="batt-row">
+                            <span class="telem-label">HEALTH</span>
+                            <span class="telem-val" id="batt-health">--%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- Center Touchscreen -->
@@ -101,16 +162,87 @@
             </div>
         </div>
 
-        <!-- Dashboard Decorations Right -->
+        <!-- Right panel: Fuel, Tires & Brakes -->
         <div class="dashboard-right">
-            <div class="gauge fuel-gauge">
-                <div class="gauge-label">FUEL</div>
-                <div class="gauge-value">⛽</div>
+
+            <!-- Fuel arc gauge -->
+            <div class="telem-gauge">
+                <svg viewBox="0 0 180 150" class="arc-svg">
+                    <circle cx="90" cy="100" r="65" class="arc-track" transform="rotate(150,90,100)"/>
+                    <circle cx="90" cy="100" r="65" class="arc-fill"  id="fuel-arc" transform="rotate(150,90,100)"/>
+                    <text x="90" y="91"  class="arc-num"    id="fuel-num">--</text>
+                    <text x="90" y="109" class="arc-lbl">FUEL %</text>
+                    <text x="23" y="140" class="arc-minmax">E</text>
+                    <text x="157" y="140" class="arc-minmax">F</text>
+                </svg>
+                <div class="gauge-footer">
+                    <div class="gauge-footer-cell">
+                        <span class="telem-label">GEAR</span>
+                        <span class="gear-num" id="current-gear">--</span>
+                    </div>
+                    <div class="gauge-footer-cell">
+                        <span class="telem-label">TRANS</span>
+                        <span class="telem-val" id="trans-temp">--°C</span>
+                    </div>
+                </div>
             </div>
-            <div class="indicator">
-                <span class="indicator-icon">🌡️</span>
-                <span class="indicator-text">72°F</span>
+
+            <!-- Tires -->
+            <div class="telem-group">
+                <div class="telem-group-title">TIRES (psi)</div>
+                <svg viewBox="0 0 160 125" class="tire-svg">
+                    <!-- Car body -->
+                    <rect x="46" y="14"  width="68" height="97" rx="14" class="car-body"/>
+                    <rect x="53" y="20"  width="54" height="28" rx="5"  class="car-glass"/>
+                    <rect x="53" y="77"  width="54" height="25" rx="5"  class="car-glass"/>
+                    <!-- FL -->
+                    <rect x="4"   y="6"  width="36" height="46" rx="7" class="tire-rect" id="tire-fl-rect"/>
+                    <text x="22"  y="23" class="tire-pos-lbl">FL</text>
+                    <text x="22"  y="41" class="tire-psi-val" id="tire-fl-val">--</text>
+                    <!-- FR -->
+                    <rect x="120" y="6"  width="36" height="46" rx="7" class="tire-rect" id="tire-fr-rect"/>
+                    <text x="138" y="23" class="tire-pos-lbl">FR</text>
+                    <text x="138" y="41" class="tire-psi-val" id="tire-fr-val">--</text>
+                    <!-- RL -->
+                    <rect x="4"   y="73" width="36" height="46" rx="7" class="tire-rect" id="tire-rl-rect"/>
+                    <text x="22"  y="90" class="tire-pos-lbl">RL</text>
+                    <text x="22"  y="108" class="tire-psi-val" id="tire-rl-val">--</text>
+                    <!-- RR -->
+                    <rect x="120" y="73" width="36" height="46" rx="7" class="tire-rect" id="tire-rr-rect"/>
+                    <text x="138" y="90" class="tire-pos-lbl">RR</text>
+                    <text x="138" y="108" class="tire-psi-val" id="tire-rr-val">--</text>
+                </svg>
             </div>
+
+            <!-- Brakes -->
+            <div class="telem-group">
+                <div class="telem-group-title">🔧 BRAKES</div>
+                <div class="telem-row">
+                    <span class="telem-label">FLUID</span>
+                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
+                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
+                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="brake-fluid-bar"/>
+                    </svg>
+                    <span class="telem-val" id="brake-fluid-val">--%</span>
+                </div>
+                <div class="telem-row">
+                    <span class="telem-label">PADS F</span>
+                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
+                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
+                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="brake-f-bar"/>
+                    </svg>
+                    <span class="telem-val" id="brake-f-val">--%</span>
+                </div>
+                <div class="telem-row">
+                    <span class="telem-label">PADS R</span>
+                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
+                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
+                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="brake-r-bar"/>
+                    </svg>
+                    <span class="telem-val" id="brake-r-val">--%</span>
+                </div>
+            </div>
+
         </div>
     </div>
 

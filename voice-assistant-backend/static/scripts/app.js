@@ -334,3 +334,140 @@ chatInput.addEventListener('keydown', (e) => {
 // Initialize
 console.log('🚗 Car Dashboard UI initialized');
 console.log('🎤 Click microphone or type to start conversation');
+
+// ── Telemetry Dashboard ───────────────────────────────────────────────────────
+
+const ARC_C_MAIN = 408.41;  // circumference at r=65
+const ARC_C_MINI = 238.76;  // circumference at r=38
+
+function updateArc(id, value, max, C) {
+    const arcLen = C * (240 / 360);
+    const filled = arcLen * Math.max(0, Math.min(1, value / max));
+    const el = document.getElementById(id);
+    if (el) el.style.strokeDasharray = `${filled.toFixed(2)} ${(C - filled).toFixed(2)}`;
+}
+
+function updateBar(id, pct) {
+    const el = document.getElementById(id);
+    if (el) el.style.width = `${Math.max(0, Math.min(100, pct)).toFixed(1)}`;
+}
+
+function applyStatus(id, status) {
+    const c = { normal: '#00ED64', warning: '#F5A623', critical: '#FF4444' }[status] || '#00ED64';
+    const el = document.getElementById(id);
+    if (!el) return;
+    const tag = (el.tagName || '').toLowerCase();
+    if (tag === 'circle') {
+        el.style.stroke = c;          // arc rings: stroke only, never fill
+    } else if (tag === 'rect') {
+        el.style.fill = c;            // bar rects: fill only
+    } else {
+        el.style.fill  = c;           // text / html elements
+        el.style.color = c;
+    }
+}
+
+function setMetric(valId, barId, sensor, fmtFn, pctFn) {
+    if (!sensor) return;
+    const valEl = document.getElementById(valId);
+    const barEl = document.getElementById(barId);
+    if (valEl) { valEl.textContent = fmtFn(sensor.value); applyStatus(valId, sensor.status); }
+    if (barEl) { updateBar(barId, pctFn(sensor.value));   applyStatus(barId, sensor.status); }
+}
+
+function updateDashboard(data) {
+    if (!data || !data.telemetry_batch) return;
+    const eng  = data.telemetry_batch.engine       || {};
+    const fuel = data.telemetry_batch.fuel         || {};
+    const bat  = data.telemetry_batch.battery      || {};
+    const tires = data.telemetry_batch.tires       || {};
+    const trans = data.telemetry_batch.transmission || {};
+    const brk  = data.telemetry_batch.brakes       || {};
+
+    // RPM
+    if (eng.rpm) {
+        updateArc('rpm-arc', eng.rpm.value, 7000, ARC_C_MAIN);
+        const el = document.getElementById('rpm-num');
+        if (el) el.textContent = Math.round(eng.rpm.value).toLocaleString();
+        applyStatus('rpm-arc', eng.rpm.status);
+    }
+
+    // Driving mode
+    const modeEl = document.getElementById('driving-mode');
+    if (modeEl && data.driving_mode) modeEl.textContent = data.driving_mode.toUpperCase();
+
+    // Anomaly badge
+    const badgeEl = document.getElementById('anomaly-badge');
+    if (badgeEl) {
+        const n = data.anomaly_count || 0;
+        badgeEl.textContent = n > 0 ? `⚠ ${n}` : '✓ OK';
+        badgeEl.className = `alert-pill${n > 3 ? ' critical' : n > 0 ? ' warning' : ''}`;
+    }
+
+    // Engine metrics
+    setMetric('coolant-val', 'coolant-bar', eng.coolant_temp,  v => `${v.toFixed(0)}°C`,  v => v / 115 * 100);
+    setMetric('oilp-val',    'oilp-bar',    eng.oil_pressure,  v => `${v.toFixed(0)} psi`, v => v / 80  * 100);
+    setMetric('oill-val',    'oill-bar',    eng.oil_level,     v => `${v.toFixed(0)}%`,    v => v);
+
+    // Battery SoC
+    if (bat.state_of_charge) {
+        updateArc('batt-arc', bat.state_of_charge.value, 100, ARC_C_MINI);
+        const el = document.getElementById('batt-pct');
+        if (el) el.textContent = bat.state_of_charge.value.toFixed(0);
+        applyStatus('batt-arc', bat.state_of_charge.status);
+    }
+    if (bat.voltage) {
+        const el = document.getElementById('batt-v');
+        if (el) el.textContent = `${bat.voltage.value.toFixed(1)}V`;
+    }
+    if (bat.health) {
+        const el = document.getElementById('batt-health');
+        if (el) { el.textContent = `${bat.health.value.toFixed(0)}%`; applyStatus('batt-health', bat.health.status); }
+    }
+
+    // Fuel
+    if (fuel.level) {
+        updateArc('fuel-arc', fuel.level.value, 100, ARC_C_MAIN);
+        const el = document.getElementById('fuel-num');
+        if (el) el.textContent = fuel.level.value.toFixed(0);
+        applyStatus('fuel-arc', fuel.level.status);
+    }
+
+    // Gear + transmission temp
+    if (trans.gear) {
+        const el = document.getElementById('current-gear');
+        if (el) el.textContent = trans.gear.value;
+    }
+    if (trans.oil_temp) {
+        const el = document.getElementById('trans-temp');
+        if (el) { el.textContent = `${trans.oil_temp.value.toFixed(0)}°C`; applyStatus('trans-temp', trans.oil_temp.status); }
+    }
+
+    // Tires
+    const tireMap = { front_left: 'fl', front_right: 'fr', rear_left: 'rl', rear_right: 'rr' };
+    Object.entries(tireMap).forEach(([key, abbr]) => {
+        const tire = tires[key];
+        if (!tire) return;
+        const valEl  = document.getElementById(`tire-${abbr}-val`);
+        const rectEl = document.getElementById(`tire-${abbr}-rect`);
+        const c = { normal: '#00ED64', warning: '#F5A623', critical: '#FF4444' }[tire.status] || '#00ED64';
+        if (valEl)  { valEl.textContent = tire.pressure.toFixed(1); valEl.style.fill = c; }
+        if (rectEl) { rectEl.style.stroke = c; }
+    });
+
+    // Brakes
+    setMetric('brake-fluid-val', 'brake-fluid-bar', brk.fluid_level,    v => `${v.toFixed(0)}%`, v => v);
+    setMetric('brake-f-val',     'brake-f-bar',     brk.pad_wear_front, v => `${v.toFixed(0)}%`, v => v);
+    setMetric('brake-r-val',     'brake-r-bar',     brk.pad_wear_rear,  v => `${v.toFixed(0)}%`, v => v);
+}
+
+async function fetchTelemetry() {
+    try {
+        const resp = await fetch(`/api/telemetry/latest?t=${Date.now()}`);
+        if (!resp.ok) return;
+        updateDashboard(await resp.json());
+    } catch (_) {}
+}
+
+fetchTelemetry();
+setInterval(fetchTelemetry, 3000);

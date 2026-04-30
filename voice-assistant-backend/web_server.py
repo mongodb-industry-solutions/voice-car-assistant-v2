@@ -31,6 +31,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 CONVERSATION_SERVICE_URL = os.getenv("CONVERSATION_SERVICE_URL", "http://localhost:8081")
 NAVIGATION_SERVICE_URL   = os.getenv("NAVIGATION_SERVICE_URL",   "http://localhost:5001")
 AGENT_SERVICE_URL        = os.getenv("AGENT_SERVICE_URL",        "http://localhost:5002")
+TELEMETRY_SERVICE_URL    = os.getenv("TELEMETRY_SERVICE_URL",    "http://localhost:8084")
 
 # ── Piper TTS (binary, fully offline) ────────────────────────────────────────
 import subprocess as _subprocess
@@ -179,6 +180,20 @@ def index():
 def telemetry():
     return render_template('telemetry.html')
 
+
+
+@app.route('/api/telemetry/latest')
+def api_telemetry_latest():
+    """Proxy latest telemetry snapshot from the telemetry service."""
+    try:
+        resp = http_requests.get(f"{TELEMETRY_SERVICE_URL}/telemetry/latest", timeout=3)
+        if not resp.ok:
+            return jsonify({"error": f"HTTP {resp.status_code}"}), resp.status_code
+        return jsonify(resp.json())
+    except http_requests.exceptions.ConnectionError:
+        return jsonify({"error": "Telemetry service unavailable"}), 503
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/navigate', methods=['POST'])

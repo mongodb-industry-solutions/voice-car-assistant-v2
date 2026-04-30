@@ -6,6 +6,7 @@ const socket = io();
 
 // State management
 let isListening = false;
+let currentAudio = null;
 
 // DOM Elements
 const micButton = document.getElementById('micButton');
@@ -212,6 +213,25 @@ socket.on('answer', (data) => {
     sendBtn.disabled = false;
 });
 
+// Audio pushed by backend — play when received
+socket.on('audio', (data) => {
+    if (currentAudio) {
+        currentAudio.pause();
+        URL.revokeObjectURL(currentAudio.src);
+        currentAudio = null;
+    }
+    try {
+        const bytes = Uint8Array.from(atob(data.data), c => c.charCodeAt(0));
+        const blob  = new Blob([bytes], { type: 'audio/wav' });
+        const url   = URL.createObjectURL(blob);
+        currentAudio = new Audio(url);
+        currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; };
+        currentAudio.play().catch(() => {});
+    } catch (e) {
+        console.error('Audio playback error:', e);
+    }
+});
+
 // Error handling
 socket.on('error', (data) => {
     console.error('❌ Error:', data.message);
@@ -296,6 +316,7 @@ micButton.addEventListener('click', () => {
 function sendTextMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     chatInput.value = '';
     sendBtn.disabled = true;
     socket.emit('send_message', { text });

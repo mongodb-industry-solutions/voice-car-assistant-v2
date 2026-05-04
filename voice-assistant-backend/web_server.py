@@ -114,7 +114,7 @@ def _push_tts(sid: str, text: str) -> None:
 
 # ── Agent helper ──────────────────────────────────────────────────────────────
 
-def _call_agent(message: str, conversation_id: str, lat=None, lon=None) -> dict:
+def _call_agent(message: str, conversation_id: str, lat=None, lon=None, network_mode: str = "offline") -> dict:
     """Forward a message to the unified LangChain agent service."""
     try:
         resp = http_requests.post(
@@ -124,6 +124,7 @@ def _call_agent(message: str, conversation_id: str, lat=None, lon=None) -> dict:
                 "conversation_id": conversation_id,
                 "lat": lat,
                 "lon": lon,
+                "network_mode": network_mode,
             },
             timeout=90,
         )
@@ -246,11 +247,23 @@ def handle_update_location(data):
     user_location['lon'] = data.get('lon')
 
 
+@socketio.on('set_network_mode')
+def handle_set_network_mode(data):
+    mode = data.get('mode', 'offline')
+    if mode not in ('online', 'offline'):
+        mode = 'offline'
+    session = _sessions.get(request.sid)
+    if session:
+        session['network_mode'] = mode
+    emit('network_mode_changed', {'mode': mode})
+
+
 @socketio.on('connect')
 def handle_connect():
     _sessions[request.sid] = {
         'conversation_id': str(uuid.uuid4()),
         'user_id': str(uuid.uuid4()),
+        'network_mode': 'offline',
     }
     print("🔌 Client connected")
     emit('status', {'state': 'ready', 'message': 'Type a message or tap the mic to start'})
@@ -276,6 +289,7 @@ def handle_send_message(data):
     session = _sessions.get(request.sid, {})
     conversation_id = session.get('conversation_id') or str(uuid.uuid4())
     user_id         = session.get('user_id')         or str(uuid.uuid4())
+    network_mode    = session.get('network_mode',    'offline')
 
     emit('question', {'text': message})
     emit('status', {'state': 'processing', 'message': '🤖 Thinking...'})
@@ -287,6 +301,7 @@ def handle_send_message(data):
         conversation_id,
         user_location['lat'],
         user_location['lon'],
+        network_mode,
     )
 
     answer = agent_result['answer']
@@ -382,6 +397,7 @@ def run_assistant_loop():
                 assistant.conversation_id,
                 user_location['lat'],
                 user_location['lon'],
+                getattr(assistant, 'network_mode', 'offline'),
             )
 
             answer = agent_result['answer']

@@ -187,6 +187,37 @@ body {
     color: var(--accent);
 }
 
+/* Network mode toggle */
+.network-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: var(--dashboard-accent);
+    border: 1px solid var(--touchscreen-border);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.network-toggle:hover {
+    background: #1e2e44;
+}
+.network-toggle.online {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+.network-toggle-icon {
+    font-size: 1rem;
+}
+.network-toggle-label {
+    font-size: 0.78rem;
+}
+
 /* Chat Container */
 .chat-container {
     flex: 1;

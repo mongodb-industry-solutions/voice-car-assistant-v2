@@ -46,7 +46,8 @@ function addUserMessage(text) {
 }
 
 const TOOL_LABELS = {
-    'search_car_manual':      { icon: '📖', label: 'Car Manual' },
+    'search_car_manual_objectbox': { icon: '📦', label: 'ObjectBox Search' },
+    'search_car_manual_atlas':     { icon: '🍃', label: 'MongoDB Atlas Search' },
     'navigate_to':            { icon: '🗺️', label: 'Navigation' },
     'get_latest_telemetry':   { icon: '📡', label: 'Telemetry' },
     'check_system_status':    { icon: '🔧', label: 'System Check' },
@@ -471,3 +472,29 @@ async function fetchTelemetry() {
 
 fetchTelemetry();
 setInterval(fetchTelemetry, 3000);
+
+// ── Network mode toggle ────────────────────────────────────────────────────────
+
+let networkMode = 'offline';
+const networkToggle = document.getElementById('networkToggle');
+const networkLabel  = document.getElementById('networkLabel');
+
+function setNetworkMode(mode) {
+    networkMode = mode;
+    if (mode === 'online') {
+        networkLabel.textContent = 'ONLINE';
+        networkToggle.classList.add('online');
+    } else {
+        networkLabel.textContent = 'OFFLINE';
+        networkToggle.classList.remove('online');
+    }
+}
+
+networkToggle.addEventListener('click', () => {
+    const next = networkMode === 'offline' ? 'online' : 'offline';
+    socket.emit('set_network_mode', { mode: next });
+});
+
+socket.on('network_mode_changed', (data) => {
+    setNetworkMode(data.mode);
+});

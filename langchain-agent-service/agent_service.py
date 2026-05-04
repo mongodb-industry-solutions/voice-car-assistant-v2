@@ -24,12 +24,13 @@ CORS(app)
 
 # ── Service configuration ─────────────────────────────────────────────────────
 
-OLLAMA_HOST          = os.getenv("OLLAMA_HOST",          "http://localhost:11434")
-LLM_MODEL            = os.getenv("LLM_MODEL",            "llama3.1:8b")
-EMBEDDING_MODEL      = os.getenv("EMBEDDING_MODEL",      "nub235/voyage-4-nano")
-SEARCH_SERVICE_URL   = os.getenv("SEARCH_SERVICE_URL",   "http://localhost:8080")
-NAVIGATION_SERVICE_URL = os.getenv("NAVIGATION_SERVICE_URL", "http://localhost:5001")
-TELEMETRY_SERVICE_URL = os.getenv("TELEMETRY_MCP_URL", "http://localhost:3001")
+OLLAMA_HOST               = os.getenv("OLLAMA_HOST",               "http://localhost:11434")
+LLM_MODEL                 = os.getenv("LLM_MODEL",                 "llama3.1:8b")
+EMBEDDING_MODEL           = os.getenv("EMBEDDING_MODEL",           "nub235/voyage-4-nano")
+SEARCH_SERVICE_URL        = os.getenv("SEARCH_SERVICE_URL",        "http://localhost:8080")
+MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://localhost:8085")
+NAVIGATION_SERVICE_URL    = os.getenv("NAVIGATION_SERVICE_URL",    "http://localhost:5001")
+TELEMETRY_SERVICE_URL     = os.getenv("TELEMETRY_MCP_URL",         "http://localhost:3001")
 
 # ── Conversation memory (per session) ────────────────────────────────────────
 # { conversation_id: [HumanMessage, AIMessage, ...] }
@@ -51,6 +52,22 @@ You are a unified intelligent car assistant with access to three capabilities:
 3. **Navigation** (navigate_to) — Find and route to nearby places: mechanics, gas
    stations, pharmacies, hospitals, etc.
 
+RULES — follow these exactly:
+
+• When search_car_manual returns text content, ALWAYS present that information to the
+  user. Summarise it clearly. Never say you could not retrieve it.
+
+• Only say you were unable to retrieve data if the tool explicitly returns an error
+  message or empty content.
+
+• Never fabricate or guess sensor readings. Never invent values for telemetry tools.
+
+• Never output raw coordinates to the user. If location is known, refer to it only as
+  "your current location". Never say "latitude=..." or "longitude=..." to the user.
+
+• Never output raw JSON or tool call objects. Always respond in plain human-readable
+  language after using a tool.
+
 When the user asks for a general car status or overview:
   → call get_anomalies to get all current warnings and issues across every system.
 
@@ -59,9 +76,6 @@ When the user reports a warning or fault for a specific system:
   • Step 2: search the car manual for repair / safety guidance
   • Step 3: offer to navigate to the nearest relevant service if appropriate
 
-IMPORTANT: Never fabricate or guess sensor readings. If a tool call fails or returns an
-error, say you were unable to retrieve the data — do not invent values.
-
 When the user responds with a short confirmation ("yes", "sure", "ok", "please", "go ahead",
 "yes please", etc.) to a navigation offer you just made, call navigate_to immediately.
 Do NOT search the manual again, do NOT repeat safety advice, do NOT ask again — just navigate.
@@ -69,14 +83,11 @@ Do NOT search the manual again, do NOT repeat safety advice, do NOT ask again �
 {location_context}
 
 Be concise and safety-focused. For critical issues (overheating, brake failure, etc.)
-lead with the safety action before anything else.
-
-Never output raw JSON or tool call objects in your response. Always respond in plain,
-human-readable language after using a tool.\
+lead with the safety action before anything else.\
 """
 
 
-def _build_system_prompt(lat: Optional[float], lon: Optional[float]) -> str:
+def _build_system_prompt(lat: Optional[float], lon: Optional[float], network_mode: str = "offline") -> str:
     if lat is not None and lon is not None:
         loc = (
             f"The user's GPS location is known. "
@@ -107,23 +118,30 @@ def _is_raw_tool_call(text: str) -> bool:
 
 # ── Tool helpers ──────────────────────────────────────────────────────────────
 
-def _search_manual_impl(query: str) -> str:
-    """Embed query via Ollama and call the search-service."""
+def _search_manual_impl(query: str, search_url: str = None) -> str:
+    """Embed query via Ollama and call the appropriate search-service."""
+    url = search_url or SEARCH_SERVICE_URL
+    print(f"[search] query='{query[:60]}' url={url}", flush=True)
     try:
         oc = ollama_client.Client(host=OLLAMA_HOST)
         embedding = oc.embeddings(model=EMBEDDING_MODEL, prompt=query)["embedding"]
+        print(f"[search] embedding dims={len(embedding)}", flush=True)
         resp = requests.post(
-            f"{SEARCH_SERVICE_URL}/search",
+            f"{url}/search",
             json={"embedding": embedding, "limit": 3},
             timeout=10,
         )
+        print(f"[search] response status={resp.status_code}", flush=True)
         if not resp.ok:
-            return "Car manual search service is unavailable."
+            print(f"[search] error body: {resp.text[:300]}", flush=True)
+            return f"Car manual search service error (HTTP {resp.status_code}): {resp.text[:200]}"
         results = resp.json().get("results", [])
+        print(f"[search] results count={len(results)}", flush=True)
         if not results:
             return "No relevant information found in the car manual."
         return "\n\n---\n\n".join(r["text"] for r in results)
     except Exception as e:
+        print(f"[search] exception: {e}", flush=True)
         return f"Manual search error: {e}"
 
 
@@ -149,6 +167,7 @@ async def _run_with_tools(
     history: list,
     lat: Optional[float],
     lon: Optional[float],
+    network_mode: str = "offline",
 ) -> dict:
     """
     Custom ReAct loop that handles both native structured tool calls and models
@@ -159,7 +178,7 @@ async def _run_with_tools(
     tool_map = {t.name: t for t in all_tools}
 
     messages = (
-        [SystemMessage(content=_build_system_prompt(lat, lon))]
+        [SystemMessage(content=_build_system_prompt(lat, lon, network_mode))]
         + history
         + [HumanMessage(content=message)]
     )
@@ -219,6 +238,7 @@ async def run_agent(
     conversation_id: str,
     lat: Optional[float],
     lon: Optional[float],
+    network_mode: str = "offline",
 ) -> dict:
     """
     Full agent pipeline:
@@ -228,6 +248,8 @@ async def run_agent(
       4. Return answer + navigation data + tools used
     """
     navigation_result: list = []  # populated by navigate_to closure
+    is_online = network_mode == "online"
+    active_search_url = MONGODB_SEARCH_SERVICE_URL if is_online else SEARCH_SERVICE_URL
 
     # ── Custom tools ──────────────────────────────────────────────────────────
 
@@ -251,9 +273,15 @@ async def run_agent(
         except Exception as e:
             return f"Navigation service unavailable: {e}"
 
+    tool_name = "search_car_manual_atlas" if is_online else "search_car_manual_objectbox"
+
+    def _search_manual_for_mode(query: str) -> str:
+        print(f"[agent] {tool_name} called, url={active_search_url}", flush=True)
+        return _search_manual_impl(query, active_search_url)
+
     manual_tool = StructuredTool.from_function(
-        func=_search_manual_impl,
-        name="search_car_manual",
+        func=_search_manual_for_mode,
+        name=tool_name,
         description=(
             "Search the car manual for maintenance procedures, repair guides, "
             "warning light explanations, and vehicle specifications."
@@ -312,7 +340,7 @@ async def run_agent(
 
     history = _histories.get(conversation_id, [])
     all_tools = [manual_tool, navigate_tool] + telemetry_tools
-    result = await _run_with_tools(all_tools, message, history, lat, lon)
+    result = await _run_with_tools(all_tools, message, history, lat, lon, network_mode)
 
     answer = result.get("output", "I couldn't generate a response.")
     tools_used = result.get("tools_used", [])
@@ -343,12 +371,13 @@ def agent_chat():
     conversation_id = data.get("conversation_id") or str(uuid.uuid4())
     lat             = data.get("lat")
     lon             = data.get("lon")
+    network_mode    = data.get("network_mode", "offline")
 
     if not message:
         return jsonify({"error": "message is required"}), 400
 
     try:
-        result = asyncio.run(run_agent(message, conversation_id, lat, lon))
+        result = asyncio.run(run_agent(message, conversation_id, lat, lon, network_mode))
         return jsonify(result)
     except Exception as e:
         print(f"[agent] Error: {e}")

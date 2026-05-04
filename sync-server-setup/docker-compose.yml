@@ -137,6 +137,25 @@ services:
       timeout: 5s
       retries: 3
 
+  mongodb-search-service:
+    build:
+      context: ../mongodb-search-service
+      dockerfile: Dockerfile
+    container_name: mongodb-search-service
+    restart: always
+    ports:
+      - "8085:8085"  # MongoDB Atlas Search API
+    environment:
+      - MONGODB_URI=mongodb+srv://${MONGODB_USER}:${MONGODB_PASS}@${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true
+      - DATABASE_NAME=${MONGODB_DATABASE}
+      - VECTOR_INDEX_NAME=manual_chunks_vector_index
+      - PORT=8085
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   langchain-agent-service:
     build:
       context: ../langchain-agent-service
@@ -147,6 +166,7 @@ services:
       - "5002:5002"  # Agent API
     depends_on:
       - search-service
+      - mongodb-search-service
       - navigation-service
       - telemetry-mcp-server
     environment:
@@ -154,6 +174,7 @@ services:
       - LLM_MODEL=llama3.1:8b
       - EMBEDDING_MODEL=nub235/voyage-4-nano
       - SEARCH_SERVICE_URL=http://search-service:8080
+      - MONGODB_SEARCH_SERVICE_URL=http://mongodb-search-service:8085
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
       - TELEMETRY_MCP_URL=http://telemetry-mcp-server:3001
     extra_hosts:

@@ -47,7 +47,7 @@ function addUserMessage(text) {
 
 const TOOL_LABELS = {
     'search_car_manual_objectbox': { icon: '📦', label: 'ObjectBox Search' },
-    'search_car_manual_atlas':     { icon: '🍃', label: 'MongoDB Atlas Search' },
+    'search_car_manual_atlas':     { icon: '🍃', label: 'MongoDB Atlas Vector Search' },
     'navigate_to':            { icon: '🗺️', label: 'Navigation' },
     'get_latest_telemetry':   { icon: '📡', label: 'Telemetry' },
     'check_system_status':    { icon: '🔧', label: 'System Check' },

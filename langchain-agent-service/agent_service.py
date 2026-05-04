@@ -48,6 +48,7 @@ You are a unified intelligent car assistant with access to three capabilities:
    oil pressure, battery voltage, fuel level, tire pressure, transmission, brakes.
    Use get_anomalies first when the user reports a problem, then check_system_status
    for the relevant system.
+   AVAILABILITY: {telemetry_availability}.
 
 3. **Navigation** (navigate_to) — Find and route to nearby places: mechanics, gas
    stations, pharmacies, hospitals, etc.
@@ -59,6 +60,9 @@ RULES — follow these exactly:
 
 • Only say you were unable to retrieve data if the tool explicitly returns an error
   message or empty content.
+
+• If the user asks about live vehicle sensor data and you are in offline mode, tell
+  them that telemetry is only available in online mode.
 
 • Never fabricate or guess sensor readings. Never invent values for telemetry tools.
 
@@ -100,7 +104,12 @@ def _build_system_prompt(lat: Optional[float], lon: Optional[float], network_mod
             "The user's GPS location is not yet available. "
             "If navigation is requested, ask them to allow location access in the browser."
         )
-    return _SYSTEM_PROMPT.format(location_context=loc)
+    telemetry = (
+        "Available — use the MCP tools to answer telemetry questions"
+        if network_mode == "online"
+        else "NOT available in offline mode — tell the user to switch to online mode for live sensor data"
+    )
+    return _SYSTEM_PROMPT.format(location_context=loc, telemetry_availability=telemetry)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -201,7 +210,13 @@ async def _run_with_tools(
                         result = await tool.ainvoke(tc["args"])
                     except Exception as e:
                         result = f"Error: {e}"
-                    messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
+                else:
+                    print(f"[agent] tool '{tc['name']}' not available in {network_mode} mode", flush=True)
+                    result = (
+                        f"The tool '{tc['name']}' is not available in {network_mode} mode. "
+                        f"Tell the user this feature requires switching to online mode."
+                    )
+                messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
             continue
 
         # Case 2: model emitted a raw JSON tool call in content
@@ -222,8 +237,12 @@ async def _run_with_tools(
                     content=f"Tool result for {tool_name}: {result}\n\nNow give a concise, helpful response based on this data."
                 ))
                 continue
-            # Unknown tool name — treat as final answer
-            answer = content
+            # Tool not available in current mode — respond directly without re-invoking LLM
+            print(f"[agent] tool '{tool_name}' not available in {network_mode} mode", flush=True)
+            answer = (
+                "Live vehicle telemetry is not available in offline mode. "
+                "Please switch to online mode to access real-time sensor data."
+            )
             break
 
         # Case 3: plain response — done
@@ -339,7 +358,7 @@ async def run_agent(
     ]
 
     history = _histories.get(conversation_id, [])
-    all_tools = [manual_tool, navigate_tool] + telemetry_tools
+    all_tools = [manual_tool, navigate_tool] + (telemetry_tools if is_online else [])
     result = await _run_with_tools(all_tools, message, history, lat, lon, network_mode)
 
     answer = result.get("output", "I couldn't generate a response.")

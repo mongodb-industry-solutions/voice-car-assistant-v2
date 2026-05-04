@@ -140,14 +140,17 @@ class TelemetryGenerator:
         rpm = self.current_state["engine"]["rpm"]
         consumption_rate = 0.001 + (rpm / 1000000)
         fuel["level"] -= consumption_rate
-        fuel["level"] = max(0, fuel["level"])
-        
+
+        # Refuel cycle: bounce between 20% and 90%
+        if fuel["level"] < 20.0:
+            fuel["level"] = 90.0
+
         # Fuel pressure varies slightly
         fuel["pressure"] = self._apply_drift(fuel["pressure"], 58.0, 1.0)
-        
-        # Anomaly: Low fuel
+
+        # Anomaly: Low fuel (within the 20-30% range)
         if random.random() < self.anomaly_probability * 0.5:
-            fuel["level"] = random.uniform(3, 12)
+            fuel["level"] = random.uniform(20, 30)
         
         return {
             "level": {

@@ -9,9 +9,9 @@ import os
 import uuid
 from typing import Optional
 
-
 import ollama as ollama_client
 import requests
+from sentence_transformers import SentenceTransformer
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -26,11 +26,16 @@ CORS(app)
 
 OLLAMA_HOST               = os.getenv("OLLAMA_HOST",               "http://localhost:11434")
 LLM_MODEL                 = os.getenv("LLM_MODEL",                 "llama3.1:8b")
-EMBEDDING_MODEL           = os.getenv("EMBEDDING_MODEL",           "nub235/voyage-4-nano")
+EMBEDDING_MODEL           = os.getenv("EMBEDDING_MODEL",           "voyageai/voyage-4-nano")
 SEARCH_SERVICE_URL        = os.getenv("SEARCH_SERVICE_URL",        "http://localhost:8080")
 MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://localhost:8085")
 NAVIGATION_SERVICE_URL    = os.getenv("NAVIGATION_SERVICE_URL",    "http://localhost:5001")
 TELEMETRY_SERVICE_URL     = os.getenv("TELEMETRY_MCP_URL",         "http://localhost:3001")
+
+# Load embedding model once at startup
+print(f"Loading embedding model: {EMBEDDING_MODEL}", flush=True)
+_embed_model = SentenceTransformer(EMBEDDING_MODEL)
+print("Embedding model ready", flush=True)
 
 # ── Conversation memory (per session) ────────────────────────────────────────
 # { conversation_id: [HumanMessage, AIMessage, ...] }
@@ -132,13 +137,12 @@ def _search_manual_impl(query: str, search_url: str = None) -> str:
     url = search_url or SEARCH_SERVICE_URL
     print(f"[search] query='{query[:60]}' url={url}", flush=True)
     try:
-        oc = ollama_client.Client(host=OLLAMA_HOST)
-        embedding = oc.embeddings(model=EMBEDDING_MODEL, prompt=query)["embedding"]
+        embedding = _embed_model.encode(query).tolist()
         print(f"[search] embedding dims={len(embedding)}", flush=True)
         resp = requests.post(
             f"{url}/search",
             json={"embedding": embedding, "limit": 3},
-            timeout=10,
+            timeout=30,
         )
         print(f"[search] response status={resp.status_code}", flush=True)
         if not resp.ok:
@@ -359,6 +363,7 @@ async def run_agent(
 
     history = _histories.get(conversation_id, [])
     all_tools = [manual_tool, navigate_tool] + (telemetry_tools if is_online else [])
+    print(f"[agent] network_mode={network_mode} tools={[t.name for t in all_tools]}", flush=True)
     result = await _run_with_tools(all_tools, message, history, lat, lon, network_mode)
 
     answer = result.get("output", "I couldn't generate a response.")
@@ -412,8 +417,10 @@ def agent_chat():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5002))
     print(f"🤖 LangChain Agent Service starting on port {port}")
-    print(f"   LLM:         {LLM_MODEL} @ {OLLAMA_HOST}")
-    print(f"   Search:      {SEARCH_SERVICE_URL}")
-    print(f"   Navigation:  {NAVIGATION_SERVICE_URL}")
-    print(f"   Telemetry:     {TELEMETRY_SERVICE_URL}")
+    print(f"   LLM:              {LLM_MODEL} @ {OLLAMA_HOST}")
+    print(f"   Embeddings:       {EMBEDDING_MODEL} (local)")
+    print(f"   Search (offline): {SEARCH_SERVICE_URL}")
+    print(f"   Search (online):  {MONGODB_SEARCH_SERVICE_URL}")
+    print(f"   Navigation:       {NAVIGATION_SERVICE_URL}")
+    print(f"   Telemetry:        {TELEMETRY_SERVICE_URL}")
     app.run(host="0.0.0.0", port=port, debug=False)

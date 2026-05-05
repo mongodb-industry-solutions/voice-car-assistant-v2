@@ -117,6 +117,40 @@ services:
       timeout: 5s
       retries: 3
 
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    # Uncomment to enable GPU (requires NVIDIA Container Toolkit)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        SERVER_PID=$$!
+        until ollama list > /dev/null 2>&1; do
+          echo "Waiting for Ollama..."
+          sleep 2
+        done
+        ollama pull llama3.1:8b
+        echo "Model ready"
+        wait $$SERVER_PID
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ollama list | grep -q 'llama3.1'"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
 
   navigation-service:
     build:
@@ -126,11 +160,12 @@ services:
     restart: always
     ports:
       - "5001:5001"  # Navigation API
+    depends_on:
+      ollama:
+        condition: service_healthy
     environment:
-      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_HOST=http://ollama:11434
       - LLM_MODEL=llama3.1:8b
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5001/health"]
       interval: 30s
@@ -165,20 +200,24 @@ services:
     ports:
       - "5002:5002"  # Agent API
     depends_on:
-      - search-service
-      - mongodb-search-service
-      - navigation-service
-      - telemetry-mcp-server
+      ollama:
+        condition: service_healthy
+      search-service:
+        condition: service_started
+      mongodb-search-service:
+        condition: service_started
+      navigation-service:
+        condition: service_started
+      telemetry-mcp-server:
+        condition: service_started
     environment:
-      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_HOST=http://ollama:11434
       - LLM_MODEL=llama3.1:8b
-      - EMBEDDING_MODEL=nub235/voyage-4-nano
+      - EMBEDDING_MODEL=voyageai/voyage-4-nano
       - SEARCH_SERVICE_URL=http://search-service:8080
       - MONGODB_SEARCH_SERVICE_URL=http://mongodb-search-service:8085
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
       - TELEMETRY_MCP_URL=http://telemetry-mcp-server:3001
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5002/health"]
       interval: 30s
@@ -194,24 +233,28 @@ services:
     ports:
       - "5000:5000"  # Web UI
     depends_on:
-      - search-service
-      - conversation-service
-      - navigation-service
-      - langchain-agent-service
+      ollama:
+        condition: service_healthy
+      search-service:
+        condition: service_started
+      conversation-service:
+        condition: service_started
+      navigation-service:
+        condition: service_started
+      langchain-agent-service:
+        condition: service_started
     environment:
       - SEARCH_SERVICE_URL=http://search-service:8080
       - CONVERSATION_SERVICE_URL=http://conversation-service:8081
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
       - AGENT_SERVICE_URL=http://langchain-agent-service:5002
       - TELEMETRY_SERVICE_URL=http://telemetry-service:8084
-      - OLLAMA_HOST=http://host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - OLLAMA_HOST=http://ollama:11434
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-
-
+volumes:
+  ollama-models:

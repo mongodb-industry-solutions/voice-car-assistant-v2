@@ -33,8 +33,8 @@ THRESHOLDS = {
     },
     "fuel": {
         "level": {
-            "min": 15,
-            "critical_min": 5,
+            "min": 50,
+            "critical_min": 30,
             "unit": "%"
         },
         "pressure": {

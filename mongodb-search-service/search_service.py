@@ -19,8 +19,8 @@ COLLECTION     = "manual_chunks"
 INDEX_NAME     = os.getenv("VECTOR_INDEX_NAME", "manual_chunks_vector_index")
 EMBEDDING_FIELD = "embedding"
 
-_client: MongoClient = None
-_collection = None
+_client: MongoClient = MongoClient(MONGODB_URI)
+_collection = _client[DATABASE_NAME][COLLECTION]
 
 
 def _get_collection():

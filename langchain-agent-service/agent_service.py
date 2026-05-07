@@ -6,11 +6,13 @@ Combines: car manual RAG, vehicle telemetry (via MongoDB MCP), navigation
 import asyncio
 import json
 import os
+import time
 import uuid
 from typing import Optional
 
-import ollama as ollama_client
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from sentence_transformers import SentenceTransformer
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -37,6 +39,12 @@ print(f"Loading embedding model: {EMBEDDING_MODEL}", flush=True)
 _embed_model = SentenceTransformer(EMBEDDING_MODEL)
 print("Embedding model ready", flush=True)
 
+
+# Shared HTTP session with connection pooling (reused across all tool calls)
+_http = requests.Session()
+_http.mount("http://", HTTPAdapter(max_retries=Retry(total=1, backoff_factor=0.3)))
+_http.mount("https://", HTTPAdapter(max_retries=Retry(total=1, backoff_factor=0.3)))
+
 # ── Conversation memory (per session) ────────────────────────────────────────
 # { conversation_id: [HumanMessage, AIMessage, ...] }
 _histories: dict = {}
@@ -58,6 +66,18 @@ You are a unified intelligent car assistant with access to three capabilities:
 3. **Navigation** (navigate_to) — Find and route to nearby places: mechanics, gas
    stations, pharmacies, hospitals, etc.
 
+MULTI-TOOL USE — use as many tools as the user's request requires:
+
+• If the user asks for a single thing, use one tool. If the request requires multiple
+  steps or actions, use multiple tools in sequence — one per loop iteration.
+
+• When the user's request involves a condition (e.g. "check X and if critical do Y"),
+  call the first tool, read the result, then call the next tool only if the condition
+  is met. Do NOT skip steps and do NOT ask the user to confirm between steps.
+
+• When the user explicitly asks for multiple actions in one message (e.g. "check engine
+  AND navigate to a mechanic"), call all required tools in the correct order.
+
 RULES — follow these exactly:
 
 • When search_car_manual returns text content, ALWAYS present that information to the
@@ -71,19 +91,23 @@ RULES — follow these exactly:
 
 • Never fabricate or guess sensor readings. Never invent values for telemetry tools.
 
-• Never output raw coordinates to the user. If location is known, refer to it only as
-  "your current location". Never say "latitude=..." or "longitude=..." to the user.
-
 • Never output raw JSON or tool call objects. Always respond in plain human-readable
   language after using a tool.
 
 When the user asks for a general car status or overview:
   → call get_anomalies to get all current warnings and issues across every system.
 
-When the user reports a warning or fault for a specific system:
-  • Step 1: call check_system_status for that system (engine, battery, fuel, tires, transmission, or brakes)
-  • Step 2: search the car manual for repair / safety guidance
-  • Step 3: offer to navigate to the nearest relevant service if appropriate
+When the user asks to check a specific system (engine, battery, fuel, tires, transmission, brakes):
+  → call check_system_status only. Do NOT search the car manual unless the user also
+     asks how to fix it, what it means, or what to do about it.
+
+When the user asks how to fix, repair, or understand a warning or fault:
+  → search the car manual. Only also call check_system_status if you need the current
+     sensor reading to give a useful answer.
+
+When the user asks to check a system AND navigate in the same message:
+  • Step 1: call check_system_status
+  • Step 2: call navigate_to immediately — do NOT ask for confirmation first
 
 When the user responds with a short confirmation ("yes", "sure", "ok", "please", "go ahead",
 "yes please", etc.) to a navigation offer you just made, call navigate_to immediately.
@@ -99,10 +123,9 @@ lead with the safety action before anything else.\
 def _build_system_prompt(lat: Optional[float], lon: Optional[float], network_mode: str = "offline") -> str:
     if lat is not None and lon is not None:
         loc = (
-            f"The user's GPS location is known. "
-            f"When calling navigate_to, use latitude={lat:.5f} and longitude={lon:.5f}. "
-            f"Never mention raw coordinates or numbers to the user — "
-            f"refer to it as 'your current location' instead."
+            "The user's GPS location is known. "
+            "You can call navigate_to with just the destination name — coordinates are handled automatically. "
+            "Never mention raw coordinates or numbers to the user."
         )
     else:
         loc = (
@@ -121,8 +144,12 @@ def _build_system_prompt(lat: Optional[float], lon: Optional[float], network_mod
 
 def _is_raw_tool_call(text: str) -> bool:
     """Return True if text is a leaked tool-call JSON (model forgot to invoke the tool)."""
+    stripped = text.strip()
+    if not stripped.startswith('{'):
+        return False
     try:
-        data = json.loads(text.strip())
+        decoder = json.JSONDecoder()
+        data, _ = decoder.raw_decode(stripped)
         return isinstance(data, dict) and "name" in data and (
             "parameters" in data or "arguments" in data
         )
@@ -137,14 +164,16 @@ def _search_manual_impl(query: str, search_url: str = None) -> str:
     url = search_url or SEARCH_SERVICE_URL
     print(f"[search] query='{query[:60]}' url={url}", flush=True)
     try:
+        t0 = time.time()
         embedding = _embed_model.encode(query).tolist()
-        print(f"[search] embedding dims={len(embedding)}", flush=True)
-        resp = requests.post(
+        print(f"[timing] embedding: {time.time()-t0:.2f}s  dims={len(embedding)}", flush=True)
+        t1 = time.time()
+        resp = _http.post(
             f"{url}/search",
             json={"embedding": embedding, "limit": 3},
             timeout=30,
         )
-        print(f"[search] response status={resp.status_code}", flush=True)
+        print(f"[timing] search HTTP call: {time.time()-t1:.2f}s  status={resp.status_code}", flush=True)
         if not resp.ok:
             print(f"[search] error body: {resp.text[:300]}", flush=True)
             return f"Car manual search service error (HTTP {resp.status_code}): {resp.text[:200]}"
@@ -168,8 +197,6 @@ class NavigateInput(BaseModel):
     destination: str = Field(
         description="What to navigate to, e.g. 'nearest mechanic', 'gas station', \"McDonald's\""
     )
-    latitude: float = Field(description="User's current latitude (from system context)")
-    longitude: float = Field(description="User's current longitude (from system context)")
 
 
 # ── Core async agent runner ───────────────────────────────────────────────────
@@ -186,7 +213,7 @@ async def _run_with_tools(
     Custom ReAct loop that handles both native structured tool calls and models
     (like llama3.1:8b via Ollama) that emit raw JSON tool calls in message content.
     """
-    llm = ChatOllama(model=LLM_MODEL, base_url=OLLAMA_HOST, temperature=0)
+    llm = ChatOllama(model=LLM_MODEL, base_url=OLLAMA_HOST, temperature=0, timeout=120, keep_alive="10m")
     llm_with_tools = llm.bind_tools(all_tools)
     tool_map = {t.name: t for t in all_tools}
 
@@ -199,19 +226,25 @@ async def _run_with_tools(
     tools_used: list[str] = []
     answer = ""
 
-    for _ in range(10):
+    for iteration in range(5):
+        t0 = time.time()
         response = await llm_with_tools.ainvoke(messages)
+        print(f"[timing] LLM call #{iteration+1}: {time.time()-t0:.2f}s", flush=True)
         content = response.content if isinstance(response.content, str) else ""
 
         # Case 1: model used structured tool_calls (native support)
         if getattr(response, "tool_calls", None):
             messages.append(response)
+            all_unavailable = True
             for tc in response.tool_calls:
                 tool = tool_map.get(tc["name"])
                 if tool:
+                    all_unavailable = False
                     tools_used.append(tc["name"])
                     try:
+                        t1 = time.time()
                         result = await tool.ainvoke(tc["args"])
+                        print(f"[timing] tool '{tc['name']}': {time.time()-t1:.2f}s", flush=True)
                     except Exception as e:
                         result = f"Error: {e}"
                 else:
@@ -221,11 +254,17 @@ async def _run_with_tools(
                         f"Tell the user this feature requires switching to online mode."
                     )
                 messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
+            if all_unavailable:
+                answer = (
+                    "Live vehicle telemetry is not available in offline mode. "
+                    "Please switch to online mode to access real-time sensor data."
+                )
+                break
             continue
 
         # Case 2: model emitted a raw JSON tool call in content
         if _is_raw_tool_call(content):
-            tool_call_data = json.loads(content.strip())
+            tool_call_data, _ = json.JSONDecoder().raw_decode(content.strip())
             tool_name = tool_call_data.get("name")
             tool_args = tool_call_data.get("parameters") or tool_call_data.get("arguments") or {}
             tool = tool_map.get(tool_name)
@@ -276,11 +315,11 @@ async def run_agent(
 
     # ── Custom tools ──────────────────────────────────────────────────────────
 
-    def _navigate(destination: str, latitude: float, longitude: float) -> str:
+    def _navigate(destination: str) -> str:
         try:
-            resp = requests.post(
+            resp = _http.post(
                 f"{NAVIGATION_SERVICE_URL}/navigate",
-                json={"query": destination, "lat": latitude, "lon": longitude},
+                json={"query": destination, "lat": lat, "lon": lon},
                 timeout=35,
             )
             if resp.ok:
@@ -325,7 +364,7 @@ async def run_agent(
 
     def _call_telemetry_tool(name: str, args: dict = {}) -> str:
         try:
-            resp = requests.post(
+            resp = _http.post(
                 f"{TELEMETRY_SERVICE_URL}/tools/{name}",
                 json=args,
                 timeout=10,

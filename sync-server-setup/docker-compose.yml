@@ -133,9 +133,12 @@ services:
     #         - driver: nvidia
     #           count: all
     #           capabilities: [gpu]
+    environment:
+      - OLLAMA_KEEP_ALIVE=-1
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
+        rm -f /tmp/model_loaded
         ollama serve &
         SERVER_PID=$$!
         until ollama list > /dev/null 2>&1; do
@@ -143,13 +146,16 @@ services:
           sleep 2
         done
         ollama pull llama3.1:8b
-        echo "Model ready"
+        echo "Model pulled — loading into memory (this takes ~80s)..."
+        ollama run llama3.1:8b "hello" > /dev/null 2>&1 || true
+        touch /tmp/model_loaded
+        echo "Model loaded and ready"
         wait $$SERVER_PID
     healthcheck:
-      test: ["CMD", "sh", "-c", "ollama list | grep -q 'llama3.1'"]
-      interval: 15s
-      timeout: 10s
-      retries: 20
+      test: ["CMD", "test", "-f", "/tmp/model_loaded"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
       start_period: 30s
 
   navigation-service:

@@ -126,7 +126,7 @@ def _call_agent(message: str, conversation_id: str, lat=None, lon=None, network_
                 "lon": lon,
                 "network_mode": network_mode,
             },
-            timeout=90,
+            timeout=180,
         )
         if resp.ok:
             return resp.json()

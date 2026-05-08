@@ -14,7 +14,7 @@ SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://localhost:8080")
 
 # AI Models
 EMBEDDING_MODEL = "nub235/voyage-4-nano"  # 1024-dimensional embeddings
-LLM_MODEL = "llama3.1:8b"
+LLM_MODEL = "qwen3:4b"
 
 # Speech Recognition
 WHISPER_MODEL = "small"  # Options: tiny, base, small, medium, large

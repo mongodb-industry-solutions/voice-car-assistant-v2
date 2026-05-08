@@ -6,6 +6,7 @@ Parses intent with Ollama, finds POIs via Overpass API, routes via OSRM
 import json
 import math
 import os
+import time
 
 import ollama
 import requests
@@ -27,7 +28,7 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen3:4b")
 HEADERS = {"User-Agent": "VoiceCarAssistant/2.0"}
 
 # OSM tag mappings for common destination types
@@ -78,9 +79,14 @@ def _keyword_fallback(query: str) -> dict:
 
 
 def parse_navigation_intent(query: str) -> dict:
-    """Use Ollama to extract structured destination info from natural language.
-    Falls back to keyword extraction if Ollama is unreachable.
+    """Extract destination intent from query.
+    Tries keyword matching first (instant); falls back to LLM only if no keyword matches.
     """
+    result = _keyword_fallback(query)
+    if result.get("destination_type") != "custom":
+        return result
+
+    # No keyword matched — use LLM for ambiguous/unusual phrasing
     prompt = f"""Extract the navigation destination from this voice request. Return ONLY a JSON object, no explanation.
 
 Request: "{query}"
@@ -99,17 +105,19 @@ Examples:
 JSON:"""
 
     try:
+        t0 = time.time()
         client = ollama.Client(host=OLLAMA_HOST)
-        response = client.generate(model=LLM_MODEL, prompt=prompt)
+        response = client.generate(model=LLM_MODEL, prompt=prompt, think=False)
+        print(f"[timing] intent LLM: {time.time()-t0:.2f}s", flush=True)
         text = response["response"].strip()
         start = text.find("{")
         end = text.rfind("}") + 1
         if start >= 0 and end > start:
             return json.loads(text[start:end])
     except Exception as e:
-        print(f"Intent parsing error (falling back to keywords): {e}")
+        print(f"Intent parsing error (keeping keyword result): {e}", flush=True)
 
-    return _keyword_fallback(query)
+    return result
 
 
 def search_pois_overpass(lat: float, lon: float, osm_key: str, osm_value: str, radius: int = 10000) -> list:
@@ -123,7 +131,7 @@ def search_pois_overpass(lat: float, lon: float, osm_key: str, osm_value: str, r
 out center body;
 """
     try:
-        response = requests.post(OVERPASS_URL, data=query, headers=HEADERS, timeout=30)
+        response = requests.post(OVERPASS_URL, data=query, headers=HEADERS, timeout=15)
         if not response.ok:
             return []
 
@@ -283,13 +291,14 @@ def navigate():
     if not query or lat is None or lon is None:
         return jsonify({"error": "query, lat, and lon are required"}), 400
 
-    print(f"Navigation: '{query}' from ({lat:.4f}, {lon:.4f})")
+    t_start = time.time()
+    print(f"Navigation: '{query}' from ({lat:.4f}, {lon:.4f})", flush=True)
 
     # 1. Parse intent with LLM
     intent = parse_navigation_intent(query)
     dest_type = intent.get("destination_type", "custom")
     dest_name = intent.get("destination_name")
-    print(f"  Intent → type={dest_type!r}, name={dest_name!r}")
+    print(f"  Intent → type={dest_type!r}, name={dest_name!r}", flush=True)
 
     # 2. Find nearby POIs
     if dest_name:
@@ -309,13 +318,14 @@ def navigate():
         return jsonify({"error": f"No {dest_type} found nearby"}), 404
 
     destination = pois[0]
-    print(f"  Destination → {destination['name']} ({destination['distance_m']:.0f} m)")
+    print(f"  Destination → {destination['name']} ({destination['distance_m']:.0f} m) [{time.time()-t_start:.2f}s so far]", flush=True)
 
     # 3. Calculate route
     route = get_route(lat, lon, destination["lat"], destination["lon"])
     if not route:
         return jsonify({"error": "Could not calculate a driving route"}), 500
 
+    print(f"  Done in {time.time()-t_start:.2f}s total", flush=True)
     return jsonify({
         "destination": destination,
         "nearby_options": pois,

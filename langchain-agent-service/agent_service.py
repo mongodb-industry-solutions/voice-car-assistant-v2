@@ -4,6 +4,7 @@ Combines: car manual RAG, vehicle telemetry (via MongoDB MCP), navigation
 """
 
 import asyncio
+import json
 import os
 import time
 import uuid
@@ -261,31 +262,55 @@ async def _run_with_tools(
         print(f"[debug] content={repr(msg.content)[:80]} tool_calls={msg.tool_calls} thinking={repr(thinking)[:80] if thinking else None}", flush=True)
 
         if msg.tool_calls:
+            # Process one tool call at a time so the LLM sees each result before deciding the next step
+            tc = msg.tool_calls[0]
             messages.append({
                 "role": "assistant",
                 "content": msg.content or "",
                 "tool_calls": [
                     {"function": {"name": tc.function.name, "arguments": dict(tc.function.arguments)}}
-                    for tc in msg.tool_calls
                 ],
             })
-            for tc in msg.tool_calls:
-                tool = tool_map.get(tc.function.name)
-                tools_used.append(tc.function.name)
-                if tool:
-                    try:
-                        t1 = time.time()
-                        result = await tool.ainvoke(dict(tc.function.arguments))
-                        print(f"[timing] tool '{tc.function.name}': {time.time()-t1:.2f}s", flush=True)
-                    except Exception as e:
-                        result = f"Error: {e}"
-                else:
-                    print(f"[agent] tool '{tc.function.name}' not available in {network_mode} mode", flush=True)
-                    result = "Live vehicle telemetry is not available in offline mode. Please switch to online mode."
-                messages.append({"role": "tool", "content": str(result)})
+            tool = tool_map.get(tc.function.name)
+            tools_used.append(tc.function.name)
+            if tool:
+                try:
+                    t1 = time.time()
+                    result = await tool.ainvoke(dict(tc.function.arguments))
+                    print(f"[timing] tool '{tc.function.name}': {time.time()-t1:.2f}s", flush=True)
+                except Exception as e:
+                    result = f"Error: {e}"
+            else:
+                print(f"[agent] tool '{tc.function.name}' not available in {network_mode} mode", flush=True)
+                result = "Live vehicle telemetry is not available in offline mode. Please switch to online mode."
+            messages.append({"role": "tool", "content": str(result)})
             continue
 
-        answer = msg.content or ""
+        # qwen3 sometimes outputs tool calls as raw JSON text instead of tool_calls
+        content = msg.content or ""
+        if content:
+            try:
+                parsed = json.loads(content)
+                if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
+                    name = parsed["name"]
+                    arguments = parsed["arguments"]
+                    tool = tool_map.get(name)
+                    if tool:
+                        print(f"[agent] raw JSON tool call detected: {name}", flush=True)
+                        tools_used.append(name)
+                        messages.append({"role": "assistant", "content": content})
+                        try:
+                            t1 = time.time()
+                            result = await tool.ainvoke(arguments)
+                            print(f"[timing] tool '{name}': {time.time()-t1:.2f}s", flush=True)
+                        except Exception as e:
+                            result = f"Error: {e}"
+                        messages.append({"role": "tool", "content": str(result)})
+                        continue
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        answer = content
         break
 
     return {"output": answer, "tools_used": tools_used}

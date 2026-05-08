@@ -164,10 +164,17 @@ out center body;
         return []
 
 
-def search_pois_nominatim(lat: float, lon: float, name: str) -> list:
-    """Use Nominatim to geocode a specific named place."""
+def search_pois_nominatim(lat: float, lon: float, name: str, radius_deg: float = 0.15) -> list:
+    """Use Nominatim to search for nearby places, bounded to a local area."""
     try:
-        params = {"q": name, "format": "json", "limit": 5, "lat": lat, "lon": lon}
+        viewbox = f"{lon - radius_deg},{lat + radius_deg},{lon + radius_deg},{lat - radius_deg}"
+        params = {
+            "q": name,
+            "format": "json",
+            "limit": 5,
+            "viewbox": viewbox,
+            "bounded": 1,
+        }
         response = requests.get(NOMINATIM_URL, params=params, headers=HEADERS, timeout=10)
         if not response.ok:
             return []
@@ -300,7 +307,7 @@ def navigate():
     dest_name = intent.get("destination_name")
     print(f"  Intent → type={dest_type!r}, name={dest_name!r}", flush=True)
 
-    # 2. Find nearby POIs
+    # 2. Find nearby POIs — Overpass first, Nominatim as fallback
     if dest_name:
         pois = search_pois_nominatim(lat, lon, dest_name)
         if not pois and dest_type in OSM_TAGS:
@@ -311,6 +318,10 @@ def navigate():
         tag = OSM_TAGS[dest_type]
         k, v = next(iter(tag.items()))
         pois = search_pois_overpass(lat, lon, k, v)
+        if not pois:
+            osm_value = v.replace("_", " ")
+            print(f"  Overpass returned no results, falling back to Nominatim for '{osm_value}'", flush=True)
+            pois = search_pois_nominatim(lat, lon, osm_value)
     else:
         pois = search_pois_nominatim(lat, lon, dest_type)
 

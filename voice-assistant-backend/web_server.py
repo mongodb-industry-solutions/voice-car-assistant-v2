@@ -311,15 +311,13 @@ def handle_send_message(data):
     if agent_result.get('navigation'):
         emit('navigation_result', agent_result['navigation'])
 
-    # Start TTS synthesis in parallel with sending the answer to the client,
-    # so audio is ready sooner after the text appears.
+    # Start TTS synthesis in parallel with sending the answer to the client.
     sid = request.sid
-    if not agent_result.get('navigation'):
-        threading.Thread(
-            target=_push_tts,
-            args=(sid, answer),
-            daemon=True,
-        ).start()
+    threading.Thread(
+        target=_push_tts,
+        args=(sid, answer),
+        daemon=True,
+    ).start()
 
     emit('answer', {'text': answer, 'tools_used': agent_result.get('tools_used', [])})
     emit('status', {'state': 'ready', 'message': 'Ready'})

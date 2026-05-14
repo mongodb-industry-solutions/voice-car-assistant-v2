@@ -10,39 +10,13 @@
       "flags": 2,
       "lastPropertyId": "6:1234567890123456789",
       "properties": [
-        {
-          "id": "1:871349036716677797",
-          "name": "id",
-          "type": 6,
-          "flags": 1
-        },
-        {
-          "id": "2:6563616578029045320",
-          "name": "text",
-          "type": 9
-        },
-        {
-          "id": "3:8818095693993590927",
-          "name": "source_file",
-          "type": 9
-        },
-        {
-          "id": "4:6846133054869205678",
-          "name": "chunk_index",
-          "type": 5
-        },
-        {
-          "id": "5:6898708364220688226",
-          "name": "embedding",
-          "type": 28,
-          "flags": 8,
-          "indexId": "1:4357812374228481003"
-        },
-        {
-          "id": "6:1234567890123456789",
-          "name": "syncClock",
-          "type": 6
-        }
+        { "id": "1:871349036716677797",  "name": "id",          "type": 6, "flags": 1 },
+        { "id": "2:6563616578029045320",  "name": "text",        "type": 9 },
+        { "id": "3:8818095693993590927",  "name": "source_file", "type": 9 },
+        { "id": "4:6846133054869205678",  "name": "chunk_index", "type": 5 },
+        { "id": "5:6898708364220688226",  "name": "embedding",   "type": 28, "flags": 8,
+          "indexId": "1:4357812374228481003" },
+        { "id": "6:1234567890123456789",  "name": "syncClock",   "type": 6 }
       ]
     },
     {
@@ -51,42 +25,13 @@
       "flags": 2,
       "lastPropertyId": "7:9876543210987654321",
       "properties": [
-        {
-          "id": "1:2345678901234567890",
-          "name": "id",
-          "type": 6,
-          "flags": 1
-        },
-        {
-          "id": "2:3456789012345678902",
-          "name": "filename",
-          "type": 9
-        },
-        {
-          "id": "3:4567890123456789013",
-          "name": "make",
-          "type": 9
-        },
-        {
-          "id": "4:5678901234567890124",
-          "name": "model",
-          "type": 9
-        },
-        {
-          "id": "5:6789012345678901235",
-          "name": "total_chunks",
-          "type": 5
-        },
-        {
-          "id": "6:7890123456789012346",
-          "name": "status",
-          "type": 9
-        },
-        {
-          "id": "7:9876543210987654321",
-          "name": "syncClock",
-          "type": 6
-        }
+        { "id": "1:2345678901234567890", "name": "id",           "type": 6, "flags": 1 },
+        { "id": "2:3456789012345678902", "name": "filename",     "type": 9 },
+        { "id": "3:4567890123456789013", "name": "make",         "type": 9 },
+        { "id": "4:5678901234567890124", "name": "model",        "type": 9 },
+        { "id": "5:6789012345678901235", "name": "total_chunks", "type": 5 },
+        { "id": "6:7890123456789012346", "name": "status",       "type": 9 },
+        { "id": "7:9876543210987654321", "name": "syncClock",    "type": 6 }
       ]
     },
     {
@@ -95,53 +40,17 @@
       "flags": 2,
       "lastPropertyId": "8:8888999911112222333",
       "properties": [
-        {
-          "id": "1:1111222233334444556",
-          "name": "id",
-          "type": 6,
-          "flags": 1
-        },
-        {
-          "id": "2:2222333344445555666",
-          "name": "conversation_id",
-          "type": 9,
-          "flags": 8,
-          "indexId": "2:2222222222222222222"
-        },
-        {
-          "id": "3:3333444455556666777",
-          "name": "user_id",
-          "type": 9,
-          "flags": 8,
-          "indexId": "3:3333333333333333333"
-        },
-        {
-          "id": "4:4444555566667777888",
-          "name": "timestamp",
-          "type": 6,
-          "flags": 8,
-          "indexId": "4:4444444444444444444"
-        },
-        {
-          "id": "5:5555666677778888999",
-          "name": "role",
-          "type": 9
-        },
-        {
-          "id": "6:6666777788889999111",
-          "name": "message",
-          "type": 9
-        },
-        {
-          "id": "7:7777888899991111222",
-          "name": "sources",
-          "type": 9
-        },
-        {
-          "id": "8:8888999911112222333",
-          "name": "syncClock",
-          "type": 6
-        }
+        { "id": "1:1111222233334444556", "name": "id",              "type": 6, "flags": 1 },
+        { "id": "2:2222333344445555666", "name": "conversation_id", "type": 9, "flags": 8,
+          "indexId": "2:2222222222222222222" },
+        { "id": "3:3333444455556666777", "name": "user_id",         "type": 9, "flags": 8,
+          "indexId": "3:3333333333333333333" },
+        { "id": "4:4444555566667777888", "name": "timestamp",       "type": 6, "flags": 8,
+          "indexId": "4:4444444444444444444" },
+        { "id": "5:5555666677778888999", "name": "role",            "type": 9 },
+        { "id": "6:6666777788889999111", "name": "message",         "type": 9 },
+        { "id": "7:7777888899991111222", "name": "sources",         "type": 9 },
+        { "id": "8:8888999911112222333", "name": "syncClock",       "type": 6 }
       ]
     },
     {
@@ -150,74 +59,351 @@
       "flags": 2,
       "lastPropertyId": "12:4444555566668888111",
       "properties": [
-        {
-          "id": "1:2222333344445555778",
-          "name": "id",
-          "type": 6,
-          "flags": 1
-        },
-        {
-          "id": "2:3333444455556666888",
-          "name": "timestamp",
-          "type": 6,
-          "flags": 8,
-          "indexId": "5:5555555555555555555"
-        },
-        {
-          "id": "3:4444555566667777999",
-          "name": "vehicle_id",
-          "type": 9
-        },
-        {
-          "id": "4:5555666677778888000",
-          "name": "driving_mode",
-          "type": 9
-        },
-        {
-          "id": "5:6666777788889999222",
-          "name": "anomaly_count",
-          "type": 5
-        },
-        {
-          "id": "6:7777888899990000333",
-          "name": "engine_data",
-          "type": 9
-        },
-        {
-          "id": "7:8888999900001111444",
-          "name": "tire_data",
-          "type": 9
-        },
-        {
-          "id": "8:9999000011112222555",
-          "name": "battery_data",
-          "type": 9
-        },
-        {
-          "id": "9:1111222233334444666",
-          "name": "fuel_data",
-          "type": 9
-        },
-        {
-          "id": "10:2222333344445555888",
-          "name": "transmission_data",
-          "type": 9
-        },
-        {
-          "id": "11:3333444455556666999",
-          "name": "brake_data",
-          "type": 9
-        },
-        {
-          "id": "12:4444555566668888111",
-          "name": "syncClock",
-          "type": 6
-        }
+        { "id": "1:2222333344445555778",  "name": "id",                 "type": 6, "flags": 1 },
+        { "id": "2:3333444455556666888",  "name": "timestamp",          "type": 6, "flags": 8,
+          "indexId": "5:5555555555555555555" },
+        { "id": "3:4444555566667777999",  "name": "vehicle_id",         "type": 9 },
+        { "id": "4:5555666677778888000",  "name": "driving_mode",       "type": 9 },
+        { "id": "5:6666777788889999222",  "name": "anomaly_count",      "type": 5 },
+        { "id": "6:7777888899990000333",  "name": "engine_data",        "type": 9 },
+        { "id": "7:8888999900001111444",  "name": "tire_data",          "type": 9 },
+        { "id": "8:9999000011112222555",  "name": "battery_data",       "type": 9 },
+        { "id": "9:1111222233334444666",  "name": "fuel_data",          "type": 9 },
+        { "id": "10:2222333344445555888", "name": "transmission_data",  "type": 9 },
+        { "id": "11:3333444455556666999", "name": "brake_data",         "type": 9 },
+        { "id": "12:4444555566668888111", "name": "syncClock",          "type": 6 }
+      ]
+    },
+    {
+      "id": "10:6010000000000000",
+      "name": "VehicleMeta",
+      "flags": 2,
+      "lastPropertyId": "10:6010000000000010",
+      "properties": [
+        { "id": "1:6010000000000001",  "name": "id",              "type": 6, "flags": 1 },
+        { "id": "2:6010000000000002",  "name": "vehicleId",       "type": 9 },
+        { "id": "3:6010000000000003",  "name": "vin",             "type": 9 },
+        { "id": "4:6010000000000004",  "name": "oem",             "type": 9 },
+        { "id": "5:6010000000000005",  "name": "model",           "type": 9 },
+        { "id": "6:6010000000000006",  "name": "platform",        "type": 9 },
+        { "id": "7:6010000000000007",  "name": "softwareVersion", "type": 9 },
+        { "id": "8:6010000000000008",  "name": "createdAt",       "type": 6 },
+        { "id": "9:6010000000000009",  "name": "updatedAt",       "type": 6 },
+        { "id": "10:6010000000000010", "name": "syncClock",       "type": 6 }
+      ]
+    },
+    {
+      "id": "11:6011000000000000",
+      "name": "SignalDefinition",
+      "flags": 2,
+      "lastPropertyId": "14:6011000000000014",
+      "properties": [
+        { "id": "1:6011000000000001",  "name": "id",             "type": 6, "flags": 1 },
+        { "id": "2:6011000000000002",  "name": "vssPath",        "type": 9 },
+        { "id": "3:6011000000000003",  "name": "component",      "type": 9 },
+        { "id": "4:6011000000000004",  "name": "signalKind",     "type": 9 },
+        { "id": "5:6011000000000005",  "name": "valueType",      "type": 9 },
+        { "id": "6:6011000000000006",  "name": "unit",           "type": 9 },
+        { "id": "7:6011000000000007",  "name": "writable",       "type": 1 },
+        { "id": "8:6011000000000008",  "name": "latestGroup",    "type": 9 },
+        { "id": "9:6011000000000009",  "name": "historyGroup",   "type": 9 },
+        { "id": "10:6011000000000010", "name": "historyMode",    "type": 9 },
+        { "id": "11:6011000000000011", "name": "samplePeriodMs", "type": 5 },
+        { "id": "12:6011000000000012", "name": "retainHours",    "type": 5 },
+        { "id": "13:6011000000000013", "name": "enabled",        "type": 1 },
+        { "id": "14:6011000000000014", "name": "syncClock",      "type": 6 }
+      ]
+    },
+    {
+      "id": "12:6012000000000000",
+      "name": "VehicleAttributeState",
+      "flags": 2,
+      "lastPropertyId": "10:6012000000000010",
+      "properties": [
+        { "id": "1:6012000000000001",  "name": "id",                  "type": 6, "flags": 1 },
+        { "id": "2:6012000000000002",  "name": "vehicleId",           "type": 9, "flags": 8,
+          "indexId": "6:6012000000000100" },
+        { "id": "3:6012000000000003",  "name": "updatedAt",           "type": 6 },
+        { "id": "4:6012000000000004",  "name": "fuelTankCapacityL",   "type": 7 },
+        { "id": "5:6012000000000005",  "name": "batteryCapacityKwh",  "type": 7 },
+        { "id": "6:6012000000000006",  "name": "wheelbaseMm",         "type": 5 },
+        { "id": "7:6012000000000007",  "name": "curbWeightKg",        "type": 5 },
+        { "id": "8:6012000000000008",  "name": "powertrainType",      "type": 9 },
+        { "id": "9:6012000000000009",  "name": "drivetrainType",      "type": 9 },
+        { "id": "10:6012000000000010", "name": "syncClock",           "type": 6 }
+      ]
+    },
+    {
+      "id": "13:6013000000000000",
+      "name": "PowertrainState",
+      "flags": 2,
+      "lastPropertyId": "14:6013000000000014",
+      "properties": [
+        { "id": "1:6013000000000001",  "name": "id",           "type": 6, "flags": 1 },
+        { "id": "2:6013000000000002",  "name": "vehicleId",    "type": 9, "flags": 8,
+          "indexId": "7:6013000000000100" },
+        { "id": "3:6013000000000003",  "name": "updatedAt",    "type": 6 },
+        { "id": "4:6013000000000004",  "name": "speedKph",     "type": 7 },
+        { "id": "5:6013000000000005",  "name": "engineRpm",    "type": 7 },
+        { "id": "6:6013000000000006",  "name": "odometerKm",   "type": 7 },
+        { "id": "7:6013000000000007",  "name": "fuelLevelPct", "type": 7 },
+        { "id": "8:6013000000000008",  "name": "fuelRateLph",  "type": 7 },
+        { "id": "9:6013000000000009",  "name": "coolantTempC", "type": 7 },
+        { "id": "10:6013000000000010", "name": "throttlePct",  "type": 7 },
+        { "id": "11:6013000000000011", "name": "gear",         "type": 5 },
+        { "id": "12:6013000000000012", "name": "ignitionOn",   "type": 1 },
+        { "id": "13:6013000000000013", "name": "tripId",       "type": 9 },
+        { "id": "14:6013000000000014", "name": "syncClock",    "type": 6 }
+      ]
+    },
+    {
+      "id": "14:6014000000000000",
+      "name": "BatteryState",
+      "flags": 2,
+      "lastPropertyId": "12:6014000000000012",
+      "properties": [
+        { "id": "1:6014000000000001",  "name": "id",                 "type": 6, "flags": 1 },
+        { "id": "2:6014000000000002",  "name": "vehicleId",          "type": 9, "flags": 8,
+          "indexId": "8:6014000000000100" },
+        { "id": "3:6014000000000003",  "name": "updatedAt",          "type": 6 },
+        { "id": "4:6014000000000004",  "name": "socPct",             "type": 7 },
+        { "id": "5:6014000000000005",  "name": "sohPct",             "type": 7 },
+        { "id": "6:6014000000000006",  "name": "batteryTempC",       "type": 7 },
+        { "id": "7:6014000000000007",  "name": "chargingState",      "type": 9 },
+        { "id": "8:6014000000000008",  "name": "chargingPowerKw",    "type": 7 },
+        { "id": "9:6014000000000009",  "name": "estimatedRangeKm",   "type": 7 },
+        { "id": "10:6014000000000010", "name": "voltageV",           "type": 7 },
+        { "id": "11:6014000000000011", "name": "currentA",           "type": 7 },
+        { "id": "12:6014000000000012", "name": "syncClock",          "type": 6 }
+      ]
+    },
+    {
+      "id": "15:6015000000000000",
+      "name": "ChassisState",
+      "flags": 2,
+      "lastPropertyId": "12:6015000000000012",
+      "properties": [
+        { "id": "1:6015000000000001",  "name": "id",                    "type": 6, "flags": 1 },
+        { "id": "2:6015000000000002",  "name": "vehicleId",             "type": 9, "flags": 8,
+          "indexId": "9:6015000000000100" },
+        { "id": "3:6015000000000003",  "name": "updatedAt",             "type": 6 },
+        { "id": "4:6015000000000004",  "name": "steeringAngleDeg",      "type": 7 },
+        { "id": "5:6015000000000005",  "name": "brakePedalPct",         "type": 7 },
+        { "id": "6:6015000000000006",  "name": "tirePressureFlKpa",     "type": 7 },
+        { "id": "7:6015000000000007",  "name": "tirePressureFrKpa",     "type": 7 },
+        { "id": "8:6015000000000008",  "name": "tirePressureRlKpa",     "type": 7 },
+        { "id": "9:6015000000000009",  "name": "tirePressureRrKpa",     "type": 7 },
+        { "id": "10:6015000000000010", "name": "absActive",             "type": 1 },
+        { "id": "11:6015000000000011", "name": "tractionControlActive", "type": 1 },
+        { "id": "12:6015000000000012", "name": "syncClock",             "type": 6 }
+      ]
+    },
+    {
+      "id": "16:6016000000000000",
+      "name": "CabinState",
+      "flags": 2,
+      "lastPropertyId": "14:6016000000000014",
+      "properties": [
+        { "id": "1:6016000000000001",  "name": "id",                      "type": 6, "flags": 1 },
+        { "id": "2:6016000000000002",  "name": "vehicleId",               "type": 9, "flags": 8,
+          "indexId": "10:6016000000000100" },
+        { "id": "3:6016000000000003",  "name": "updatedAt",               "type": 6 },
+        { "id": "4:6016000000000004",  "name": "insideTempC",             "type": 7 },
+        { "id": "5:6016000000000005",  "name": "outsideTempC",            "type": 7 },
+        { "id": "6:6016000000000006",  "name": "hvacMode",                "type": 9 },
+        { "id": "7:6016000000000007",  "name": "fanSpeed",                "type": 5 },
+        { "id": "8:6016000000000008",  "name": "driverDoorOpen",          "type": 1 },
+        { "id": "9:6016000000000009",  "name": "passengerDoorOpen",       "type": 1 },
+        { "id": "10:6016000000000010", "name": "rearLeftDoorOpen",        "type": 1 },
+        { "id": "11:6016000000000011", "name": "rearRightDoorOpen",       "type": 1 },
+        { "id": "12:6016000000000012", "name": "doorsLocked",             "type": 1 },
+        { "id": "13:6016000000000013", "name": "seatbeltDriverFastened",  "type": 1 },
+        { "id": "14:6016000000000014", "name": "syncClock",               "type": 6 }
+      ]
+    },
+    {
+      "id": "17:6017000000000000",
+      "name": "LocationState",
+      "flags": 2,
+      "lastPropertyId": "11:6017000000000011",
+      "properties": [
+        { "id": "1:6017000000000001",  "name": "id",         "type": 6, "flags": 1 },
+        { "id": "2:6017000000000002",  "name": "vehicleId",  "type": 9, "flags": 8,
+          "indexId": "11:6017000000000100" },
+        { "id": "3:6017000000000003",  "name": "updatedAt",  "type": 6 },
+        { "id": "4:6017000000000004",  "name": "latitude",   "type": 8 },
+        { "id": "5:6017000000000005",  "name": "longitude",  "type": 8 },
+        { "id": "6:6017000000000006",  "name": "altitudeM",  "type": 7 },
+        { "id": "7:6017000000000007",  "name": "headingDeg", "type": 7 },
+        { "id": "8:6017000000000008",  "name": "speedKph",   "type": 7 },
+        { "id": "9:6017000000000009",  "name": "accuracyM",  "type": 7 },
+        { "id": "10:6017000000000010", "name": "geohash",    "type": 9 },
+        { "id": "11:6017000000000011", "name": "syncClock",  "type": 6 }
+      ]
+    },
+    {
+      "id": "18:6018000000000000",
+      "name": "AdasState",
+      "flags": 2,
+      "lastPropertyId": "10:6018000000000010",
+      "properties": [
+        { "id": "1:6018000000000001",  "name": "id",                      "type": 6, "flags": 1 },
+        { "id": "2:6018000000000002",  "name": "vehicleId",               "type": 9, "flags": 8,
+          "indexId": "12:6018000000000100" },
+        { "id": "3:6018000000000003",  "name": "updatedAt",               "type": 6 },
+        { "id": "4:6018000000000004",  "name": "cruiseEnabled",           "type": 1 },
+        { "id": "5:6018000000000005",  "name": "cruiseSetSpeedKph",       "type": 7 },
+        { "id": "6:6018000000000006",  "name": "laneKeepAssistOn",        "type": 1 },
+        { "id": "7:6018000000000007",  "name": "parkingAssistOn",         "type": 1 },
+        { "id": "8:6018000000000008",  "name": "collisionWarningActive",  "type": 1 },
+        { "id": "9:6018000000000009",  "name": "autopilotMode",           "type": 9 },
+        { "id": "10:6018000000000010", "name": "syncClock",               "type": 6 }
+      ]
+    },
+    {
+      "id": "19:6019000000000000",
+      "name": "PowertrainSample",
+      "flags": 2,
+      "lastPropertyId": "12:6019000000000012",
+      "properties": [
+        { "id": "1:6019000000000001",  "name": "id",           "type": 6, "flags": 1 },
+        { "id": "2:6019000000000002",  "name": "vehicleId",    "type": 9, "flags": 8,
+          "indexId": "13:6019000000000100" },
+        { "id": "3:6019000000000003",  "name": "ts",           "type": 6, "flags": 8,
+          "indexId": "14:6019000000000200" },
+        { "id": "4:6019000000000004",  "name": "tripId",       "type": 9 },
+        { "id": "5:6019000000000005",  "name": "speedKph",     "type": 7 },
+        { "id": "6:6019000000000006",  "name": "engineRpm",    "type": 7 },
+        { "id": "7:6019000000000007",  "name": "fuelLevelPct", "type": 7 },
+        { "id": "8:6019000000000008",  "name": "fuelRateLph",  "type": 7 },
+        { "id": "9:6019000000000009",  "name": "coolantTempC", "type": 7 },
+        { "id": "10:6019000000000010", "name": "throttlePct",  "type": 7 },
+        { "id": "11:6019000000000011", "name": "gear",         "type": 5 },
+        { "id": "12:6019000000000012", "name": "syncClock",    "type": 6 }
+      ]
+    },
+    {
+      "id": "20:6020000000000000",
+      "name": "BatterySample",
+      "flags": 2,
+      "lastPropertyId": "12:6020000000000012",
+      "properties": [
+        { "id": "1:6020000000000001",  "name": "id",                "type": 6, "flags": 1 },
+        { "id": "2:6020000000000002",  "name": "vehicleId",         "type": 9, "flags": 8,
+          "indexId": "15:6020000000000100" },
+        { "id": "3:6020000000000003",  "name": "ts",                "type": 6, "flags": 8,
+          "indexId": "16:6020000000000200" },
+        { "id": "4:6020000000000004",  "name": "tripId",            "type": 9 },
+        { "id": "5:6020000000000005",  "name": "socPct",            "type": 7 },
+        { "id": "6:6020000000000006",  "name": "sohPct",            "type": 7 },
+        { "id": "7:6020000000000007",  "name": "batteryTempC",      "type": 7 },
+        { "id": "8:6020000000000008",  "name": "chargingPowerKw",   "type": 7 },
+        { "id": "9:6020000000000009",  "name": "estimatedRangeKm",  "type": 7 },
+        { "id": "10:6020000000000010", "name": "voltageV",          "type": 7 },
+        { "id": "11:6020000000000011", "name": "currentA",          "type": 7 },
+        { "id": "12:6020000000000012", "name": "syncClock",         "type": 6 }
+      ]
+    },
+    {
+      "id": "21:6021000000000000",
+      "name": "LocationSample",
+      "flags": 2,
+      "lastPropertyId": "11:6021000000000011",
+      "properties": [
+        { "id": "1:6021000000000001",  "name": "id",         "type": 6, "flags": 1 },
+        { "id": "2:6021000000000002",  "name": "vehicleId",  "type": 9, "flags": 8,
+          "indexId": "17:6021000000000100" },
+        { "id": "3:6021000000000003",  "name": "ts",         "type": 6, "flags": 8,
+          "indexId": "18:6021000000000200" },
+        { "id": "4:6021000000000004",  "name": "tripId",     "type": 9 },
+        { "id": "5:6021000000000005",  "name": "latitude",   "type": 8 },
+        { "id": "6:6021000000000006",  "name": "longitude",  "type": 8 },
+        { "id": "7:6021000000000007",  "name": "altitudeM",  "type": 7 },
+        { "id": "8:6021000000000008",  "name": "headingDeg", "type": 7 },
+        { "id": "9:6021000000000009",  "name": "speedKph",   "type": 7 },
+        { "id": "10:6021000000000010", "name": "accuracyM",  "type": 7 },
+        { "id": "11:6021000000000011", "name": "syncClock",  "type": 6 }
+      ]
+    },
+    {
+      "id": "22:6022000000000000",
+      "name": "CabinSample",
+      "flags": 2,
+      "lastPropertyId": "9:6022000000000009",
+      "properties": [
+        { "id": "1:6022000000000001", "name": "id",           "type": 6, "flags": 1 },
+        { "id": "2:6022000000000002", "name": "vehicleId",    "type": 9, "flags": 8,
+          "indexId": "19:6022000000000100" },
+        { "id": "3:6022000000000003", "name": "ts",           "type": 6, "flags": 8,
+          "indexId": "20:6022000000000200" },
+        { "id": "4:6022000000000004", "name": "tripId",       "type": 9 },
+        { "id": "5:6022000000000005", "name": "insideTempC",  "type": 7 },
+        { "id": "6:6022000000000006", "name": "outsideTempC", "type": 7 },
+        { "id": "7:6022000000000007", "name": "hvacMode",     "type": 9 },
+        { "id": "8:6022000000000008", "name": "fanSpeed",     "type": 5 },
+        { "id": "9:6022000000000009", "name": "syncClock",    "type": 6 }
+      ]
+    },
+    {
+      "id": "23:6023000000000000",
+      "name": "AdasSample",
+      "flags": 2,
+      "lastPropertyId": "9:6023000000000009",
+      "properties": [
+        { "id": "1:6023000000000001", "name": "id",                      "type": 6, "flags": 1 },
+        { "id": "2:6023000000000002", "name": "vehicleId",               "type": 9, "flags": 8,
+          "indexId": "21:6023000000000100" },
+        { "id": "3:6023000000000003", "name": "ts",                      "type": 6, "flags": 8,
+          "indexId": "22:6023000000000200" },
+        { "id": "4:6023000000000004", "name": "tripId",                  "type": 9 },
+        { "id": "5:6023000000000005", "name": "cruiseEnabled",           "type": 1 },
+        { "id": "6:6023000000000006", "name": "cruiseSetSpeedKph",       "type": 7 },
+        { "id": "7:6023000000000007", "name": "laneKeepAssistOn",        "type": 1 },
+        { "id": "8:6023000000000008", "name": "collisionWarningActive",  "type": 1 },
+        { "id": "9:6023000000000009", "name": "syncClock",               "type": 6 }
+      ]
+    },
+    {
+      "id": "24:6024000000000000",
+      "name": "VehicleEvent",
+      "flags": 2,
+      "lastPropertyId": "11:6024000000000011",
+      "properties": [
+        { "id": "1:6024000000000001",  "name": "id",          "type": 6, "flags": 1 },
+        { "id": "2:6024000000000002",  "name": "vehicleId",   "type": 9, "flags": 8,
+          "indexId": "23:6024000000000100" },
+        { "id": "3:6024000000000003",  "name": "ts",          "type": 6, "flags": 8,
+          "indexId": "24:6024000000000200" },
+        { "id": "4:6024000000000004",  "name": "tripId",      "type": 9 },
+        { "id": "5:6024000000000005",  "name": "eventType",   "type": 9 },
+        { "id": "6:6024000000000006",  "name": "severity",    "type": 9 },
+        { "id": "7:6024000000000007",  "name": "vssPath",     "type": 9 },
+        { "id": "8:6024000000000008",  "name": "code",        "type": 9 },
+        { "id": "9:6024000000000009",  "name": "description", "type": 9 },
+        { "id": "10:6024000000000010", "name": "payloadJson", "type": 9 },
+        { "id": "11:6024000000000011", "name": "syncClock",   "type": 6 }
+      ]
+    },
+    {
+      "id": "25:6025000000000000",
+      "name": "ExtensionPayload",
+      "flags": 2,
+      "lastPropertyId": "7:6025000000000007",
+      "properties": [
+        { "id": "1:6025000000000001", "name": "id",            "type": 6, "flags": 1 },
+        { "id": "2:6025000000000002", "name": "vehicleId",     "type": 9, "flags": 8,
+          "indexId": "25:6025000000000100" },
+        { "id": "3:6025000000000003", "name": "ts",            "type": 6, "flags": 8,
+          "indexId": "26:6025000000000200" },
+        { "id": "4:6025000000000004", "name": "component",     "type": 9 },
+        { "id": "5:6025000000000005", "name": "schemaVersion", "type": 9 },
+        { "id": "6:6025000000000006", "name": "payloadJson",   "type": 9 },
+        { "id": "7:6025000000000007", "name": "syncClock",     "type": 6 }
       ]
     }
   ],
-  "lastEntityId": "4:2222333344445555777",
-  "lastIndexId": "5:5555555555555555555",
+  "lastEntityId": "25:6025000000000000",
+  "lastIndexId": "26:6025000000000200",
   "lastRelationId": "0:0",
   "retiredEntityUids": [],
   "retiredIndexUids": [],

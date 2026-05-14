@@ -117,47 +117,6 @@ services:
       timeout: 5s
       retries: 3
 
-  ollama:
-    image: ollama/ollama
-    container_name: ollama
-    restart: always
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-models:/root/.ollama
-    # Uncomment to enable GPU (requires NVIDIA Container Toolkit)
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
-    environment:
-      - OLLAMA_KEEP_ALIVE=-1
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        rm -f /tmp/model_loaded
-        ollama serve &
-        SERVER_PID=$$!
-        until ollama list > /dev/null 2>&1; do
-          echo "Waiting for Ollama..."
-          sleep 2
-        done
-        ollama pull llama3.1:8b
-        echo "Model pulled — loading into memory (this takes ~80s)..."
-        ollama run llama3.1:8b "hello" > /dev/null 2>&1 || true
-        touch /tmp/model_loaded
-        echo "Model loaded and ready"
-        wait $$SERVER_PID
-    healthcheck:
-      test: ["CMD", "test", "-f", "/tmp/model_loaded"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 30s
-
   navigation-service:
     build:
       context: ../navigation-service
@@ -166,12 +125,11 @@ services:
     restart: always
     ports:
       - "5001:5001"  # Navigation API
-    depends_on:
-      ollama:
-        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - OLLAMA_HOST=http://ollama:11434
-      - LLM_MODEL=llama3.1:8b
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - LLM_MODEL=qwen3:4b
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5001/health"]
       interval: 30s
@@ -205,9 +163,9 @@ services:
     restart: always
     ports:
       - "5002:5002"  # Agent API
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      ollama:
-        condition: service_healthy
       search-service:
         condition: service_started
       mongodb-search-service:
@@ -217,8 +175,8 @@ services:
       telemetry-mcp-server:
         condition: service_started
     environment:
-      - OLLAMA_HOST=http://ollama:11434
-      - LLM_MODEL=llama3.1:8b
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - LLM_MODEL=qwen3:4b
       - EMBEDDING_MODEL=voyageai/voyage-4-nano
       - SEARCH_SERVICE_URL=http://search-service:8080
       - MONGODB_SEARCH_SERVICE_URL=http://mongodb-search-service:8085
@@ -238,9 +196,9 @@ services:
     restart: always
     ports:
       - "5000:5000"  # Web UI
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      ollama:
-        condition: service_healthy
       search-service:
         condition: service_started
       conversation-service:
@@ -255,12 +213,69 @@ services:
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
       - AGENT_SERVICE_URL=http://langchain-agent-service:5002
       - TELEMETRY_SERVICE_URL=http://telemetry-service:8084
-      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_HOST=http://host.docker.internal:11434
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-volumes:
-  ollama-models:
+  vss-telemetry-service:
+    build:
+      context: ../vss-telemetry-service
+      dockerfile: Dockerfile
+    container_name: vss-telemetry-service
+    restart: always
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./vss-telemetry-data:/app/vss-db
+    depends_on:
+      - sync-server
+    environment:
+      - SYNC_SERVER_URL=ws://sync-server:9999
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  vss-telemetry-simulator:
+    build:
+      context: ../vss-telemetry-simulator
+      dockerfile: Dockerfile
+    container_name: vss-telemetry-simulator
+    restart: always
+    ports:
+      - "8087:8087"
+    depends_on:
+      - vss-telemetry-service
+    environment:
+      - VSS_TELEMETRY_SERVICE_URL=http://vss-telemetry-service:8086
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8087/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  vss-telemetry-mcp-server:
+    build:
+      context: ../vss-telemetry-mcp-server
+      dockerfile: Dockerfile
+    container_name: vss-telemetry-mcp-server
+    restart: always
+    ports:
+      - "3002:3002"
+    depends_on:
+      - sync-server
+    environment:
+      - MONGODB_URI=mongodb+srv://${MONGODB_USER}:${MONGODB_PASS}@${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true
+      - DATABASE_NAME=${MONGODB_DATABASE}
+      - MCP_TRANSPORT=sse
+      - PORT=3002
+      - VEHICLE_ID=VSS-DEMO-VIN-001
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

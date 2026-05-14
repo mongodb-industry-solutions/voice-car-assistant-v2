@@ -204,7 +204,7 @@ def api_navigate():
         resp = http_requests.post(
             f"{NAVIGATION_SERVICE_URL}/navigate",
             json=request.json,
-            timeout=35,
+            timeout=60,
         )
         try:
             data = resp.json()
@@ -225,11 +225,12 @@ def telemetry_chat():
     data = request.json or {}
     question        = data.get('question', '')
     conversation_id = data.get('conversation_id') or str(uuid.uuid4())
+    network_mode    = data.get('network_mode', 'online')
 
     if not question:
         return jsonify({'error': 'Question is required'}), 400
 
-    result = _call_agent(question, conversation_id)
+    result = _call_agent(question, conversation_id, user_location['lat'], user_location['lon'], network_mode)
     return jsonify({
         'answer':          result['answer'],
         'tools_used':      result.get('tools_used', []),
@@ -310,15 +311,13 @@ def handle_send_message(data):
     if agent_result.get('navigation'):
         emit('navigation_result', agent_result['navigation'])
 
-    # Start TTS synthesis in parallel with sending the answer to the client,
-    # so audio is ready sooner after the text appears.
+    # Start TTS synthesis in parallel with sending the answer to the client.
     sid = request.sid
-    if not agent_result.get('navigation'):
-        threading.Thread(
-            target=_push_tts,
-            args=(sid, answer),
-            daemon=True,
-        ).start()
+    threading.Thread(
+        target=_push_tts,
+        args=(sid, answer),
+        daemon=True,
+    ).start()
 
     emit('answer', {'text': answer, 'tools_used': agent_result.get('tools_used', [])})
     emit('status', {'state': 'ready', 'message': 'Ready'})

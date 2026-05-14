@@ -10,15 +10,15 @@ import time
 import uuid
 from typing import Optional
 
+import ollama as _ollama
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from sentence_transformers import SentenceTransformer
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import StructuredTool
-from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
 app = Flask(__name__)
@@ -27,7 +27,7 @@ CORS(app)
 # ── Service configuration ─────────────────────────────────────────────────────
 
 OLLAMA_HOST               = os.getenv("OLLAMA_HOST",               "http://localhost:11434")
-LLM_MODEL                 = os.getenv("LLM_MODEL",                 "llama3.1:8b")
+LLM_MODEL                 = os.getenv("LLM_MODEL",                 "qwen3:4b")
 EMBEDDING_MODEL           = os.getenv("EMBEDDING_MODEL",           "voyageai/voyage-4-nano")
 SEARCH_SERVICE_URL        = os.getenv("SEARCH_SERVICE_URL",        "http://localhost:8080")
 MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://localhost:8085")
@@ -54,7 +54,7 @@ _histories: dict = {}
 _SYSTEM_PROMPT = """\
 You are a unified intelligent car assistant with access to three capabilities:
 
-1. **Car Manual** (search_car_manual) — Answer questions about vehicle maintenance,
+1. **Car Manual** ({search_tool_name}) — Answer questions about vehicle maintenance,
    repairs, warning lights, specifications, and procedures.
 
 2. **Vehicle Telemetry** (MCP tools) — Check real-time sensor data: engine temperature,
@@ -80,7 +80,7 @@ MULTI-TOOL USE — use as many tools as the user's request requires:
 
 RULES — follow these exactly:
 
-• When search_car_manual returns text content, ALWAYS present that information to the
+• When {search_tool_name} returns text content, ALWAYS present that information to the
   user. Summarise it clearly. Never say you could not retrieve it.
 
 • Only say you were unable to retrieve data if the tool explicitly returns an error
@@ -94,6 +94,8 @@ RULES — follow these exactly:
 • Never output raw JSON or tool call objects. Always respond in plain human-readable
   language after using a tool.
 
+• Never mention page numbers from the car manual in your answers.
+
 When the user asks for a general car status or overview:
   → call get_anomalies to get all current warnings and issues across every system.
 
@@ -101,9 +103,11 @@ When the user asks to check a specific system (engine, battery, fuel, tires, tra
   → call check_system_status only. Do NOT search the car manual unless the user also
      asks how to fix it, what it means, or what to do about it.
 
-When the user asks how to fix, repair, or understand a warning or fault:
-  → search the car manual. Only also call check_system_status if you need the current
-     sensor reading to give a useful answer.
+When the user asks ANYTHING about their car — how to fix, repair, change, check,
+  understand a warning, or any maintenance procedure:
+  → ALWAYS call {search_tool_name} first. Never answer car questions from your own
+     knowledge. Only also call check_system_status if you need the current sensor
+     reading to give a useful answer.
 
 When the user asks to check a system AND navigate in the same message:
   • Step 1: call check_system_status
@@ -132,29 +136,18 @@ def _build_system_prompt(lat: Optional[float], lon: Optional[float], network_mod
             "The user's GPS location is not yet available. "
             "If navigation is requested, ask them to allow location access in the browser."
         )
+    is_online = network_mode == "online"
     telemetry = (
         "Available — use the MCP tools to answer telemetry questions"
-        if network_mode == "online"
+        if is_online
         else "NOT available in offline mode — tell the user to switch to online mode for live sensor data"
     )
-    return _SYSTEM_PROMPT.format(location_context=loc, telemetry_availability=telemetry)
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _is_raw_tool_call(text: str) -> bool:
-    """Return True if text is a leaked tool-call JSON (model forgot to invoke the tool)."""
-    stripped = text.strip()
-    if not stripped.startswith('{'):
-        return False
-    try:
-        decoder = json.JSONDecoder()
-        data, _ = decoder.raw_decode(stripped)
-        return isinstance(data, dict) and "name" in data and (
-            "parameters" in data or "arguments" in data
-        )
-    except Exception:
-        return False
+    search_tool = "search_car_manual_atlas" if is_online else "search_car_manual_objectbox"
+    return _SYSTEM_PROMPT.format(
+        location_context=loc,
+        telemetry_availability=telemetry,
+        search_tool_name=search_tool,
+    )
 
 
 # ── Tool helpers ──────────────────────────────────────────────────────────────
@@ -210,17 +203,44 @@ async def _run_with_tools(
     network_mode: str = "offline",
 ) -> dict:
     """
-    Custom ReAct loop that handles both native structured tool calls and models
-    (like llama3.1:8b via Ollama) that emit raw JSON tool calls in message content.
+    Agent loop using the Ollama client directly, bypassing LangChain's ChatOllama
+    which fails to parse qwen3 tool_calls when thinking is also present.
     """
-    llm = ChatOllama(model=LLM_MODEL, base_url=OLLAMA_HOST, temperature=0, timeout=120, keep_alive="10m")
-    llm_with_tools = llm.bind_tools(all_tools)
+    client = _ollama.AsyncClient(host=OLLAMA_HOST)
     tool_map = {t.name: t for t in all_tools}
 
+    # Convert tools to Ollama API format
+    ollama_tools = []
+    for t in all_tools:
+        if t.args_schema:
+            schema = t.args_schema.model_json_schema()
+            schema.pop("title", None)
+            for prop in schema.get("properties", {}).values():
+                prop.pop("title", None)
+        else:
+            schema = {"type": "object", "properties": {}}
+        ollama_tools.append({
+            "type": "function",
+            "function": {"name": t.name, "description": t.description, "parameters": schema},
+        })
+    print(f"[agent] tools sent to ollama: {[t['function']['name'] for t in ollama_tools]}", flush=True)
+
+    # Convert LangChain history to Ollama message dicts
+    def lc_to_ollama(lc_messages: list) -> list:
+        result = []
+        for m in lc_messages:
+            if isinstance(m, HumanMessage):
+                result.append({"role": "user",      "content": m.content or ""})
+            elif isinstance(m, AIMessage):
+                result.append({"role": "assistant", "content": m.content or ""})
+            elif isinstance(m, ToolMessage):
+                result.append({"role": "tool",      "content": m.content or ""})
+        return result
+
     messages = (
-        [SystemMessage(content=_build_system_prompt(lat, lon, network_mode))]
-        + history
-        + [HumanMessage(content=message)]
+        [{"role": "system", "content": _build_system_prompt(lat, lon, network_mode)}]
+        + lc_to_ollama(history)
+        + [{"role": "user", "content": message}]
     )
 
     tools_used: list[str] = []
@@ -228,67 +248,68 @@ async def _run_with_tools(
 
     for iteration in range(5):
         t0 = time.time()
-        response = await llm_with_tools.ainvoke(messages)
+        response = await client.chat(
+            model=LLM_MODEL,
+            messages=messages,
+            tools=ollama_tools,
+            options={"temperature": 0},
+            keep_alive="10m",
+        )
         print(f"[timing] LLM call #{iteration+1}: {time.time()-t0:.2f}s", flush=True)
-        content = response.content if isinstance(response.content, str) else ""
 
-        # Case 1: model used structured tool_calls (native support)
-        if getattr(response, "tool_calls", None):
-            messages.append(response)
-            all_unavailable = True
-            for tc in response.tool_calls:
-                tool = tool_map.get(tc["name"])
-                if tool:
-                    all_unavailable = False
-                    tools_used.append(tc["name"])
-                    try:
-                        t1 = time.time()
-                        result = await tool.ainvoke(tc["args"])
-                        print(f"[timing] tool '{tc['name']}': {time.time()-t1:.2f}s", flush=True)
-                    except Exception as e:
-                        result = f"Error: {e}"
-                else:
-                    print(f"[agent] tool '{tc['name']}' not available in {network_mode} mode", flush=True)
-                    result = (
-                        f"The tool '{tc['name']}' is not available in {network_mode} mode. "
-                        f"Tell the user this feature requires switching to online mode."
-                    )
-                messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
-            if all_unavailable:
-                answer = (
-                    "Live vehicle telemetry is not available in offline mode. "
-                    "Please switch to online mode to access real-time sensor data."
-                )
-                break
+        msg = response.message
+        thinking = getattr(msg, 'thinking', None)
+        print(f"[debug] content={repr(msg.content)[:80]} tool_calls={msg.tool_calls} thinking={repr(thinking)[:80] if thinking else None}", flush=True)
+
+        if msg.tool_calls:
+            # Process one tool call at a time so the LLM sees each result before deciding the next step
+            tc = msg.tool_calls[0]
+            messages.append({
+                "role": "assistant",
+                "content": msg.content or "",
+                "tool_calls": [
+                    {"function": {"name": tc.function.name, "arguments": dict(tc.function.arguments)}}
+                ],
+            })
+            tool = tool_map.get(tc.function.name)
+            tools_used.append(tc.function.name)
+            if tool:
+                try:
+                    t1 = time.time()
+                    result = await tool.ainvoke(dict(tc.function.arguments))
+                    print(f"[timing] tool '{tc.function.name}': {time.time()-t1:.2f}s", flush=True)
+                except Exception as e:
+                    result = f"Error: {e}"
+            else:
+                print(f"[agent] tool '{tc.function.name}' not available in {network_mode} mode", flush=True)
+                result = "Live vehicle telemetry is not available in offline mode. Please switch to online mode."
+            messages.append({"role": "tool", "content": str(result)})
             continue
 
-        # Case 2: model emitted a raw JSON tool call in content
-        if _is_raw_tool_call(content):
-            tool_call_data, _ = json.JSONDecoder().raw_decode(content.strip())
-            tool_name = tool_call_data.get("name")
-            tool_args = tool_call_data.get("parameters") or tool_call_data.get("arguments") or {}
-            tool = tool_map.get(tool_name)
-            if tool:
-                tools_used.append(tool_name)
-                print(f"[agent] raw tool call detected: {tool_name}({tool_args})", flush=True)
-                try:
-                    result = await tool.ainvoke(tool_args)
-                except Exception as e:
-                    result = f"Error calling {tool_name}: {e}"
-                messages.append(AIMessage(content=content))
-                messages.append(HumanMessage(
-                    content=f"Tool result for {tool_name}: {result}\n\nNow give a concise, helpful response based on this data."
-                ))
-                continue
-            # Tool not available in current mode — respond directly without re-invoking LLM
-            print(f"[agent] tool '{tool_name}' not available in {network_mode} mode", flush=True)
-            answer = (
-                "Live vehicle telemetry is not available in offline mode. "
-                "Please switch to online mode to access real-time sensor data."
-            )
-            break
+        # qwen3 sometimes outputs tool calls as raw JSON text instead of tool_calls
+        content = msg.content or ""
+        if content:
+            try:
+                parsed = json.loads(content)
+                if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
+                    name = parsed["name"]
+                    arguments = parsed["arguments"]
+                    tool = tool_map.get(name)
+                    if tool:
+                        print(f"[agent] raw JSON tool call detected: {name}", flush=True)
+                        tools_used.append(name)
+                        messages.append({"role": "assistant", "content": content})
+                        try:
+                            t1 = time.time()
+                            result = await tool.ainvoke(arguments)
+                            print(f"[timing] tool '{name}': {time.time()-t1:.2f}s", flush=True)
+                        except Exception as e:
+                            result = f"Error: {e}"
+                        messages.append({"role": "tool", "content": str(result)})
+                        continue
+            except (json.JSONDecodeError, TypeError):
+                pass
 
-        # Case 3: plain response — done
         answer = content
         break
 
@@ -320,7 +341,7 @@ async def run_agent(
             resp = _http.post(
                 f"{NAVIGATION_SERVICE_URL}/navigate",
                 json={"query": destination, "lat": lat, "lon": lon},
-                timeout=35,
+                timeout=60,
             )
             if resp.ok:
                 data = resp.json()

@@ -28,10 +28,11 @@ CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ── Service URLs ──────────────────────────────────────────────────────────────
-CONVERSATION_SERVICE_URL = os.getenv("CONVERSATION_SERVICE_URL", "http://localhost:8081")
-NAVIGATION_SERVICE_URL   = os.getenv("NAVIGATION_SERVICE_URL",   "http://localhost:5001")
-AGENT_SERVICE_URL        = os.getenv("AGENT_SERVICE_URL",        "http://localhost:5002")
-TELEMETRY_SERVICE_URL    = os.getenv("TELEMETRY_SERVICE_URL",    "http://localhost:8084")
+CONVERSATION_SERVICE_URL  = os.getenv("CONVERSATION_SERVICE_URL",  "http://localhost:8081")
+NAVIGATION_SERVICE_URL    = os.getenv("NAVIGATION_SERVICE_URL",    "http://localhost:5001")
+AGENT_SERVICE_URL         = os.getenv("AGENT_SERVICE_URL",         "http://localhost:5002")
+VSS_TELEMETRY_SERVICE_URL = os.getenv("VSS_TELEMETRY_SERVICE_URL", "http://localhost:8086")
+VSS_SIMULATOR_URL         = os.getenv("VSS_SIMULATOR_URL",         "http://localhost:8087")
 
 # ── Piper TTS (binary, fully offline) ────────────────────────────────────────
 import subprocess as _subprocess
@@ -177,22 +178,52 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/telemetry')
-def telemetry():
-    return render_template('telemetry.html')
-
-
-
-@app.route('/api/telemetry/latest')
-def api_telemetry_latest():
-    """Proxy latest telemetry snapshot from the telemetry service."""
+@app.route('/api/vss/latest')
+def api_vss_latest():
+    """Proxy latest VSS state from the VSS telemetry service."""
     try:
-        resp = http_requests.get(f"{TELEMETRY_SERVICE_URL}/telemetry/latest", timeout=3)
+        resp = http_requests.get(f"{VSS_TELEMETRY_SERVICE_URL}/vss/latest", timeout=3)
         if not resp.ok:
             return jsonify({"error": f"HTTP {resp.status_code}"}), resp.status_code
         return jsonify(resp.json())
     except http_requests.exceptions.ConnectionError:
-        return jsonify({"error": "Telemetry service unavailable"}), 503
+        return jsonify({"error": "VSS telemetry service unavailable"}), 503
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/vss/simulator/start', methods=['POST'])
+def api_vss_simulator_start():
+    """Proxy simulator start to the VSS simulator."""
+    try:
+        resp = http_requests.post(f"{VSS_SIMULATOR_URL}/simulator/start", json=request.json or {}, timeout=10)
+        return jsonify(resp.json()), resp.status_code
+    except http_requests.exceptions.ConnectionError:
+        return jsonify({"error": "VSS simulator unavailable"}), 503
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/vss/simulator/stop', methods=['POST'])
+def api_vss_simulator_stop():
+    """Proxy simulator stop to the VSS simulator."""
+    try:
+        resp = http_requests.post(f"{VSS_SIMULATOR_URL}/simulator/stop", timeout=10)
+        return jsonify(resp.json()), resp.status_code
+    except http_requests.exceptions.ConnectionError:
+        return jsonify({"error": "VSS simulator unavailable"}), 503
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/vss/simulator/status')
+def api_vss_simulator_status():
+    """Proxy simulator status from the VSS simulator."""
+    try:
+        resp = http_requests.get(f"{VSS_SIMULATOR_URL}/simulator/status", timeout=3)
+        return jsonify(resp.json()), resp.status_code
+    except http_requests.exceptions.ConnectionError:
+        return jsonify({"error": "VSS simulator unavailable", "running": False}), 503
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -217,26 +248,6 @@ def api_navigate():
         return jsonify({"error": "Navigation request timed out"}), 504
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/telemetry/chat', methods=['POST'])
-def telemetry_chat():
-    """Telemetry dashboard chat — routed through the unified agent."""
-    data = request.json or {}
-    question        = data.get('question', '')
-    conversation_id = data.get('conversation_id') or str(uuid.uuid4())
-    network_mode    = data.get('network_mode', 'online')
-
-    if not question:
-        return jsonify({'error': 'Question is required'}), 400
-
-    result = _call_agent(question, conversation_id, user_location['lat'], user_location['lon'], network_mode)
-    return jsonify({
-        'answer':          result['answer'],
-        'tools_used':      result.get('tools_used', []),
-        'conversation_id': conversation_id,
-        'success':         True,
-    })
 
 
 # ── SocketIO events ───────────────────────────────────────────────────────────

@@ -403,42 +403,65 @@ std::shared_ptr<obx::Store> init_store(const Config& cfg) {
     }
 }
 
+// ── Helper: pick entity with highest updatedAt from a vector ─────────────────
+template<typename T>
+static obx_id latest_id(const std::vector<T>& v) {
+    if (v.empty()) return 0;
+    auto it = std::max_element(v.begin(), v.end(),
+        [](const T& a, const T& b){ return a.updatedAt < b.updatedAt; });
+    return it->id;
+}
+
+// Remove all entities in v except the one with the given id
+template<typename T>
+static void remove_stale(obx::Box<T>& box, const std::vector<T>& v, obx_id keep_id) {
+    for (const auto& e : v) {
+        if (e.id != keep_id) box.remove(e.id);
+    }
+}
+
 // ── State IDs initialization ──────────────────────────────────────────────────
 void init_state_ids(StateIds& ids, obx::Store& store, const std::string& vid) {
     {
         auto box = store.box<VehicleAttributeState>();
         auto r = box.query(VehicleAttributeState_::vehicleId.equals(vid)).build().find();
-        if (!r.empty()) ids.vehicle_attr = r[0].id;
+        ids.vehicle_attr = latest_id(r);
     }
     {
         auto box = store.box<PowertrainState>();
         auto r = box.query(PowertrainState_::vehicleId.equals(vid)).build().find();
-        if (!r.empty()) ids.powertrain = r[0].id;
+        ids.powertrain = latest_id(r);
+        if (r.size() > 1) { remove_stale(box, r, ids.powertrain); std::cout << "🧹 Pruned stale PowertrainState duplicates\n"; }
     }
     {
         auto box = store.box<BatteryState>();
         auto r = box.query(BatteryState_::vehicleId.equals(vid)).build().find();
-        if (!r.empty()) ids.battery = r[0].id;
+        ids.battery = latest_id(r);
+        if (r.size() > 1) { remove_stale(box, r, ids.battery); std::cout << "🧹 Pruned stale BatteryState duplicates\n"; }
     }
     {
         auto box = store.box<ChassisState>();
         auto r = box.query(ChassisState_::vehicleId.equals(vid)).build().find();
-        if (!r.empty()) ids.chassis = r[0].id;
+        ids.chassis = latest_id(r);
+        if (r.size() > 1) { remove_stale(box, r, ids.chassis); std::cout << "🧹 Pruned stale ChassisState duplicates\n"; }
     }
     {
         auto box = store.box<CabinState>();
         auto r = box.query(CabinState_::vehicleId.equals(vid)).build().find();
-        if (!r.empty()) ids.cabin = r[0].id;
+        ids.cabin = latest_id(r);
+        if (r.size() > 1) { remove_stale(box, r, ids.cabin); std::cout << "🧹 Pruned stale CabinState duplicates\n"; }
     }
     {
         auto box = store.box<LocationState>();
         auto r = box.query(LocationState_::vehicleId.equals(vid)).build().find();
-        if (!r.empty()) ids.location = r[0].id;
+        ids.location = latest_id(r);
+        if (r.size() > 1) { remove_stale(box, r, ids.location); std::cout << "🧹 Pruned stale LocationState duplicates\n"; }
     }
     {
         auto box = store.box<AdasState>();
         auto r = box.query(AdasState_::vehicleId.equals(vid)).build().find();
-        if (!r.empty()) ids.adas = r[0].id;
+        ids.adas = latest_id(r);
+        if (r.size() > 1) { remove_stale(box, r, ids.adas); std::cout << "🧹 Pruned stale AdasState duplicates\n"; }
     }
 }
 
@@ -594,6 +617,7 @@ int main(int argc, char* argv[]) {
             if (body.contains("powertrain")) {
                 const auto& p = body["powertrain"];
                 PowertrainState s;
+                if (state_ids.powertrain) { auto e = pt_box.get(state_ids.powertrain); if (e) s = *e; }
                 s.id          = state_ids.powertrain;
                 s.vehicleId   = vid;
                 s.updatedAt   = ts;
@@ -622,6 +646,7 @@ int main(int argc, char* argv[]) {
             if (body.contains("battery")) {
                 const auto& p = body["battery"];
                 BatteryState s;
+                if (state_ids.battery) { auto e = bat_box.get(state_ids.battery); if (e) s = *e; }
                 s.id               = state_ids.battery;
                 s.vehicleId        = vid;  s.updatedAt = ts;
                 s.socPct           = jf(p,"socPct");
@@ -648,6 +673,7 @@ int main(int argc, char* argv[]) {
             if (body.contains("chassis")) {
                 const auto& p = body["chassis"];
                 ChassisState s;
+                if (state_ids.chassis) { auto e = ch_box.get(state_ids.chassis); if (e) s = *e; }
                 s.id                    = state_ids.chassis;
                 s.vehicleId             = vid;  s.updatedAt = ts;
                 s.steeringAngleDeg      = jf(p,"steeringAngleDeg");
@@ -665,6 +691,7 @@ int main(int argc, char* argv[]) {
             if (body.contains("cabin")) {
                 const auto& p = body["cabin"];
                 CabinState s;
+                if (state_ids.cabin) { auto e = cab_box.get(state_ids.cabin); if (e) s = *e; }
                 s.id                    = state_ids.cabin;
                 s.vehicleId             = vid;  s.updatedAt = ts;
                 s.insideTempC           = jf(p,"insideTempC");
@@ -690,6 +717,7 @@ int main(int argc, char* argv[]) {
             if (body.contains("location")) {
                 const auto& p = body["location"];
                 LocationState s;
+                if (state_ids.location) { auto e = loc_box.get(state_ids.location); if (e) s = *e; }
                 s.id        = state_ids.location;
                 s.vehicleId = vid;  s.updatedAt = ts;
                 s.latitude  = jd(p,"latitude");
@@ -713,6 +741,7 @@ int main(int argc, char* argv[]) {
             if (body.contains("adas")) {
                 const auto& p = body["adas"];
                 AdasState s;
+                if (state_ids.adas) { auto e = adas_box.get(state_ids.adas); if (e) s = *e; }
                 s.id                    = state_ids.adas;
                 s.vehicleId             = vid;  s.updatedAt = ts;
                 s.cruiseEnabled         = jb(p,"cruiseEnabled");
@@ -784,71 +813,90 @@ int main(int argc, char* argv[]) {
             out["vehicle_id"] = VEHICLE_ID;
             out["ts"]         = now_ms();
 
-            auto ps = pt_box.query(PowertrainState_::vehicleId.equals(VEHICLE_ID)).build().find();
-            if (!ps.empty()) {
-                auto& p = ps[0];
-                out["powertrain"] = {
-                    {"speedKph",p.speedKph},{"engineRpm",p.engineRpm},
-                    {"fuelLevelPct",p.fuelLevelPct},{"coolantTempC",p.coolantTempC},
-                    {"throttlePct",p.throttlePct},{"gear",p.gear},
-                    {"ignitionOn",p.ignitionOn},{"odometerKm",p.odometerKm},
-                    {"updatedAt",p.updatedAt}
-                };
+            {
+                auto ps = pt_box.query(PowertrainState_::vehicleId.equals(VEHICLE_ID)).build().find();
+                auto id = latest_id(ps);
+                if (id) {
+                    auto it = std::find_if(ps.begin(), ps.end(), [id](const auto& e){ return e.id == id; });
+                    auto& p = *it;
+                    out["powertrain"] = {
+                        {"speedKph",p.speedKph},{"engineRpm",p.engineRpm},
+                        {"fuelLevelPct",p.fuelLevelPct},{"coolantTempC",p.coolantTempC},
+                        {"throttlePct",p.throttlePct},{"gear",p.gear},
+                        {"ignitionOn",p.ignitionOn},{"odometerKm",p.odometerKm},
+                        {"updatedAt",p.updatedAt}
+                    };
+                }
             }
-
-            auto bs = bat_box.query(BatteryState_::vehicleId.equals(VEHICLE_ID)).build().find();
-            if (!bs.empty()) {
-                auto& b = bs[0];
-                out["battery"] = {
-                    {"socPct",b.socPct},{"sohPct",b.sohPct},
-                    {"voltageV",b.voltageV},{"currentA",b.currentA},
-                    {"batteryTempC",b.batteryTempC},{"chargingState",b.chargingState},
-                    {"estimatedRangeKm",b.estimatedRangeKm},{"updatedAt",b.updatedAt}
-                };
+            {
+                auto bs = bat_box.query(BatteryState_::vehicleId.equals(VEHICLE_ID)).build().find();
+                auto id = latest_id(bs);
+                if (id) {
+                    auto it = std::find_if(bs.begin(), bs.end(), [id](const auto& e){ return e.id == id; });
+                    auto& b = *it;
+                    out["battery"] = {
+                        {"socPct",b.socPct},{"sohPct",b.sohPct},
+                        {"voltageV",b.voltageV},{"currentA",b.currentA},
+                        {"batteryTempC",b.batteryTempC},{"chargingState",b.chargingState},
+                        {"estimatedRangeKm",b.estimatedRangeKm},{"updatedAt",b.updatedAt}
+                    };
+                }
             }
-
-            auto cs = ch_box.query(ChassisState_::vehicleId.equals(VEHICLE_ID)).build().find();
-            if (!cs.empty()) {
-                auto& c = cs[0];
-                out["chassis"] = {
-                    {"tirePressureFlKpa",c.tirePressureFlKpa},{"tirePressureFrKpa",c.tirePressureFrKpa},
-                    {"tirePressureRlKpa",c.tirePressureRlKpa},{"tirePressureRrKpa",c.tirePressureRrKpa},
-                    {"steeringAngleDeg",c.steeringAngleDeg},{"brakePedalPct",c.brakePedalPct},
-                    {"absActive",c.absActive},{"tractionControlActive",c.tractionControlActive},
-                    {"updatedAt",c.updatedAt}
-                };
+            {
+                auto cs = ch_box.query(ChassisState_::vehicleId.equals(VEHICLE_ID)).build().find();
+                auto id = latest_id(cs);
+                if (id) {
+                    auto it = std::find_if(cs.begin(), cs.end(), [id](const auto& e){ return e.id == id; });
+                    auto& c = *it;
+                    out["chassis"] = {
+                        {"tirePressureFlKpa",c.tirePressureFlKpa},{"tirePressureFrKpa",c.tirePressureFrKpa},
+                        {"tirePressureRlKpa",c.tirePressureRlKpa},{"tirePressureRrKpa",c.tirePressureRrKpa},
+                        {"steeringAngleDeg",c.steeringAngleDeg},{"brakePedalPct",c.brakePedalPct},
+                        {"absActive",c.absActive},{"tractionControlActive",c.tractionControlActive},
+                        {"updatedAt",c.updatedAt}
+                    };
+                }
             }
-
-            auto cab = cab_box.query(CabinState_::vehicleId.equals(VEHICLE_ID)).build().find();
-            if (!cab.empty()) {
-                auto& c = cab[0];
-                out["cabin"] = {
-                    {"insideTempC",c.insideTempC},{"outsideTempC",c.outsideTempC},
-                    {"hvacMode",c.hvacMode},{"fanSpeed",c.fanSpeed},
-                    {"driverDoorOpen",c.driverDoorOpen},{"doorsLocked",c.doorsLocked},
-                    {"seatbeltDriverFastened",c.seatbeltDriverFastened},{"updatedAt",c.updatedAt}
-                };
+            {
+                auto cab = cab_box.query(CabinState_::vehicleId.equals(VEHICLE_ID)).build().find();
+                auto id = latest_id(cab);
+                if (id) {
+                    auto it = std::find_if(cab.begin(), cab.end(), [id](const auto& e){ return e.id == id; });
+                    auto& c = *it;
+                    out["cabin"] = {
+                        {"insideTempC",c.insideTempC},{"outsideTempC",c.outsideTempC},
+                        {"hvacMode",c.hvacMode},{"fanSpeed",c.fanSpeed},
+                        {"driverDoorOpen",c.driverDoorOpen},{"doorsLocked",c.doorsLocked},
+                        {"seatbeltDriverFastened",c.seatbeltDriverFastened},{"updatedAt",c.updatedAt}
+                    };
+                }
             }
-
-            auto ls = loc_box.query(LocationState_::vehicleId.equals(VEHICLE_ID)).build().find();
-            if (!ls.empty()) {
-                auto& l = ls[0];
-                out["location"] = {
-                    {"latitude",l.latitude},{"longitude",l.longitude},
-                    {"altitudeM",l.altitudeM},{"headingDeg",l.headingDeg},
-                    {"speedKph",l.speedKph},{"geohash",l.geohash},{"updatedAt",l.updatedAt}
-                };
+            {
+                auto ls = loc_box.query(LocationState_::vehicleId.equals(VEHICLE_ID)).build().find();
+                auto id = latest_id(ls);
+                if (id) {
+                    auto it = std::find_if(ls.begin(), ls.end(), [id](const auto& e){ return e.id == id; });
+                    auto& l = *it;
+                    out["location"] = {
+                        {"latitude",l.latitude},{"longitude",l.longitude},
+                        {"altitudeM",l.altitudeM},{"headingDeg",l.headingDeg},
+                        {"speedKph",l.speedKph},{"geohash",l.geohash},{"updatedAt",l.updatedAt}
+                    };
+                }
             }
-
-            auto as = adas_box.query(AdasState_::vehicleId.equals(VEHICLE_ID)).build().find();
-            if (!as.empty()) {
-                auto& a = as[0];
-                out["adas"] = {
-                    {"cruiseEnabled",a.cruiseEnabled},{"cruiseSetSpeedKph",a.cruiseSetSpeedKph},
-                    {"laneKeepAssistOn",a.laneKeepAssistOn},{"parkingAssistOn",a.parkingAssistOn},
-                    {"collisionWarningActive",a.collisionWarningActive},
-                    {"autopilotMode",a.autopilotMode},{"updatedAt",a.updatedAt}
-                };
+            {
+                auto as = adas_box.query(AdasState_::vehicleId.equals(VEHICLE_ID)).build().find();
+                auto id = latest_id(as);
+                if (id) {
+                    auto it = std::find_if(as.begin(), as.end(), [id](const auto& e){ return e.id == id; });
+                    auto& a = *it;
+                    out["adas"] = {
+                        {"cruiseEnabled",a.cruiseEnabled},{"cruiseSetSpeedKph",a.cruiseSetSpeedKph},
+                        {"laneKeepAssistOn",a.laneKeepAssistOn},{"parkingAssistOn",a.parkingAssistOn},
+                        {"collisionWarningActive",a.collisionWarningActive},
+                        {"autopilotMode",a.autopilotMode},{"updatedAt",a.updatedAt}
+                    };
+                }
             }
 
             res.set_content(out.dump(), "application/json");

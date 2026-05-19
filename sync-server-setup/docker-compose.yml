@@ -62,60 +62,7 @@ services:
       timeout: 5s
       retries: 3
 
-  telemetry-service:
-    build:
-      context: ../telemetry-service
-      dockerfile: Dockerfile
-    container_name: telemetry-service
-    restart: always
-    ports:
-      - "8084:8084"  # Telemetry API
-    volumes:
-      - ./telemetry-data:/app/telemetry-db
-    depends_on:
-      - sync-server
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8084/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
-  telemetry-simulator:
-    build:
-      context: ../telemetry-simulator
-      dockerfile: Dockerfile
-    container_name: telemetry-simulator
-    restart: always
-    ports:
-      - "8082:8082"  # Simulator API
-    depends_on:
-      - telemetry-service
-    environment:
-      - TELEMETRY_SERVICE_URL=http://telemetry-service:8084
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
-  telemetry-mcp-server:
-    build:
-      context: ../telemetry-mcp-server
-      dockerfile: Dockerfile
-    container_name: telemetry-mcp-server
-    restart: always
-    ports:
-      - "3001:3001"  # MCP SSE endpoint
-    environment:
-      - MONGODB_URI=mongodb+srv://${MONGODB_USER}:${MONGODB_PASS}@${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true
-      - DATABASE_NAME=${MONGODB_DATABASE}
-      - MCP_TRANSPORT=sse
-      - PORT=3001
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
   navigation-service:
     build:
@@ -172,7 +119,7 @@ services:
         condition: service_started
       navigation-service:
         condition: service_started
-      telemetry-mcp-server:
+      vss-telemetry-mcp-server:
         condition: service_started
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
@@ -181,7 +128,7 @@ services:
       - SEARCH_SERVICE_URL=http://search-service:8080
       - MONGODB_SEARCH_SERVICE_URL=http://mongodb-search-service:8085
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
-      - TELEMETRY_MCP_URL=http://telemetry-mcp-server:3001
+      - VSS_TELEMETRY_MCP_URL=http://vss-telemetry-mcp-server:3002
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5002/health"]
       interval: 30s
@@ -212,7 +159,8 @@ services:
       - CONVERSATION_SERVICE_URL=http://conversation-service:8081
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
       - AGENT_SERVICE_URL=http://langchain-agent-service:5002
-      - TELEMETRY_SERVICE_URL=http://telemetry-service:8084
+      - VSS_TELEMETRY_SERVICE_URL=http://vss-telemetry-service:8086
+      - VSS_SIMULATOR_URL=http://vss-telemetry-simulator:8087
       - OLLAMA_HOST=http://host.docker.internal:11434
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000"]

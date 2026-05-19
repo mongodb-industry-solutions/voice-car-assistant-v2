@@ -427,12 +427,12 @@ function updateDashboard(data) {
         if (el) el.textContent = `${Math.round(pt.odometerKm).toLocaleString()} km`;
     }
 
-    // Battery SoC arc
+    // Battery SoC bar
     if (bat.socPct != null) {
         const st = battSocStatus(bat.socPct);
-        updateArc('batt-arc', bat.socPct, 100, ARC_C_MINI);
+        updateBar('batt-arc', bat.socPct);
         const el = document.getElementById('batt-pct');
-        if (el) el.textContent = bat.socPct.toFixed(0);
+        if (el) el.textContent = bat.socPct.toFixed(0) + '%';
         applyColor('batt-arc', statusColor(st));
     }
     if (bat.voltageV != null) {

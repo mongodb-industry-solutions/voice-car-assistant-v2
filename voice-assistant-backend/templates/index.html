@@ -51,39 +51,39 @@
                     </svg>
                     <span class="telem-val" id="throttle-val">--%</span>
                 </div>
-                <div class="telem-row">
-                    <span class="telem-label">ODOMETER</span>
-                    <span class="telem-val" id="odometer-val">-- km</span>
+                <div class="batt-tile odo-tile">
+                    <span class="batt-tile-label">ODOMETER</span>
+                    <span class="batt-tile-val" id="odometer-val">-- km</span>
                 </div>
             </div>
 
             <!-- Battery -->
             <div class="telem-group">
                 <div class="telem-group-title">⚡ BATTERY</div>
-                <div class="battery-widget">
-                    <svg viewBox="0 0 100 72" class="mini-arc-svg">
-                        <circle cx="50" cy="52" r="38" class="arc-track" transform="rotate(150,50,52)"/>
-                        <circle cx="50" cy="52" r="38" class="arc-fill"  id="batt-arc" transform="rotate(150,50,52)"/>
-                        <text x="50" y="47" class="arc-num-sm" id="batt-pct">--</text>
-                        <text x="50" y="61" class="arc-lbl-sm">%</text>
+                <div class="telem-row">
+                    <span class="telem-label">SOC</span>
+                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
+                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
+                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="batt-arc"/>
                     </svg>
-                    <div class="battery-details">
-                        <div class="batt-row">
-                            <span class="telem-label">VOLTAGE</span>
-                            <span class="telem-val" id="batt-v">--V</span>
-                        </div>
-                        <div class="batt-row">
-                            <span class="telem-label">HEALTH</span>
-                            <span class="telem-val" id="batt-health">--%</span>
-                        </div>
-                        <div class="batt-row">
-                            <span class="telem-label">RANGE</span>
-                            <span class="telem-val" id="batt-range">-- km</span>
-                        </div>
-                        <div class="batt-row">
-                            <span class="telem-label">CHARGING</span>
-                            <span class="telem-val" id="batt-charging">--</span>
-                        </div>
+                    <span class="telem-val" id="batt-pct">--%</span>
+                </div>
+                <div class="batt-grid">
+                    <div class="batt-tile">
+                        <span class="batt-tile-label">VOLTAGE</span>
+                        <span class="batt-tile-val" id="batt-v">--V</span>
+                    </div>
+                    <div class="batt-tile">
+                        <span class="batt-tile-label">HEALTH</span>
+                        <span class="batt-tile-val" id="batt-health">--%</span>
+                    </div>
+                    <div class="batt-tile">
+                        <span class="batt-tile-label">RANGE</span>
+                        <span class="batt-tile-val" id="batt-range">-- km</span>
+                    </div>
+                    <div class="batt-tile">
+                        <span class="batt-tile-label">CHARGING</span>
+                        <span class="batt-tile-val" id="batt-charging">--</span>
                     </div>
                 </div>
             </div>
@@ -225,13 +225,15 @@
             <!-- Chassis -->
             <div class="telem-group">
                 <div class="telem-group-title">🔧 CHASSIS</div>
-                <div class="telem-row">
-                    <span class="telem-label">ABS</span>
-                    <span class="telem-val" id="abs-val">--</span>
-                </div>
-                <div class="telem-row">
-                    <span class="telem-label">TRACTION</span>
-                    <span class="telem-val" id="esc-val">--</span>
+                <div class="batt-grid">
+                    <div class="batt-tile">
+                        <span class="batt-tile-label">ABS</span>
+                        <span class="batt-tile-val" id="abs-val">--</span>
+                    </div>
+                    <div class="batt-tile">
+                        <span class="batt-tile-label">TRACTION</span>
+                        <span class="batt-tile-val" id="esc-val">--</span>
+                    </div>
                 </div>
                 <div class="telem-row">
                     <span class="telem-label">BRAKE</span>
@@ -250,13 +252,15 @@
                     <span class="telem-label">CRUISE</span>
                     <span class="telem-val" id="adas-cruise">--</span>
                 </div>
-                <div class="telem-row">
-                    <span class="telem-label">LANE KEEP</span>
-                    <span class="telem-val" id="adas-lka">--</span>
-                </div>
-                <div class="telem-row">
-                    <span class="telem-label">COLLISION</span>
-                    <span class="telem-val" id="adas-collision">--</span>
+                <div class="batt-grid">
+                    <div class="batt-tile">
+                        <span class="batt-tile-label">LANE KEEP</span>
+                        <span class="batt-tile-val" id="adas-lka">--</span>
+                    </div>
+                    <div class="batt-tile">
+                        <span class="batt-tile-label">COLLISION</span>
+                        <span class="batt-tile-val" id="adas-collision">--</span>
+                    </div>
                 </div>
             </div>
 

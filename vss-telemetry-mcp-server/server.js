@@ -99,22 +99,25 @@ async function get_vehicle_status() {
   lines.push("=".repeat(50));
 
   if (meta) {
-    lines.push(`VIN: ${meta.vin || "N/A"}  Model: ${meta.model || "N/A"}  Year: ${meta.year || "N/A"}`);
+    lines.push(`OEM: ${meta.oem || "N/A"}  Model: ${meta.model || "N/A"}  VIN: ${meta.vin || "N/A"}`);
+    lines.push(`Powertrain: ${meta.powertrainType || "N/A"}  Drivetrain: ${meta.drivetrainType || "N/A"}  Wheelbase: ${meta.wheelbaseMm ?? "N/A"} mm  Curb Weight: ${meta.curbWeightKg ?? "N/A"} kg`);
+    lines.push(`Fuel Tank: ${meta.fuelTankCapacityL ?? "N/A"} L  Battery Capacity: ${meta.batteryCapacityKwh ?? "N/A"} kWh`);
   }
   if (powertrain) {
-    lines.push(`Speed: ${powertrain.speedKmh ?? "N/A"} km/h  RPM: ${powertrain.engineRpm ?? "N/A"}  Fuel: ${powertrain.fuelLevelPct ?? "N/A"}%`);
+    lines.push(`Speed: ${powertrain.speedKph ?? "N/A"} km/h  RPM: ${powertrain.engineRpm ?? "N/A"}  Fuel: ${powertrain.fuelLevelPct ?? "N/A"}%`);
   }
   if (battery) {
-    lines.push(`Battery SOC: ${battery.socPct ?? "N/A"}%  Est. Range: ${battery.estimatedRangeKm ?? "N/A"} km  Charging: ${battery.isCharging ?? "N/A"}`);
+    const charging = battery.chargingState === "charging" ? "charging" : "not charging";
+    lines.push(`Battery SOC: ${battery.socPct ?? "N/A"}%  Est. Range: ${battery.estimatedRangeKm ?? "N/A"} km  Charging: ${charging}`);
   }
   if (location) {
-    lines.push(`Location: ${location.lat ?? "N/A"}, ${location.lon ?? "N/A"}  Heading: ${location.headingDeg ?? "N/A"}°`);
+    lines.push(`Location: ${location.latitude ?? "N/A"}, ${location.longitude ?? "N/A"}  Heading: ${location.headingDeg ?? "N/A"}°`);
   }
   if (cabin) {
-    lines.push(`Cabin Temp: ${cabin.tempSetpointC ?? "N/A"}°C  HVAC: ${cabin.hvacOn ?? "N/A"}`);
+    lines.push(`Interior Temp: ${cabin.insideTempC ?? "N/A"}°C  HVAC: ${cabin.hvacMode ?? "N/A"}`);
   }
   if (adas) {
-    lines.push(`Cruise Control: ${adas.cruiseControlActive ?? "N/A"}  LKA: ${adas.laneKeepActive ?? "N/A"}  Collision Warning: ${adas.collisionWarning ?? "N/A"}`);
+    lines.push(`Cruise Control: ${adas.cruiseEnabled ?? "N/A"}  LKA: ${adas.laneKeepAssistOn ?? "N/A"}  Collision Warning: ${adas.collisionWarningActive ?? "N/A"}`);
   }
 
   lines.push("", "Full data:", fmt(summary));
@@ -132,15 +135,15 @@ async function get_powertrain_status() {
   const lines = [
     `Powertrain Status — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Speed:         ${doc.speedKmh             ?? "N/A"} km/h`,
+    `Speed:         ${doc.speedKph             ?? "N/A"} km/h`,
     `Engine RPM:    ${doc.engineRpm            ?? "N/A"} rpm`,
     `Fuel Level:    ${doc.fuelLevelPct         ?? "N/A"} %`,
     `Coolant Temp:  ${doc.coolantTempC         ?? "N/A"} °C${doc.coolantTempC != null ? (doc.coolantTempC > 110 ? "  ⚠ OVERHEATING" : doc.coolantTempC > 95 ? "  (warm)" : "  (normal)") : ""}`,
-    `Transmission:  ${doc.transmissionGear     ?? "N/A"}`,
+    `Gear:          ${doc.gear                 ?? "N/A"}`,
     `Throttle:      ${doc.throttlePct          ?? "N/A"} %`,
     `Odometer:      ${doc.odometerKm           ?? "N/A"} km`,
-    `Engine On:     ${doc.engineOn             ?? "N/A"}`,
-    `Last Updated:  ${doc.ts != null ? new Date(doc.ts).toISOString() : "N/A"}`,
+    `Ignition On:   ${doc.ignitionOn           ?? "N/A"}`,
+    `Last Updated:  ${doc.updatedAt != null ? new Date(doc.updatedAt).toISOString() : "N/A"}`,
     "",
     "Raw document:",
     fmt(doc),
@@ -156,8 +159,9 @@ async function get_battery_status() {
   );
   if (!doc) return noData("BatteryState");
 
-  const chargingStatus = doc.isCharging
-    ? `Charging at ${doc.chargeRateKw ?? "N/A"} kW`
+  const isCharging = doc.chargingState === "charging";
+  const chargingStatus = isCharging
+    ? `Charging at ${doc.chargingPowerKw ?? "N/A"} kW`
     : "Not charging";
 
   const socLabel =
@@ -176,10 +180,9 @@ async function get_battery_status() {
     `Charging Status: ${chargingStatus}`,
     `Voltage:         ${doc.voltageV           ?? "N/A"} V`,
     `Current:         ${doc.currentA           ?? "N/A"} A`,
-    `Temp:            ${doc.tempC              ?? "N/A"} °C`,
+    `Temp:            ${doc.batteryTempC       ?? "N/A"} °C`,
     `State of Health: ${doc.sohPct             ?? "N/A"} %`,
-    `Capacity:        ${doc.capacityKwh        ?? "N/A"} kWh`,
-    `Last Updated:    ${doc.ts != null ? new Date(doc.ts).toISOString() : "N/A"}`,
+    `Last Updated:    ${doc.updatedAt != null ? new Date(doc.updatedAt).toISOString() : "N/A"}`,
     "",
     "Raw document:",
     fmt(doc),
@@ -195,25 +198,25 @@ async function get_chassis_status() {
   );
   if (!doc) return noData("ChassisState");
 
-  const tireSummary = (position, psi) => {
-    if (psi == null) return `${position}: N/A`;
+  const tireSummary = (position, kpa) => {
+    if (kpa == null) return `${position}: N/A`;
+    const psi = (kpa / 6.895).toFixed(1);
     const status = psi < 28 ? "⚠ CRITICAL" : psi < 30 || psi > 35 ? "⚠ WARNING" : "OK";
-    return `${position}: ${psi} psi  [${status}]`;
+    return `${position}: ${psi} psi (${kpa} kPa)  [${status}]`;
   };
 
   const lines = [
     `Chassis Status — ${VEHICLE_ID}`,
     "=".repeat(50),
     "Tire Pressures:",
-    `  ${tireSummary("Front-Left ", doc.tirePressureFLPsi)}`,
-    `  ${tireSummary("Front-Right", doc.tirePressureFRPsi)}`,
-    `  ${tireSummary("Rear-Left  ", doc.tirePressureRLPsi)}`,
-    `  ${tireSummary("Rear-Right ", doc.tirePressureRRPsi)}`,
-    `ABS Active:       ${doc.absActive        ?? "N/A"}`,
-    `ESC Active:       ${doc.escActive        ?? "N/A"}`,
-    `Brake Fluid:      ${doc.brakeFluidPct    ?? "N/A"} %`,
-    `Suspension Mode:  ${doc.suspensionMode   ?? "N/A"}`,
-    `Last Updated:     ${doc.ts != null ? new Date(doc.ts).toISOString() : "N/A"}`,
+    `  ${tireSummary("Front-Left ", doc.tirePressureFlKpa)}`,
+    `  ${tireSummary("Front-Right", doc.tirePressureFrKpa)}`,
+    `  ${tireSummary("Rear-Left  ", doc.tirePressureRlKpa)}`,
+    `  ${tireSummary("Rear-Right ", doc.tirePressureRrKpa)}`,
+    `ABS Active:            ${doc.absActive              ?? "N/A"}`,
+    `Traction Control:      ${doc.tractionControlActive  ?? "N/A"}`,
+    `Brake Pedal:           ${doc.brakePedalPct          ?? "N/A"} %`,
+    `Last Updated:          ${doc.updatedAt != null ? new Date(doc.updatedAt).toISOString() : "N/A"}`,
     "",
     "Raw document:",
     fmt(doc),
@@ -229,26 +232,25 @@ async function get_cabin_status() {
   );
   if (!doc) return noData("CabinState");
 
+  const lockStatus = doc.doorsLocked != null ? (doc.doorsLocked ? "locked" : "unlocked") : "N/A";
   const doors = [
-    `FL: ${doc.doorFLOpen != null ? (doc.doorFLOpen ? "open" : "closed") : "N/A"} / ${doc.doorFLLocked != null ? (doc.doorFLLocked ? "locked" : "unlocked") : "N/A"}`,
-    `FR: ${doc.doorFROpen != null ? (doc.doorFROpen ? "open" : "closed") : "N/A"} / ${doc.doorFRLocked != null ? (doc.doorFRLocked ? "locked" : "unlocked") : "N/A"}`,
-    `RL: ${doc.doorRLOpen != null ? (doc.doorRLOpen ? "open" : "closed") : "N/A"} / ${doc.doorRLLocked != null ? (doc.doorRLLocked ? "locked" : "unlocked") : "N/A"}`,
-    `RR: ${doc.doorRROpen != null ? (doc.doorRROpen ? "open" : "closed") : "N/A"} / ${doc.doorRRLocked != null ? (doc.doorRRLocked ? "locked" : "unlocked") : "N/A"}`,
+    `Driver (FL):    ${doc.driverDoorOpen    != null ? (doc.driverDoorOpen    ? "open" : "closed") : "N/A"} / ${lockStatus}`,
+    `Passenger (FR): ${doc.passengerDoorOpen != null ? (doc.passengerDoorOpen ? "open" : "closed") : "N/A"} / ${lockStatus}`,
+    `Rear-Left:      ${doc.rearLeftDoorOpen  != null ? (doc.rearLeftDoorOpen  ? "open" : "closed") : "N/A"} / ${lockStatus}`,
+    `Rear-Right:     ${doc.rearRightDoorOpen != null ? (doc.rearRightDoorOpen ? "open" : "closed") : "N/A"} / ${lockStatus}`,
   ];
 
   const lines = [
     `Cabin Status — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Temperature Setpoint: ${doc.tempSetpointC   ?? "N/A"} °C`,
-    `Interior Temp:        ${doc.interiorTempC   ?? "N/A"} °C`,
-    `HVAC On:              ${doc.hvacOn          ?? "N/A"}`,
-    `Fan Speed:            ${doc.fanSpeed        ?? "N/A"}`,
-    `Seat Heating (Driver):${doc.seatHeatDriver  ?? "N/A"}`,
-    `Sunroof Open:         ${doc.sunroofOpen     ?? "N/A"}`,
-    `Windows:              FL=${doc.windowFLPct  ?? "N/A"}%  FR=${doc.windowFRPct ?? "N/A"}%  RL=${doc.windowRLPct ?? "N/A"}%  RR=${doc.windowRRPct ?? "N/A"}%`,
-    "Doors (open / lock status):",
+    `Interior Temp:        ${doc.insideTempC              ?? "N/A"} °C`,
+    `Outside Temp:         ${doc.outsideTempC             ?? "N/A"} °C`,
+    `HVAC Mode:            ${doc.hvacMode                 ?? "N/A"}`,
+    `Fan Speed:            ${doc.fanSpeed                 ?? "N/A"}`,
+    `Seatbelt (Driver):    ${doc.seatbeltDriverFastened   ?? "N/A"}`,
+    "Doors (open / all-locks status):",
     ...doors.map(d => `  ${d}`),
-    `Last Updated: ${doc.ts != null ? new Date(doc.ts).toISOString() : "N/A"}`,
+    `Last Updated: ${doc.updatedAt != null ? new Date(doc.updatedAt).toISOString() : "N/A"}`,
     "",
     "Raw document:",
     fmt(doc),
@@ -267,15 +269,14 @@ async function get_location() {
   const lines = [
     `Location — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Latitude:    ${doc.lat          ?? "N/A"}`,
-    `Longitude:   ${doc.lon          ?? "N/A"}`,
-    `Altitude:    ${doc.altitudeM    ?? "N/A"} m`,
-    `Heading:     ${doc.headingDeg   ?? "N/A"} °`,
-    `Speed (GPS): ${doc.speedKmh     ?? "N/A"} km/h`,
-    `Geohash:     ${doc.geohash      ?? "N/A"}`,
-    `GPS Fix:     ${doc.gpsFix       ?? "N/A"}`,
-    `Accuracy:    ${doc.accuracyM    ?? "N/A"} m`,
-    `Last Updated:${doc.ts != null ? new Date(doc.ts).toISOString() : "N/A"}`,
+    `Latitude:    ${doc.latitude      ?? "N/A"}`,
+    `Longitude:   ${doc.longitude     ?? "N/A"}`,
+    `Altitude:    ${doc.altitudeM     ?? "N/A"} m`,
+    `Heading:     ${doc.headingDeg    ?? "N/A"} °`,
+    `Speed (GPS): ${doc.speedKph      ?? "N/A"} km/h`,
+    `Geohash:     ${doc.geohash       ?? "N/A"}`,
+    `Accuracy:    ${doc.accuracyM     ?? "N/A"} m`,
+    `Last Updated:${doc.updatedAt != null ? new Date(doc.updatedAt).toISOString() : "N/A"}`,
     "",
     "Raw document:",
     fmt(doc),
@@ -294,17 +295,13 @@ async function get_adas_status() {
   const lines = [
     `ADAS Status — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Cruise Control Active:   ${doc.cruiseControlActive    ?? "N/A"}`,
-    `Cruise Set Speed:        ${doc.cruiseSetSpeedKmh      ?? "N/A"} km/h`,
-    `Lane Keep Assist:        ${doc.laneKeepActive         ?? "N/A"}`,
-    `Lane Departure Warning:  ${doc.laneDepartureWarning   ?? "N/A"}`,
-    `Collision Warning:       ${doc.collisionWarning       ?? "N/A"}${doc.collisionWarning ? "  ⚠ ALERT" : ""}`,
-    `Forward Collision TTC:   ${doc.collisionTtcS          ?? "N/A"} s`,
-    `Blind Spot Warning L:    ${doc.blindSpotLeft          ?? "N/A"}`,
-    `Blind Spot Warning R:    ${doc.blindSpotRight         ?? "N/A"}`,
-    `Parking Sensors Active:  ${doc.parkingSensorsActive   ?? "N/A"}`,
-    `Auto Emergency Braking:  ${doc.aebActive              ?? "N/A"}`,
-    `Last Updated:            ${doc.ts != null ? new Date(doc.ts).toISOString() : "N/A"}`,
+    `Cruise Control:          ${doc.cruiseEnabled          ?? "N/A"}`,
+    `Cruise Set Speed:        ${doc.cruiseSetSpeedKph      ?? "N/A"} km/h`,
+    `Lane Keep Assist:        ${doc.laneKeepAssistOn       ?? "N/A"}`,
+    `Collision Warning:       ${doc.collisionWarningActive ?? "N/A"}${doc.collisionWarningActive ? "  ⚠ ALERT" : ""}`,
+    `Parking Assist:          ${doc.parkingAssistOn        ?? "N/A"}`,
+    `Autopilot Mode:          ${doc.autopilotMode          ?? "N/A"}`,
+    `Last Updated:            ${doc.updatedAt != null ? new Date(doc.updatedAt).toISOString() : "N/A"}`,
     "",
     "Raw document:",
     fmt(doc),

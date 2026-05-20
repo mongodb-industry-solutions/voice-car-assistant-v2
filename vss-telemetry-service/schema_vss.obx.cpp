@@ -18,8 +18,6 @@ const obx::Property<VehicleMeta, OBXPropertyType_String> VehicleMeta_::vehicleId
 
 const obx::Property<SignalDefinition, OBXPropertyType_Long> SignalDefinition_::id(1);
 
-const obx::Property<VehicleAttributeState, OBXPropertyType_Long>   VehicleAttributeState_::id(1);
-const obx::Property<VehicleAttributeState, OBXPropertyType_String> VehicleAttributeState_::vehicleId(2);
 
 const obx::Property<PowertrainState, OBXPropertyType_Long>   PowertrainState_::id(1);
 const obx::Property<PowertrainState, OBXPropertyType_String> PowertrainState_::vehicleId(2);
@@ -68,15 +66,17 @@ const obx::Property<ExtensionPayload, OBXPropertyType_Long>   ExtensionPayload_:
 const obx::Property<ExtensionPayload, OBXPropertyType_String> ExtensionPayload_::vehicleId(2);
 const obx::Property<ExtensionPayload, OBXPropertyType_Long>   ExtensionPayload_::ts(3);
 
-// ── VehicleMeta (entity 10, 10 props) ────────────────────────────────────────
+// ── VehicleMeta (entity 10, 16 props) ────────────────────────────────────────
 void VehicleMeta::_OBX_MetaInfo::toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const VehicleMeta& o) {
     fbb.Clear();
-    auto s_vehicleId      = fbb.CreateString(o.vehicleId);
-    auto s_vin            = fbb.CreateString(o.vin);
-    auto s_oem            = fbb.CreateString(o.oem);
-    auto s_modelName      = fbb.CreateString(o.modelName);
-    auto s_platform       = fbb.CreateString(o.platform);
-    auto s_softwareVersion= fbb.CreateString(o.softwareVersion);
+    auto s_vehicleId       = fbb.CreateString(o.vehicleId);
+    auto s_vin             = fbb.CreateString(o.vin);
+    auto s_oem             = fbb.CreateString(o.oem);
+    auto s_modelName       = fbb.CreateString(o.modelName);
+    auto s_platform        = fbb.CreateString(o.platform);
+    auto s_softwareVersion = fbb.CreateString(o.softwareVersion);
+    auto s_powertrainType  = fbb.CreateString(o.powertrainType);
+    auto s_drivetrainType  = fbb.CreateString(o.drivetrainType);
     auto start = fbb.StartTable();
     fbb.AddElement<int64_t>(4,  o.id);
     fbb.AddOffset(6,  s_vehicleId);
@@ -88,21 +88,33 @@ void VehicleMeta::_OBX_MetaInfo::toFlatBuffer(flatbuffers::FlatBufferBuilder& fb
     fbb.AddElement<int64_t>(18, o.createdAt);
     fbb.AddElement<int64_t>(20, o.updatedAt);
     fbb.AddElement<int64_t>(22, o.syncClock);
+    fbb.AddElement<float>(24,   o.fuelTankCapacityL);
+    fbb.AddElement<float>(26,   o.batteryCapacityKwh);
+    fbb.AddElement<int32_t>(28, o.wheelbaseMm);
+    fbb.AddElement<int32_t>(30, o.curbWeightKg);
+    fbb.AddOffset(32, s_powertrainType);
+    fbb.AddOffset(34, s_drivetrainType);
     flatbuffers::Offset<flatbuffers::Table> off; off.o = fbb.EndTable(start);
     fbb.Finish(off);
 }
 void VehicleMeta::_OBX_MetaInfo::fromFlatBuffer(const void* data, size_t, VehicleMeta& o) {
     const auto* t = flatbuffers::GetRoot<flatbuffers::Table>(data);
-    o.id             = t->GetField<int64_t>(4, 0);
+    o.id                  = t->GetField<int64_t>(4, 0);
     read_str(t, 6,  o.vehicleId);
     read_str(t, 8,  o.vin);
     read_str(t, 10, o.oem);
     read_str(t, 12, o.modelName);
     read_str(t, 14, o.platform);
     read_str(t, 16, o.softwareVersion);
-    o.createdAt      = t->GetField<int64_t>(18, 0);
-    o.updatedAt      = t->GetField<int64_t>(20, 0);
-    o.syncClock      = t->GetField<int64_t>(22, 0);
+    o.createdAt           = t->GetField<int64_t>(18, 0);
+    o.updatedAt           = t->GetField<int64_t>(20, 0);
+    o.syncClock           = t->GetField<int64_t>(22, 0);
+    o.fuelTankCapacityL   = t->GetField<float>(24, 0.f);
+    o.batteryCapacityKwh  = t->GetField<float>(26, 0.f);
+    o.wheelbaseMm         = t->GetField<int32_t>(28, 0);
+    o.curbWeightKg        = t->GetField<int32_t>(30, 0);
+    read_str(t, 32, o.powertrainType);
+    read_str(t, 34, o.drivetrainType);
 }
 VehicleMeta VehicleMeta::_OBX_MetaInfo::fromFlatBuffer(const void* d, size_t s) { VehicleMeta o; fromFlatBuffer(d,s,o); return o; }
 std::unique_ptr<VehicleMeta> VehicleMeta::_OBX_MetaInfo::newFromFlatBuffer(const void* d, size_t s) { auto o = std::make_unique<VehicleMeta>(); fromFlatBuffer(d,s,*o); return o; }
@@ -155,42 +167,6 @@ void SignalDefinition::_OBX_MetaInfo::fromFlatBuffer(const void* data, size_t, S
 }
 SignalDefinition SignalDefinition::_OBX_MetaInfo::fromFlatBuffer(const void* d, size_t s) { SignalDefinition o; fromFlatBuffer(d,s,o); return o; }
 std::unique_ptr<SignalDefinition> SignalDefinition::_OBX_MetaInfo::newFromFlatBuffer(const void* d, size_t s) { auto o = std::make_unique<SignalDefinition>(); fromFlatBuffer(d,s,*o); return o; }
-
-// ── VehicleAttributeState (entity 12, 10 props) ───────────────────────────────
-void VehicleAttributeState::_OBX_MetaInfo::toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const VehicleAttributeState& o) {
-    fbb.Clear();
-    auto s_vehicleId      = fbb.CreateString(o.vehicleId);
-    auto s_powertrainType = fbb.CreateString(o.powertrainType);
-    auto s_drivetrainType = fbb.CreateString(o.drivetrainType);
-    auto start = fbb.StartTable();
-    fbb.AddElement<int64_t>(4,  o.id);
-    fbb.AddOffset(6,  s_vehicleId);
-    fbb.AddElement<int64_t>(8,  o.updatedAt);
-    fbb.AddElement<float>(10,   o.fuelTankCapacityL);
-    fbb.AddElement<float>(12,   o.batteryCapacityKwh);
-    fbb.AddElement<int32_t>(14, o.wheelbaseMm);
-    fbb.AddElement<int32_t>(16, o.curbWeightKg);
-    fbb.AddOffset(18, s_powertrainType);
-    fbb.AddOffset(20, s_drivetrainType);
-    fbb.AddElement<int64_t>(22, o.syncClock);
-    flatbuffers::Offset<flatbuffers::Table> off; off.o = fbb.EndTable(start);
-    fbb.Finish(off);
-}
-void VehicleAttributeState::_OBX_MetaInfo::fromFlatBuffer(const void* data, size_t, VehicleAttributeState& o) {
-    const auto* t = flatbuffers::GetRoot<flatbuffers::Table>(data);
-    o.id                 = t->GetField<int64_t>(4, 0);
-    read_str(t, 6,  o.vehicleId);
-    o.updatedAt          = t->GetField<int64_t>(8, 0);
-    o.fuelTankCapacityL  = t->GetField<float>(10, 0.f);
-    o.batteryCapacityKwh = t->GetField<float>(12, 0.f);
-    o.wheelbaseMm        = t->GetField<int32_t>(14, 0);
-    o.curbWeightKg       = t->GetField<int32_t>(16, 0);
-    read_str(t, 18, o.powertrainType);
-    read_str(t, 20, o.drivetrainType);
-    o.syncClock          = t->GetField<int64_t>(22, 0);
-}
-VehicleAttributeState VehicleAttributeState::_OBX_MetaInfo::fromFlatBuffer(const void* d, size_t s) { VehicleAttributeState o; fromFlatBuffer(d,s,o); return o; }
-std::unique_ptr<VehicleAttributeState> VehicleAttributeState::_OBX_MetaInfo::newFromFlatBuffer(const void* d, size_t s) { auto o = std::make_unique<VehicleAttributeState>(); fromFlatBuffer(d,s,*o); return o; }
 
 // ── PowertrainState (entity 13, 14 props) ────────────────────────────────────
 void PowertrainState::_OBX_MetaInfo::toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const PowertrainState& o) {

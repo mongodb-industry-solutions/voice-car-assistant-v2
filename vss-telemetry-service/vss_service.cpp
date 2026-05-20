@@ -43,7 +43,6 @@ struct Config {
 // ── State ID cache (one row per domain per vehicle) ───────────────────────────
 struct StateIds {
     obx_id vehicle_meta  = 0;
-    obx_id vehicle_attr  = 0;
     obx_id powertrain    = 0;
     obx_id battery       = 0;
     obx_id chassis       = 0;
@@ -132,17 +131,23 @@ OBX_model* create_obx_model() {
 
     // Entity 10: VehicleMeta
     DEF_ENTITY("VehicleMeta", 10, 6010000000000000);
-    PROP_ID("id",              1, 6010000000000001);
-    PROP_S("vehicleId",        2, 6010000000000002);
-    PROP_S("vin",              3, 6010000000000003);
-    PROP_S("oem",              4, 6010000000000004);
-    PROP_S("model",            5, 6010000000000005);
-    PROP_S("platform",         6, 6010000000000006);
-    PROP_S("softwareVersion",  7, 6010000000000007);
-    PROP_L("createdAt",        8, 6010000000000008);
-    PROP_L("updatedAt",        9, 6010000000000009);
-    PROP_L("syncClock",       10, 6010000000000010);
-    LAST_PROP(10, 6010000000000010);
+    PROP_ID("id",               1, 6010000000000001);
+    PROP_S("vehicleId",         2, 6010000000000002);
+    PROP_S("vin",               3, 6010000000000003);
+    PROP_S("oem",               4, 6010000000000004);
+    PROP_S("model",             5, 6010000000000005);
+    PROP_S("platform",          6, 6010000000000006);
+    PROP_S("softwareVersion",   7, 6010000000000007);
+    PROP_L("createdAt",         8, 6010000000000008);
+    PROP_L("updatedAt",         9, 6010000000000009);
+    PROP_L("syncClock",        10, 6010000000000010);
+    PROP_F("fuelTankCapacityL", 11, 6010000000000011);
+    PROP_F("batteryCapacityKwh",12, 6010000000000012);
+    PROP_I("wheelbaseMm",      13, 6010000000000013);
+    PROP_I("curbWeightKg",     14, 6010000000000014);
+    PROP_S("powertrainType",   15, 6010000000000015);
+    PROP_S("drivetrainType",   16, 6010000000000016);
+    LAST_PROP(16, 6010000000000016);
 
     // Entity 11: SignalDefinition
     DEF_ENTITY("SignalDefinition", 11, 6011000000000000);
@@ -161,20 +166,6 @@ OBX_model* create_obx_model() {
     PROP_B("enabled",         13, 6011000000000013);
     PROP_L("syncClock",       14, 6011000000000014);
     LAST_PROP(14, 6011000000000014);
-
-    // Entity 12: VehicleAttributeState
-    DEF_ENTITY("VehicleAttributeState", 12, 6012000000000000);
-    PROP_ID("id",              1, 6012000000000001);
-    PROP_S("vehicleId",        2, 6012000000000002); PROP_IDX(6, 6012000000000100);
-    PROP_L("updatedAt",        3, 6012000000000003);
-    PROP_F("fuelTankCapacityL",4, 6012000000000004);
-    PROP_F("batteryCapacityKwh",5,6012000000000005);
-    PROP_I("wheelbaseMm",      6, 6012000000000006);
-    PROP_I("curbWeightKg",     7, 6012000000000007);
-    PROP_S("powertrainType",   8, 6012000000000008);
-    PROP_S("drivetrainType",   9, 6012000000000009);
-    PROP_L("syncClock",       10, 6012000000000010);
-    LAST_PROP(10, 6012000000000010);
 
     // Entity 13: PowertrainState
     DEF_ENTITY("PowertrainState", 13, 6013000000000000);
@@ -423,11 +414,6 @@ static void remove_stale(obx::Box<T>& box, const std::vector<T>& v, obx_id keep_
 // ── State IDs initialization ──────────────────────────────────────────────────
 void init_state_ids(StateIds& ids, obx::Store& store, const std::string& vid) {
     {
-        auto box = store.box<VehicleAttributeState>();
-        auto r = box.query(VehicleAttributeState_::vehicleId.equals(vid)).build().find();
-        ids.vehicle_attr = latest_id(r);
-    }
-    {
         auto box = store.box<PowertrainState>();
         auto r = box.query(PowertrainState_::vehicleId.equals(vid)).build().find();
         ids.powertrain = latest_id(r);
@@ -520,7 +506,6 @@ int main(int argc, char* argv[]) {
     // Boxes
     auto vm_box   = store->box<VehicleMeta>();
     auto sig_box  = store->box<SignalDefinition>();
-    auto attr_box = store->box<VehicleAttributeState>();
     auto pt_box   = store->box<PowertrainState>();
     auto bat_box  = store->box<BatteryState>();
     auto ch_box   = store->box<ChassisState>();
@@ -539,39 +524,6 @@ int main(int argc, char* argv[]) {
     StateIds state_ids;
     std::mutex state_mutex;
     init_state_ids(state_ids, *store, VEHICLE_ID);
-
-    // Seed VehicleMeta if absent
-    if (vm_box.count() == 0) {
-        VehicleMeta vm;
-        vm.vehicleId       = VEHICLE_ID;
-        vm.vin             = VEHICLE_ID;
-        vm.oem             = "VSS Demo";
-        vm.modelName       = "Demo Vehicle";
-        vm.platform        = "VSS-v4";
-        vm.softwareVersion = "1.0.0";
-        vm.createdAt       = now_ms();
-        vm.updatedAt       = now_ms();
-        state_ids.vehicle_meta = vm_box.put(vm);
-        std::cout << "✅ VehicleMeta seeded\n";
-    }
-
-    // Seed VehicleAttributeState if absent
-    {
-        auto r = attr_box.query(VehicleAttributeState_::vehicleId.equals(VEHICLE_ID)).build().find();
-        if (r.empty()) {
-            VehicleAttributeState attr;
-            attr.vehicleId           = VEHICLE_ID;
-            attr.updatedAt           = now_ms();
-            attr.fuelTankCapacityL   = 60.0f;
-            attr.batteryCapacityKwh  = 75.0f;
-            attr.wheelbaseMm         = 2875;
-            attr.curbWeightKg        = 1800;
-            attr.powertrainType      = "HEV";
-            attr.drivetrainType      = "AWD";
-            state_ids.vehicle_attr   = attr_box.put(attr);
-            std::cout << "✅ VehicleAttributeState seeded\n";
-        }
-    }
 
     // Background pruning thread — runs every hour
     std::thread prune_thread([&]() {
@@ -803,6 +755,45 @@ int main(int argc, char* argv[]) {
         } catch (const std::exception& e) {
             res.status = 400;
             res.set_content(json{{"error",e.what()}}.dump(), "application/json");
+        }
+    });
+
+    // ── POST /vss/meta ────────────────────────────────────────────────────────
+    svr.Post("/vss/meta", [&](const Request& req, Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string vid = js(body, "vehicle_id", VEHICLE_ID);
+
+            std::lock_guard<std::mutex> lock(state_mutex);
+
+            VehicleMeta vm;
+            auto existing = vm_box.query(VehicleMeta_::vehicleId.equals(vid)).build().find();
+            if (!existing.empty()) {
+                vm = existing[0];
+            } else {
+                vm.createdAt = now_ms();
+            }
+            vm.vehicleId       = vid;
+            vm.vin             = js(body, "vin", vid);
+            vm.oem             = js(body, "oem", "");
+            vm.modelName       = js(body, "model", "");
+            vm.platform           = js(body, "platform", "VSS-v4");
+            vm.softwareVersion    = js(body, "softwareVersion", "1.0.0");
+            vm.fuelTankCapacityL  = body.value("fuelTankCapacityL", 0.f);
+            vm.batteryCapacityKwh = body.value("batteryCapacityKwh", 0.f);
+            vm.wheelbaseMm        = body.value("wheelbaseMm", 0);
+            vm.curbWeightKg       = body.value("curbWeightKg", 0);
+            vm.powertrainType     = js(body, "powertrainType", "");
+            vm.drivetrainType     = js(body, "drivetrainType", "");
+            vm.updatedAt          = now_ms();
+            obx_id id = vm_box.put(vm);
+            state_ids.vehicle_meta = id;
+
+            std::cout << "✅ VehicleMeta upserted (id=" << id << ")\n";
+            res.set_content(json{{"success", true}, {"id", id}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"error", e.what()}}.dump(), "application/json");
         }
     });
 

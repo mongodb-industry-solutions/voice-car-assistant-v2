@@ -408,17 +408,13 @@ function updateDashboard(data) {
     if (pt.coolantTempC != null) {
         const st = coolantStatus(pt.coolantTempC);
         const valEl = document.getElementById('coolant-val');
-        const barEl = document.getElementById('coolant-bar');
         if (valEl) { valEl.textContent = `${pt.coolantTempC.toFixed(0)}°C`; applyColor('coolant-val', statusColor(st)); }
-        if (barEl) { updateBar('coolant-bar', pt.coolantTempC / 115 * 100); applyColor('coolant-bar', statusColor(st)); }
     }
 
     // Throttle
     if (pt.throttlePct != null) {
         const valEl = document.getElementById('throttle-val');
-        const barEl = document.getElementById('throttle-bar');
         if (valEl) valEl.textContent = `${pt.throttlePct.toFixed(0)}%`;
-        if (barEl) updateBar('throttle-bar', pt.throttlePct);
     }
 
     // Odometer
@@ -427,13 +423,11 @@ function updateDashboard(data) {
         if (el) el.textContent = `${Math.round(pt.odometerKm).toLocaleString()} km`;
     }
 
-    // Battery SoC bar
+    // Battery SoC
     if (bat.socPct != null) {
         const st = battSocStatus(bat.socPct);
-        updateBar('batt-arc', bat.socPct);
         const el = document.getElementById('batt-pct');
-        if (el) el.textContent = bat.socPct.toFixed(0) + '%';
-        applyColor('batt-arc', statusColor(st));
+        if (el) { el.textContent = bat.socPct.toFixed(0) + '%'; applyColor('batt-pct', statusColor(st)); }
     }
     if (bat.voltageV != null) {
         const el = document.getElementById('batt-v');
@@ -500,9 +494,7 @@ function updateDashboard(data) {
     // Brake pedal — field: brakePedalPct
     if (ch.brakePedalPct != null) {
         const valEl = document.getElementById('brake-pedal-val');
-        const barEl = document.getElementById('brake-pedal-bar');
         if (valEl) valEl.textContent = `${ch.brakePedalPct.toFixed(0)}%`;
-        if (barEl) updateBar('brake-pedal-bar', ch.brakePedalPct);
     }
 
     // ABS — field: absActive
@@ -536,7 +528,7 @@ function updateDashboard(data) {
         const badgeEl = document.getElementById('collision-badge');
         const warn = adas.collisionWarningActive;
         if (collEl)  { collEl.textContent = warn ? '⚠ ALERT' : 'CLEAR'; collEl.style.color = warn ? '#FF4444' : '#00ED64'; }
-        if (badgeEl) { badgeEl.textContent = warn ? '⚠ COLLISION' : '✓ OK'; badgeEl.className = `alert-pill${warn ? ' critical' : ''}`; }
+        if (badgeEl) { badgeEl.textContent = warn ? '⚠ ALERT' : '✓ OK'; badgeEl.style.color = warn ? '#FF4444' : '#00ED64'; }
     }
 }
 

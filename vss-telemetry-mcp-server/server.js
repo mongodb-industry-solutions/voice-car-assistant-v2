@@ -111,7 +111,10 @@ async function get_vehicle_status() {
     lines.push(`Battery SOC: ${battery.socPct ?? "N/A"}%  Est. Range: ${battery.estimatedRangeKm ?? "N/A"} km  Charging: ${charging}`);
   }
   if (location) {
-    lines.push(`Location: ${location.latitude ?? "N/A"}, ${location.longitude ?? "N/A"}  Heading: ${location.headingDeg ?? "N/A"}°`);
+    const lcoords = location.locationGeoJson ? JSON.parse(location.locationGeoJson).coordinates : null;
+    const llat = lcoords ? lcoords[1] : "N/A";
+    const llon = lcoords ? lcoords[0] : "N/A";
+    lines.push(`Location: ${llat}, ${llon}  Heading: ${location.headingDeg ?? "N/A"}°`);
   }
   if (cabin) {
     lines.push(`Interior Temp: ${cabin.insideTempC ?? "N/A"}°C  HVAC: ${cabin.hvacMode ?? "N/A"}`);
@@ -266,11 +269,15 @@ async function get_location() {
   );
   if (!doc) return noData("LocationState");
 
+  const coords = doc.locationGeoJson ? JSON.parse(doc.locationGeoJson).coordinates : null;
+  const lon = coords ? coords[0] : null;
+  const lat = coords ? coords[1] : null;
+
   const lines = [
     `Location — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Latitude:    ${doc.latitude      ?? "N/A"}`,
-    `Longitude:   ${doc.longitude     ?? "N/A"}`,
+    `Latitude:    ${lat      ?? "N/A"}`,
+    `Longitude:   ${lon      ?? "N/A"}`,
     `Altitude:    ${doc.altitudeM     ?? "N/A"} m`,
     `Heading:     ${doc.headingDeg    ?? "N/A"} °`,
     `Speed (GPS): ${doc.speedKph      ?? "N/A"} km/h`,

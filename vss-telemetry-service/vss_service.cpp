@@ -240,15 +240,14 @@ OBX_model* create_obx_model() {
     PROP_ID("id",              1, 6017000000000001);
     PROP_S("vehicleId",        2, 6017000000000002); PROP_IDX(11, 6017000000000100);
     PROP_L("updatedAt",        3, 6017000000000003);
-    PROP_D("latitude",         4, 6017000000000004);
-    PROP_D("longitude",        5, 6017000000000005);
     PROP_F("altitudeM",        6, 6017000000000006);
     PROP_F("headingDeg",       7, 6017000000000007);
     PROP_F("speedKph",         8, 6017000000000008);
     PROP_F("accuracyM",        9, 6017000000000009);
     PROP_S("geohash",         10, 6017000000000010);
     PROP_L("syncClock",       11, 6017000000000011);
-    LAST_PROP(11, 6017000000000011);
+    PROP_S("locationGeoJson", 12, 6017000000000012);
+    LAST_PROP(12, 6017000000000012);
 
     // Entity 18: AdasState
     DEF_ENTITY("AdasState", 18, 6018000000000000);
@@ -302,14 +301,13 @@ OBX_model* create_obx_model() {
     PROP_S("vehicleId",        2, 6021000000000002); PROP_IDX(17, 6021000000000100);
     PROP_L("ts",               3, 6021000000000003); PROP_IDX(18, 6021000000000200);
     PROP_S("tripId",           4, 6021000000000004);
-    PROP_D("latitude",         5, 6021000000000005);
-    PROP_D("longitude",        6, 6021000000000006);
     PROP_F("altitudeM",        7, 6021000000000007);
     PROP_F("headingDeg",       8, 6021000000000008);
     PROP_F("speedKph",         9, 6021000000000009);
     PROP_F("accuracyM",       10, 6021000000000010);
     PROP_L("syncClock",       11, 6021000000000011);
-    LAST_PROP(11, 6021000000000011);
+    PROP_S("locationGeoJson", 12, 6021000000000012);
+    LAST_PROP(12, 6021000000000012);
 
     // Entity 22: CabinSample
     DEF_ENTITY("CabinSample", 22, 6022000000000000);
@@ -352,19 +350,8 @@ OBX_model* create_obx_model() {
     PROP_L("syncClock",       11, 6024000000000011);
     LAST_PROP(11, 6024000000000011);
 
-    // Entity 25: ExtensionPayload
-    DEF_ENTITY("ExtensionPayload", 25, 6025000000000000);
-    PROP_ID("id",              1, 6025000000000001);
-    PROP_S("vehicleId",        2, 6025000000000002); PROP_IDX(25, 6025000000000100);
-    PROP_L("ts",               3, 6025000000000003); PROP_IDX(26, 6025000000000200);
-    PROP_S("component",        4, 6025000000000004);
-    PROP_S("schemaVersion",    5, 6025000000000005);
-    PROP_S("payloadJson",      6, 6025000000000006);
-    PROP_L("syncClock",        7, 6025000000000007);
-    LAST_PROP(7, 6025000000000007);
-
-    obx_model_last_entity_id(m, 25, 6025000000000000);
-    obx_model_last_index_id(m,  26, 6025000000000200);
+    obx_model_last_entity_id(m, 24, 6024000000000000);
+    obx_model_last_index_id(m,  24, 6024000000000200);
 
 #undef DEF_ENTITY
 #undef PROP_L
@@ -518,7 +505,6 @@ int main(int argc, char* argv[]) {
     auto cabs_box = store->box<CabinSample>();
     auto adas_s_box=store->box<AdasSample>();
     auto ev_box   = store->box<VehicleEvent>();
-    auto ext_box  = store->box<ExtensionPayload>();
 
     // State ID cache + mutex
     StateIds state_ids;
@@ -672,20 +658,21 @@ int main(int argc, char* argv[]) {
                 if (state_ids.location) { auto e = loc_box.get(state_ids.location); if (e) s = *e; }
                 s.id        = state_ids.location;
                 s.vehicleId = vid;  s.updatedAt = ts;
-                s.latitude  = jd(p,"latitude");
-                s.longitude = jd(p,"longitude");
+                double lat = jd(p,"latitude");
+                double lon = jd(p,"longitude");
                 s.altitudeM = jf(p,"altitudeM");
                 s.headingDeg= jf(p,"headingDeg");
                 s.speedKph  = jf(p,"speedKph");
                 s.accuracyM = jf(p,"accuracyM");
                 s.geohash   = js(p,"geohash","");
+                { json geo = json::object(); geo["type"] = "Point"; geo["coordinates"] = json::array({lon, lat}); s.locationGeoJson = geo.dump(); }
                 state_ids.location = loc_box.put(s);
 
                 LocationSample sample;
                 sample.vehicleId = vid; sample.ts = ts; sample.tripId = trip;
-                sample.latitude  = s.latitude;  sample.longitude = s.longitude;
                 sample.altitudeM = s.altitudeM; sample.headingDeg= s.headingDeg;
                 sample.speedKph  = s.speedKph;  sample.accuracyM = s.accuracyM;
+                sample.locationGeoJson = s.locationGeoJson;
                 locs_box.put(sample);
             }
 
@@ -810,13 +797,11 @@ int main(int argc, char* argv[]) {
                 if (id) {
                     auto it = std::find_if(ps.begin(), ps.end(), [id](const auto& e){ return e.id == id; });
                     auto& p = *it;
-                    out["powertrain"] = {
-                        {"speedKph",p.speedKph},{"engineRpm",p.engineRpm},
-                        {"fuelLevelPct",p.fuelLevelPct},{"coolantTempC",p.coolantTempC},
-                        {"throttlePct",p.throttlePct},{"gear",p.gear},
-                        {"ignitionOn",p.ignitionOn},{"odometerKm",p.odometerKm},
-                        {"updatedAt",p.updatedAt}
-                    };
+                    json o; o["speedKph"]=p.speedKph; o["engineRpm"]=p.engineRpm;
+                    o["fuelLevelPct"]=p.fuelLevelPct; o["coolantTempC"]=p.coolantTempC;
+                    o["throttlePct"]=p.throttlePct; o["gear"]=p.gear;
+                    o["ignitionOn"]=p.ignitionOn; o["odometerKm"]=p.odometerKm;
+                    o["updatedAt"]=p.updatedAt; out["powertrain"]=o;
                 }
             }
             {
@@ -825,12 +810,10 @@ int main(int argc, char* argv[]) {
                 if (id) {
                     auto it = std::find_if(bs.begin(), bs.end(), [id](const auto& e){ return e.id == id; });
                     auto& b = *it;
-                    out["battery"] = {
-                        {"socPct",b.socPct},{"sohPct",b.sohPct},
-                        {"voltageV",b.voltageV},{"currentA",b.currentA},
-                        {"batteryTempC",b.batteryTempC},{"chargingState",b.chargingState},
-                        {"estimatedRangeKm",b.estimatedRangeKm},{"updatedAt",b.updatedAt}
-                    };
+                    json o; o["socPct"]=b.socPct; o["sohPct"]=b.sohPct;
+                    o["voltageV"]=b.voltageV; o["currentA"]=b.currentA;
+                    o["batteryTempC"]=b.batteryTempC; o["chargingState"]=b.chargingState;
+                    o["estimatedRangeKm"]=b.estimatedRangeKm; o["updatedAt"]=b.updatedAt; out["battery"]=o;
                 }
             }
             {
@@ -839,13 +822,11 @@ int main(int argc, char* argv[]) {
                 if (id) {
                     auto it = std::find_if(cs.begin(), cs.end(), [id](const auto& e){ return e.id == id; });
                     auto& c = *it;
-                    out["chassis"] = {
-                        {"tirePressureFlKpa",c.tirePressureFlKpa},{"tirePressureFrKpa",c.tirePressureFrKpa},
-                        {"tirePressureRlKpa",c.tirePressureRlKpa},{"tirePressureRrKpa",c.tirePressureRrKpa},
-                        {"steeringAngleDeg",c.steeringAngleDeg},{"brakePedalPct",c.brakePedalPct},
-                        {"absActive",c.absActive},{"tractionControlActive",c.tractionControlActive},
-                        {"updatedAt",c.updatedAt}
-                    };
+                    json o; o["tirePressureFlKpa"]=c.tirePressureFlKpa; o["tirePressureFrKpa"]=c.tirePressureFrKpa;
+                    o["tirePressureRlKpa"]=c.tirePressureRlKpa; o["tirePressureRrKpa"]=c.tirePressureRrKpa;
+                    o["steeringAngleDeg"]=c.steeringAngleDeg; o["brakePedalPct"]=c.brakePedalPct;
+                    o["absActive"]=c.absActive; o["tractionControlActive"]=c.tractionControlActive;
+                    o["updatedAt"]=c.updatedAt; out["chassis"]=o;
                 }
             }
             {
@@ -854,12 +835,10 @@ int main(int argc, char* argv[]) {
                 if (id) {
                     auto it = std::find_if(cab.begin(), cab.end(), [id](const auto& e){ return e.id == id; });
                     auto& c = *it;
-                    out["cabin"] = {
-                        {"insideTempC",c.insideTempC},{"outsideTempC",c.outsideTempC},
-                        {"hvacMode",c.hvacMode},{"fanSpeed",c.fanSpeed},
-                        {"driverDoorOpen",c.driverDoorOpen},{"doorsLocked",c.doorsLocked},
-                        {"seatbeltDriverFastened",c.seatbeltDriverFastened},{"updatedAt",c.updatedAt}
-                    };
+                    json o; o["insideTempC"]=c.insideTempC; o["outsideTempC"]=c.outsideTempC;
+                    o["hvacMode"]=c.hvacMode; o["fanSpeed"]=c.fanSpeed;
+                    o["driverDoorOpen"]=c.driverDoorOpen; o["doorsLocked"]=c.doorsLocked;
+                    o["seatbeltDriverFastened"]=c.seatbeltDriverFastened; o["updatedAt"]=c.updatedAt; out["cabin"]=o;
                 }
             }
             {
@@ -868,11 +847,9 @@ int main(int argc, char* argv[]) {
                 if (id) {
                     auto it = std::find_if(ls.begin(), ls.end(), [id](const auto& e){ return e.id == id; });
                     auto& l = *it;
-                    out["location"] = {
-                        {"latitude",l.latitude},{"longitude",l.longitude},
-                        {"altitudeM",l.altitudeM},{"headingDeg",l.headingDeg},
-                        {"speedKph",l.speedKph},{"geohash",l.geohash},{"updatedAt",l.updatedAt}
-                    };
+                    json o; o["locationGeoJson"]=l.locationGeoJson;
+                    o["altitudeM"]=l.altitudeM; o["headingDeg"]=l.headingDeg;
+                    o["speedKph"]=l.speedKph; o["geohash"]=l.geohash; o["updatedAt"]=l.updatedAt; out["location"]=o;
                 }
             }
             {
@@ -881,12 +858,10 @@ int main(int argc, char* argv[]) {
                 if (id) {
                     auto it = std::find_if(as.begin(), as.end(), [id](const auto& e){ return e.id == id; });
                     auto& a = *it;
-                    out["adas"] = {
-                        {"cruiseEnabled",a.cruiseEnabled},{"cruiseSetSpeedKph",a.cruiseSetSpeedKph},
-                        {"laneKeepAssistOn",a.laneKeepAssistOn},{"parkingAssistOn",a.parkingAssistOn},
-                        {"collisionWarningActive",a.collisionWarningActive},
-                        {"autopilotMode",a.autopilotMode},{"updatedAt",a.updatedAt}
-                    };
+                    json o; o["cruiseEnabled"]=a.cruiseEnabled; o["cruiseSetSpeedKph"]=a.cruiseSetSpeedKph;
+                    o["laneKeepAssistOn"]=a.laneKeepAssistOn; o["parkingAssistOn"]=a.parkingAssistOn;
+                    o["collisionWarningActive"]=a.collisionWarningActive;
+                    o["autopilotMode"]=a.autopilotMode; o["updatedAt"]=a.updatedAt; out["adas"]=o;
                 }
             }
 
@@ -907,10 +882,11 @@ int main(int argc, char* argv[]) {
                 PowertrainSample_::ts.greaterOrEq(cutoff))
                 .order(PowertrainSample_::ts, OBXOrderFlags_DESCENDING).build().find();
             json arr = json::array();
-            for (auto& r : rows)
-                arr.push_back({{"ts",r.ts},{"speedKph",r.speedKph},{"engineRpm",r.engineRpm},
-                    {"fuelLevelPct",r.fuelLevelPct},{"coolantTempC",r.coolantTempC},
-                    {"throttlePct",r.throttlePct},{"gear",r.gear}});
+            for (auto& r : rows) {
+                json o; o["ts"]=r.ts; o["speedKph"]=r.speedKph; o["engineRpm"]=r.engineRpm;
+                o["fuelLevelPct"]=r.fuelLevelPct; o["coolantTempC"]=r.coolantTempC;
+                o["throttlePct"]=r.throttlePct; o["gear"]=r.gear; arr.push_back(o);
+            }
             res.set_content(json{{"count",(int)arr.size()},{"samples",arr}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
@@ -928,10 +904,11 @@ int main(int argc, char* argv[]) {
                 BatterySample_::ts.greaterOrEq(cutoff))
                 .order(BatterySample_::ts, OBXOrderFlags_DESCENDING).build().find();
             json arr = json::array();
-            for (auto& r : rows)
-                arr.push_back({{"ts",r.ts},{"socPct",r.socPct},{"sohPct",r.sohPct},
-                    {"voltageV",r.voltageV},{"currentA",r.currentA},
-                    {"batteryTempC",r.batteryTempC},{"estimatedRangeKm",r.estimatedRangeKm}});
+            for (auto& r : rows) {
+                json o; o["ts"]=r.ts; o["socPct"]=r.socPct; o["sohPct"]=r.sohPct;
+                o["voltageV"]=r.voltageV; o["currentA"]=r.currentA;
+                o["batteryTempC"]=r.batteryTempC; o["estimatedRangeKm"]=r.estimatedRangeKm; arr.push_back(o);
+            }
             res.set_content(json{{"count",(int)arr.size()},{"samples",arr}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
@@ -949,9 +926,10 @@ int main(int argc, char* argv[]) {
                 LocationSample_::ts.greaterOrEq(cutoff))
                 .order(LocationSample_::ts, OBXOrderFlags_DESCENDING).build().find();
             json arr = json::array();
-            for (auto& r : rows)
-                arr.push_back({{"ts",r.ts},{"latitude",r.latitude},{"longitude",r.longitude},
-                    {"headingDeg",r.headingDeg},{"speedKph",r.speedKph},{"altitudeM",r.altitudeM}});
+            for (auto& r : rows) {
+                json o; o["ts"]=r.ts; o["locationGeoJson"]=r.locationGeoJson;
+                o["headingDeg"]=r.headingDeg; o["speedKph"]=r.speedKph; o["altitudeM"]=r.altitudeM; arr.push_back(o);
+            }
             res.set_content(json{{"count",(int)arr.size()},{"samples",arr}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
@@ -969,9 +947,10 @@ int main(int argc, char* argv[]) {
                 CabinSample_::ts.greaterOrEq(cutoff))
                 .order(CabinSample_::ts, OBXOrderFlags_DESCENDING).build().find();
             json arr = json::array();
-            for (auto& r : rows)
-                arr.push_back({{"ts",r.ts},{"insideTempC",r.insideTempC},
-                    {"outsideTempC",r.outsideTempC},{"hvacMode",r.hvacMode},{"fanSpeed",r.fanSpeed}});
+            for (auto& r : rows) {
+                json o; o["ts"]=r.ts; o["insideTempC"]=r.insideTempC;
+                o["outsideTempC"]=r.outsideTempC; o["hvacMode"]=r.hvacMode; o["fanSpeed"]=r.fanSpeed; arr.push_back(o);
+            }
             res.set_content(json{{"count",(int)arr.size()},{"samples",arr}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
@@ -989,10 +968,10 @@ int main(int argc, char* argv[]) {
                 AdasSample_::ts.greaterOrEq(cutoff))
                 .order(AdasSample_::ts, OBXOrderFlags_DESCENDING).build().find();
             json arr = json::array();
-            for (auto& r : rows)
-                arr.push_back({{"ts",r.ts},{"cruiseEnabled",r.cruiseEnabled},
-                    {"laneKeepAssistOn",r.laneKeepAssistOn},
-                    {"collisionWarningActive",r.collisionWarningActive}});
+            for (auto& r : rows) {
+                json o; o["ts"]=r.ts; o["cruiseEnabled"]=r.cruiseEnabled;
+                o["laneKeepAssistOn"]=r.laneKeepAssistOn; o["collisionWarningActive"]=r.collisionWarningActive; arr.push_back(o);
+            }
             res.set_content(json{{"count",(int)arr.size()},{"samples",arr}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
@@ -1010,9 +989,10 @@ int main(int argc, char* argv[]) {
                 VehicleEvent_::ts.greaterOrEq(cutoff))
                 .order(VehicleEvent_::ts, OBXOrderFlags_DESCENDING).build().find();
             json arr = json::array();
-            for (auto& r : rows)
-                arr.push_back({{"ts",r.ts},{"eventType",r.eventType},{"severity",r.severity},
-                    {"vssPath",r.vssPath},{"code",r.code},{"description",r.description}});
+            for (auto& r : rows) {
+                json o; o["ts"]=r.ts; o["eventType"]=r.eventType; o["severity"]=r.severity;
+                o["vssPath"]=r.vssPath; o["code"]=r.code; o["description"]=r.description; arr.push_back(o);
+            }
             res.set_content(json{{"count",(int)arr.size()},{"events",arr}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;

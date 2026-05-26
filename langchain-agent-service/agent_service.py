@@ -32,7 +32,7 @@ EMBEDDING_MODEL           = os.getenv("EMBEDDING_MODEL",           "voyageai/voy
 SEARCH_SERVICE_URL        = os.getenv("SEARCH_SERVICE_URL",        "http://localhost:8080")
 MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://localhost:8085")
 NAVIGATION_SERVICE_URL    = os.getenv("NAVIGATION_SERVICE_URL",    "http://localhost:5001")
-TELEMETRY_SERVICE_URL     = os.getenv("TELEMETRY_MCP_URL",         "http://localhost:3001")
+TELEMETRY_SERVICE_URL     = os.getenv("VSS_TELEMETRY_MCP_URL",      "http://localhost:3002")
 
 # Load embedding model once at startup
 print(f"Loading embedding model: {EMBEDDING_MODEL}", flush=True)
@@ -57,10 +57,12 @@ You are a unified intelligent car assistant with access to three capabilities:
 1. **Car Manual** ({search_tool_name}) — Answer questions about vehicle maintenance,
    repairs, warning lights, specifications, and procedures.
 
-2. **Vehicle Telemetry** (MCP tools) — Check real-time sensor data: engine temperature,
-   oil pressure, battery voltage, fuel level, tire pressure, transmission, brakes.
-   Use get_anomalies first when the user reports a problem, then check_system_status
-   for the relevant system.
+2. **Vehicle Telemetry** (MCP tools) — Check real-time VSS sensor data across six domains:
+   powertrain (speed, RPM, fuel, coolant, gear), battery (SOC, range, charging, voltage,
+   health), chassis (tire pressures, ABS, ESC, brake fluid), cabin (doors, HVAC, windows),
+   location (GPS coordinates, heading), and ADAS (cruise control, lane keep, collision warning).
+   Use get_vehicle_events first when the user reports a problem, then the relevant domain
+   tool (e.g. get_chassis_status for tire/brake issues, get_powertrain_status for engine).
    AVAILABILITY: {telemetry_availability}.
 
 3. **Navigation** (navigate_to) — Find and route to nearby places: mechanics, gas
@@ -97,20 +99,27 @@ RULES — follow these exactly:
 • Never mention page numbers from the car manual in your answers.
 
 When the user asks for a general car status or overview:
-  → call get_anomalies to get all current warnings and issues across every system.
+  → call get_vehicle_status to get a full snapshot across all VSS domains, then
+     call get_vehicle_events to surface any active warnings or alerts.
 
-When the user asks to check a specific system (engine, battery, fuel, tires, transmission, brakes):
-  → call check_system_status only. Do NOT search the car manual unless the user also
-     asks how to fix it, what it means, or what to do about it.
+When the user asks to check a specific system:
+  → engine / powertrain / fuel / speed / gear → get_powertrain_status
+  → battery / charging / range              → get_battery_status
+  → tires / brakes / ABS / ESC             → get_chassis_status
+  → cabin / doors / HVAC / windows         → get_cabin_status
+  → location / GPS / heading               → get_location
+  → ADAS / cruise control / lane keep      → get_adas_status
+  Do NOT search the car manual unless the user also asks how to fix it, what it means,
+  or what to do about it.
 
 When the user asks ANYTHING about their car — how to fix, repair, change, check,
   understand a warning, or any maintenance procedure:
   → ALWAYS call {search_tool_name} first. Never answer car questions from your own
-     knowledge. Only also call check_system_status if you need the current sensor
+     knowledge. Only also call the relevant domain tool if you need the current sensor
      reading to give a useful answer.
 
 When the user asks to check a system AND navigate in the same message:
-  • Step 1: call check_system_status
+  • Step 1: call the relevant domain tool (e.g. get_chassis_status for tires/brakes)
   • Step 2: call navigate_to immediately — do NOT ask for confirmation first
 
 When the user responds with a short confirmation ("yes", "sure", "ok", "please", "go ahead",
@@ -381,7 +390,7 @@ async def run_agent(
         args_schema=NavigateInput,
     )
 
-    # ── Telemetry tools (direct REST calls to MCP server) ────────────────────
+    # ── VSS Telemetry tools (direct REST calls to VSS MCP server) ───────────
 
     def _call_telemetry_tool(name: str, args: dict = {}) -> str:
         try:
@@ -390,34 +399,68 @@ async def run_agent(
                 json=args,
                 timeout=10,
             )
-            return resp.text if resp.ok else f"Telemetry error: {resp.status_code}"
+            if resp.ok:
+                data = resp.json()
+                return data.get("result", resp.text)
+            return f"Telemetry error: {resp.status_code}"
         except Exception as e:
             return f"Telemetry service unavailable: {e}"
 
+    class VehicleEventsInput(BaseModel):
+        minutes:  int = Field(default=30, description="How many minutes back to search (default 30)")
+        severity: str = Field(default="all", description="Filter by severity: 'warning', 'critical', or 'all'")
+
+    class DrivingHistoryInput(BaseModel):
+        domain:  str = Field(description="Domain to query: powertrain, battery, location, cabin, or adas")
+        minutes: int = Field(default=10, description="How many minutes back to search (default 10)")
+
     telemetry_tools = [
         StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_latest_telemetry"),
-            name="get_latest_telemetry",
-            description="Get the most recent snapshot of all vehicle sensor data.",
+            func=lambda: _call_telemetry_tool("get_vehicle_status"),
+            name="get_vehicle_status",
+            description="Get a full snapshot of the vehicle: VehicleMeta plus all current state entities (powertrain, battery, chassis, cabin, location, ADAS).",
         ),
         StructuredTool.from_function(
-            func=lambda system: _call_telemetry_tool("check_system_status", {"system": system}),
-            name="check_system_status",
-            description="Check the status of a specific vehicle system. Valid systems: engine, battery, fuel, tires, transmission, brakes.",
-            args_schema=type("CheckSystemInput", (BaseModel,), {
-                "system": Field(description="System to check: engine, battery, fuel, tires, transmission, or brakes"),
-                "__annotations__": {"system": str},
-            }),
+            func=lambda: _call_telemetry_tool("get_powertrain_status"),
+            name="get_powertrain_status",
+            description="Get current powertrain state: speed, RPM, fuel level, coolant temperature, transmission gear, throttle, and odometer.",
         ),
         StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_tire_pressure"),
-            name="get_tire_pressure",
-            description="Get tire pressure readings for all four tires.",
+            func=lambda: _call_telemetry_tool("get_battery_status"),
+            name="get_battery_status",
+            description="Get current battery state: state of charge (SOC%), estimated range, charging status, voltage, current, temperature, and state of health.",
         ),
         StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_anomalies"),
-            name="get_anomalies",
-            description="Get all current warnings and critical issues across all vehicle systems.",
+            func=lambda: _call_telemetry_tool("get_chassis_status"),
+            name="get_chassis_status",
+            description="Get current chassis state: tire pressures for all four tires (with warnings), ABS status, ESC status, and brake fluid level.",
+        ),
+        StructuredTool.from_function(
+            func=lambda: _call_telemetry_tool("get_cabin_status"),
+            name="get_cabin_status",
+            description="Get current cabin state: door open/lock status for all doors, temperature setpoint, interior temperature, HVAC, fan speed, and windows.",
+        ),
+        StructuredTool.from_function(
+            func=lambda: _call_telemetry_tool("get_location"),
+            name="get_location",
+            description="Get current vehicle location: latitude, longitude, altitude, heading, GPS speed, and geohash.",
+        ),
+        StructuredTool.from_function(
+            func=lambda: _call_telemetry_tool("get_adas_status"),
+            name="get_adas_status",
+            description="Get current ADAS state: cruise control, lane keep assist, lane departure warning, collision warning, blind spot warnings, and automatic emergency braking.",
+        ),
+        StructuredTool.from_function(
+            func=lambda minutes, severity: _call_telemetry_tool("get_vehicle_events", {"minutes": minutes, "severity": severity}),
+            name="get_vehicle_events",
+            description="Query recent vehicle events (warnings, alerts, critical notices). Filter by time window and optionally by severity.",
+            args_schema=VehicleEventsInput,
+        ),
+        StructuredTool.from_function(
+            func=lambda domain, minutes: _call_telemetry_tool("get_driving_history", {"domain": domain, "minutes": minutes}),
+            name="get_driving_history",
+            description="Retrieve time-series samples from a specific telemetry domain. Valid domains: powertrain, battery, location, cabin, adas.",
+            args_schema=DrivingHistoryInput,
         ),
     ]
 
@@ -482,5 +525,5 @@ if __name__ == "__main__":
     print(f"   Search (offline): {SEARCH_SERVICE_URL}")
     print(f"   Search (online):  {MONGODB_SEARCH_SERVICE_URL}")
     print(f"   Navigation:       {NAVIGATION_SERVICE_URL}")
-    print(f"   Telemetry:        {TELEMETRY_SERVICE_URL}")
+    print(f"   VSS Telemetry:    {TELEMETRY_SERVICE_URL}")
     app.run(host="0.0.0.0", port=port, debug=False)

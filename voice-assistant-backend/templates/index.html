@@ -27,60 +27,56 @@
                     <text x="157" y="140" class="arc-minmax">7K</text>
                 </svg>
                 <div class="gauge-footer">
-                    <span class="mode-pill"  id="driving-mode">--</span>
-                    <span class="alert-pill" id="anomaly-badge">✓ OK</span>
+                    <div class="gauge-stat">
+                        <span class="gauge-stat-label">ENGINE</span>
+                        <span class="gauge-stat-val" id="engine-on-badge">--</span>
+                    </div>
+                    <div class="gauge-stat">
+                        <span class="gauge-stat-label">ALERT</span>
+                        <span class="gauge-stat-val" id="collision-badge">--</span>
+                    </div>
                 </div>
             </div>
 
             <!-- Engine metrics -->
             <div class="telem-group">
                 <div class="telem-group-title">ENGINE</div>
-                <div class="telem-row">
-                    <span class="telem-label">COOLANT</span>
-                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
-                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
-                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="coolant-bar"/>
-                    </svg>
-                    <span class="telem-val" id="coolant-val">--°C</span>
+                <div class="stat-row">
+                    <span class="stat-label">COOLANT</span>
+                    <span class="stat-val" id="coolant-val">--°C</span>
                 </div>
-                <div class="telem-row">
-                    <span class="telem-label">OIL P.</span>
-                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
-                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
-                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="oilp-bar"/>
-                    </svg>
-                    <span class="telem-val" id="oilp-val">-- psi</span>
+                <div class="stat-row">
+                    <span class="stat-label">THROTTLE</span>
+                    <span class="stat-val" id="throttle-val">--%</span>
                 </div>
-                <div class="telem-row">
-                    <span class="telem-label">OIL LVL</span>
-                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
-                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
-                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="oill-bar"/>
-                    </svg>
-                    <span class="telem-val" id="oill-val">--%</span>
+                <div class="stat-row">
+                    <span class="stat-label">ODOMETER</span>
+                    <span class="stat-val stat-val-sm" id="odometer-val">-- km</span>
                 </div>
             </div>
 
             <!-- Battery -->
             <div class="telem-group">
-                <div class="telem-group-title">⚡ BATTERY</div>
-                <div class="battery-widget">
-                    <svg viewBox="0 0 100 72" class="mini-arc-svg">
-                        <circle cx="50" cy="52" r="38" class="arc-track" transform="rotate(150,50,52)"/>
-                        <circle cx="50" cy="52" r="38" class="arc-fill"  id="batt-arc" transform="rotate(150,50,52)"/>
-                        <text x="50" y="47" class="arc-num-sm" id="batt-pct">--</text>
-                        <text x="50" y="61" class="arc-lbl-sm">%</text>
-                    </svg>
-                    <div class="battery-details">
-                        <div class="batt-row">
-                            <span class="telem-label">VOLTAGE</span>
-                            <span class="telem-val" id="batt-v">--V</span>
-                        </div>
-                        <div class="batt-row">
-                            <span class="telem-label">HEALTH</span>
-                            <span class="telem-val" id="batt-health">--%</span>
-                        </div>
-                    </div>
+                <div class="telem-group-title">BATTERY</div>
+                <div class="stat-row">
+                    <span class="stat-label">SOC</span>
+                    <span class="stat-val" id="batt-pct">--%</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">VOLTAGE</span>
+                    <span class="stat-val" id="batt-v">--V</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">HEALTH</span>
+                    <span class="stat-val" id="batt-health">--%</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">RANGE</span>
+                    <span class="stat-val" id="batt-range">-- km</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">CHARGING</span>
+                    <span class="stat-val" id="batt-charging">--</span>
                 </div>
             </div>
 
@@ -180,20 +176,20 @@
                     <text x="157" y="140" class="arc-minmax">F</text>
                 </svg>
                 <div class="gauge-footer">
-                    <div class="gauge-footer-cell">
-                        <span class="telem-label">GEAR</span>
-                        <span class="gear-num" id="current-gear">--</span>
+                    <div class="gauge-stat">
+                        <span class="gauge-stat-label">GEAR</span>
+                        <span class="gauge-stat-val" id="current-gear">--</span>
                     </div>
-                    <div class="gauge-footer-cell">
-                        <span class="telem-label">TRANS</span>
-                        <span class="telem-val" id="trans-temp">--°C</span>
+                    <div class="gauge-stat">
+                        <span class="gauge-stat-label">SPEED</span>
+                        <span class="gauge-stat-val" id="speed-val">-- km/h</span>
                     </div>
                 </div>
             </div>
 
             <!-- Tires -->
             <div class="telem-group">
-                <div class="telem-group-title">TIRES (psi)</div>
+                <div class="telem-group-title">TIRES</div>
                 <svg viewBox="0 0 160 125" class="tire-svg">
                     <!-- Car body -->
                     <rect x="46" y="14"  width="68" height="97" rx="14" class="car-body"/>
@@ -218,32 +214,37 @@
                 </svg>
             </div>
 
-            <!-- Brakes -->
+            <!-- Chassis -->
             <div class="telem-group">
-                <div class="telem-group-title">🔧 BRAKES</div>
-                <div class="telem-row">
-                    <span class="telem-label">FLUID</span>
-                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
-                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
-                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="brake-fluid-bar"/>
-                    </svg>
-                    <span class="telem-val" id="brake-fluid-val">--%</span>
+                <div class="telem-group-title">CHASSIS</div>
+                <div class="stat-row">
+                    <span class="stat-label">ABS</span>
+                    <span class="stat-val" id="abs-val">--</span>
                 </div>
-                <div class="telem-row">
-                    <span class="telem-label">PADS F</span>
-                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
-                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
-                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="brake-f-bar"/>
-                    </svg>
-                    <span class="telem-val" id="brake-f-val">--%</span>
+                <div class="stat-row">
+                    <span class="stat-label">TRACTION</span>
+                    <span class="stat-val" id="esc-val">--</span>
                 </div>
-                <div class="telem-row">
-                    <span class="telem-label">PADS R</span>
-                    <svg viewBox="0 0 100 6" class="telem-bar-svg">
-                        <rect x="0" y="0" width="100" height="6" rx="3" class="bar-track"/>
-                        <rect x="0" y="0" width="0"   height="6" rx="3" class="bar-fill" id="brake-r-bar"/>
-                    </svg>
-                    <span class="telem-val" id="brake-r-val">--%</span>
+                <div class="stat-row">
+                    <span class="stat-label">BRAKE</span>
+                    <span class="stat-val" id="brake-pedal-val">--%</span>
+                </div>
+            </div>
+
+            <!-- ADAS -->
+            <div class="telem-group">
+                <div class="telem-group-title">ADAS</div>
+                <div class="stat-row">
+                    <span class="stat-label">CRUISE</span>
+                    <span class="stat-val stat-val-sm" id="adas-cruise">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">LANE KEEP</span>
+                    <span class="stat-val" id="adas-lka">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">COLLISION</span>
+                    <span class="stat-val" id="adas-collision">--</span>
                 </div>
             </div>
 

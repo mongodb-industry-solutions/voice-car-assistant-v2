@@ -55,6 +55,11 @@ function fmt(obj) {
   return JSON.stringify(obj, null, 2);
 }
 
+// Strip CR/LF and other control characters from any value before it touches a log line.
+function sanitizeForLog(value) {
+  return String(value).replace(/[\r\n\x00-\x1f\x7f]/g, " ").slice(0, 200);
+}
+
 // ── Tool implementations ───────────────────────────────────────────────────────
 
 async function get_vehicle_status() {
@@ -561,11 +566,11 @@ app.get("/sse", async (req, res) => {
 
   res.on("close", () => {
     delete transports[transport.sessionId];
-    console.log(`SSE client disconnected (${transport.sessionId})`);
+    console.log(`SSE client disconnected (${sanitizeForLog(transport.sessionId)})`);
   });
 
   await server.connect(transport);
-  console.log(`SSE client connected (${transport.sessionId})`);
+  console.log(`SSE client connected (${sanitizeForLog(transport.sessionId)})`);
 });
 
 app.post("/messages", express.json(), async (req, res) => {
@@ -593,7 +598,7 @@ app.post("/tools/:toolName", express.json(), async (req, res) => {
     const resultText = await handler(req.body || {});
     res.json({ result: resultText });
   } catch (e) {
-    console.error(`Tool error [${toolName}]:`, e);
+    console.error(`Tool error [${sanitizeForLog(toolName)}]:`, e);
     res.status(500).json({ error: e.message });
   }
 });

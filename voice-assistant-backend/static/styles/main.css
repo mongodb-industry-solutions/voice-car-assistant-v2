@@ -567,6 +567,21 @@ body {
     }
 }
 
+/* Thinking bubble — shown in-chat while waiting for the agent */
+.thinking-bubble .message-text {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 0.88rem;
+}
+
+.thinking-bubble .status-dots {
+    display: flex;
+    gap: 0.4rem;
+}
+
 /* Tool badges */
 .tool-badges {
     display: flex;

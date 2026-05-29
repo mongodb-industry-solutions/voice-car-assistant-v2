@@ -20,7 +20,15 @@ COPY --from=builder /build/vss_service /app/
 COPY --from=builder /build/_deps/objectbox-sync-download-src/lib/libobjectbox.so /usr/local/lib/
 RUN ldconfig
 
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && mkdir -p /app/vss-db \
+    && chown -R appuser:appuser /app
+
+# Declare volume for persistent database storage (chown must precede VOLUME)
 VOLUME ["/app/vss-db"]
+
+USER appuser
+
 EXPOSE 8086
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \

@@ -38,8 +38,14 @@ COPY --from=builder /build/objectbox-model.json /app/
 # Update library cache
 RUN ldconfig
 
-# Declare volume for persistent database storage
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && mkdir -p /app/conversation-db \
+    && chown -R appuser:appuser /app
+
+# Declare volume for persistent database storage (chown must precede VOLUME)
 VOLUME ["/app/conversation-db"]
+
+USER appuser
 
 # Expose port
 EXPOSE 8081

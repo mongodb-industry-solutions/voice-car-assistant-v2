@@ -60,6 +60,35 @@ const TOOL_LABELS = {
     'get_driving_history':      { icon: '📈', label: 'Driving History' },
 };
 
+// ── Thinking bubble ───────────────────────────────────────────────────────────
+
+let _thinkingBubble = null;
+
+function showThinkingBubble() {
+    removeThinkingBubble();
+    const div = document.createElement('div');
+    div.className = 'message assistant-message thinking-bubble';
+    div.innerHTML = `
+        <div class="message-avatar">🤖</div>
+        <div class="message-content">
+            <div class="message-text">
+                Processing
+                <span class="status-dots"><span></span><span></span><span></span></span>
+            </div>
+        </div>
+    `;
+    chatMessages.appendChild(div);
+    scrollToBottom();
+    _thinkingBubble = div;
+}
+
+function removeThinkingBubble() {
+    if (_thinkingBubble) {
+        _thinkingBubble.remove();
+        _thinkingBubble = null;
+    }
+}
+
 // Helper: Add assistant message to chat
 function addAssistantMessage(text, sources = null, toolsUsed = []) {
     const messageDiv = document.createElement('div');
@@ -196,10 +225,18 @@ socket.on('stats', (data) => {
     }
 });
 
-// Question received
+// Question received — only used for voice path; text path adds the message locally
+let _pendingTextMessage = null;
 socket.on('question', (data) => {
     console.log('❓ Question:', data.text);
+    if (_pendingTextMessage && _pendingTextMessage === data.text) {
+        // Already added client-side in sendTextMessage — just clear the flag
+        _pendingTextMessage = null;
+        return;
+    }
+    _pendingTextMessage = null;
     addUserMessage(data.text);
+    showThinkingBubble();
 });
 
 // Search results (stored for answer)
@@ -212,6 +249,7 @@ socket.on('search_results', (data) => {
 // Answer received
 socket.on('answer', (data) => {
     console.log('💬 Answer:', data.text.substring(0, 50) + '...');
+    removeThinkingBubble();
     addAssistantMessage(data.text, currentSources, data.tools_used || []);
     currentSources = [];
     sendBtn.disabled = false;
@@ -239,6 +277,7 @@ socket.on('audio', (data) => {
 // Error handling
 socket.on('error', (data) => {
     console.error('❌ Error:', data.message);
+    removeThinkingBubble();
     addAssistantMessage('⚠️ Sorry, I encountered an error: ' + data.message);
     isListening = false;
     micButton.classList.remove('listening');
@@ -321,6 +360,9 @@ function sendTextMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    addUserMessage(text);
+    showThinkingBubble();
+    _pendingTextMessage = text;
     chatInput.value = '';
     sendBtn.disabled = true;
     socket.emit('send_message', { text });

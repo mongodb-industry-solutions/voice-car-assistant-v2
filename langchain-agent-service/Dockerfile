@@ -1,7 +1,7 @@
-FROM python:3.11-slim
+FROM python:3.12-slim-bookworm
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -18,4 +18,6 @@ COPY . .
 
 EXPOSE 5002
 
-CMD ["python", "agent_service.py"]
+# --timeout 150: kill a worker that hasn't responded in 150 s (covers worst-case LLM latency)
+# --workers 2:   allow two concurrent requests (each blocks a thread during the Ollama call)
+CMD ["gunicorn", "--bind", "0.0.0.0:5002", "--workers", "1", "--worker-class", "gthread", "--threads", "4", "--preload", "agent_service:app"]

@@ -45,7 +45,11 @@ OBX_model* create_obx_model() {
     OBX_model* model = obx_model();
     
     // Entity 1: manual_chunks (from sync-server schema)
+    // SYNC_ENABLED so chunks written here propagate to the Sync Server → MongoDB.
+    // Must match "flags": 2 in sync-server-setup/objectbox-model.json, otherwise
+    // writes stay local-only (this was the original "data never syncs" bug).
     obx_model_entity(model, "manual_chunks", 1, 2807783899453578393);
+    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
     obx_model_property(model, "id", OBXPropertyType_Long, 1, 871349036716677797);
     obx_model_property_flags(model, OBXPropertyFlags_ID);
     obx_model_property(model, "text", OBXPropertyType_String, 2, 6563616578029045320);
@@ -557,7 +561,7 @@ int main(int argc, char* argv[]) {
             
             json result = search_chunks(embedding, limit);
             res.set_content(result.dump(), "application/json");
-            
+
         } catch (const std::exception& e) {
             json error;
             error["error"] = e.what();
@@ -565,7 +569,80 @@ int main(int argc, char* argv[]) {
             res.set_content(error.dump(), "application/json");
         }
     });
-    
+
+    // Ingest endpoint — load_documents.py POSTs embedded chunks here. Because the
+    // box is SYNC_ENABLED and the sync client is connected, these inserts flow to
+    // the Sync Server and on to MongoDB (mirrors the telemetry POST /vss/snapshot).
+    // Accepts a single chunk object, or a batch via {"chunks": [ ... ]}.
+    svr.Post("/chunks", [](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+
+            // Normalise to an array of chunk objects.
+            json items;
+            if (body.is_array()) {
+                items = body;
+            } else if (body.contains("chunks") && body["chunks"].is_array()) {
+                items = body["chunks"];
+            } else {
+                items = json::array({body});  // single chunk object
+            }
+
+            auto chunkBox = store->box<ManualChunk>();
+            int inserted = 0;
+
+            for (const auto& item : items) {
+                std::vector<float> embedding = item["embedding"].get<std::vector<float>>();
+                if (embedding.size() != 1024) {
+                    json error;
+                    error["error"] = "Each embedding must be 1024 dimensions (got "
+                                   + std::to_string(embedding.size()) + ")";
+                    res.status = 400;
+                    res.set_content(error.dump(), "application/json");
+                    return;
+                }
+                ManualChunk chunk;
+                chunk.id          = 0;  // new insert
+                chunk.text        = item.value("text", "");
+                chunk.source_file = item.value("source_file", "");
+                chunk.chunk_index = item.value("chunk_index", 0);
+                chunk.embedding   = std::move(embedding);
+                chunk.syncClock   = 0;  // set by the Sync Server
+                chunkBox.put(chunk);
+                inserted++;
+            }
+
+            json response;
+            response["inserted"]    = inserted;
+            response["chunk_count"] = chunkBox.count();
+            res.set_content(response.dump(), "application/json");
+
+        } catch (const std::exception& e) {
+            json error;
+            error["error"] = e.what();
+            res.status = 500;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
+    // Clear all chunks — lets the loader reset before a fresh load without
+    // wiping the on-disk store. Removals propagate through sync as well.
+    svr.Delete("/chunks", [](const httplib::Request&, httplib::Response& res) {
+        try {
+            auto chunkBox = store->box<ManualChunk>();
+            uint64_t removed = chunkBox.removeAll();
+            json response;
+            response["removed"]     = removed;
+            response["chunk_count"] = chunkBox.count();
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            json error;
+            error["error"] = e.what();
+            res.status = 500;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
     std::cout << "Starting HTTP server on 0.0.0.0:" << config.port << "..." << std::endl;
     svr.listen("0.0.0.0", config.port);
     

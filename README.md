@@ -78,12 +78,17 @@ Install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 ### 2. Ollama
 
-Install [Ollama](https://ollama.com/download) and pull the required models:
+Install [Ollama](https://ollama.com/download) and pull the LLM:
 
 ```bash
 ollama pull qwen3:4b          # LLM for agent + navigation
-ollama pull nub235/voyage-4-nano  # embedding model (local fallback)
 ```
+
+The embedding model (`voyageai/voyage-4-nano`, 1024-d) is **not** an Ollama model —
+it is downloaded automatically from Hugging Face the first time the loader or the
+agent runs. It ships custom model code, so it is loaded with `trust_remote_code=True`
+and is pinned to `transformers==4.57.1` (newer transformers break its remote code).
+No `nub235/voyage-4-nano` Ollama pull is needed (that model was removed from Ollama).
 
 ### 3. MongoDB Atlas
 
@@ -113,17 +118,7 @@ MONGODB_CLUSTER=your_cluster.xxxxx.mongodb.net
 MONGODB_DATABASE=your_database_name
 ```
 
-### 2. Load the car manual into ObjectBox
-
-Run this once to embed the car manual documents into the vector search database:
-
-```bash
-cd ..                     # back to repo root
-pip install -r requirements.txt
-python load_documents.py
-```
-
-### 3. Start all services
+### 2. Start all services
 
 ```bash
 cd sync-server-setup
@@ -131,6 +126,53 @@ docker compose up
 ```
 
 Open the **ObjectBox Sync Server admin UI** at [http://localhost:9980](http://localhost:9980) and activate your trial licence when prompted.
+
+### 3. Load the car manual into the search-service (once)
+
+Run this **after** the stack is up, when `search-service` is healthy:
+
+```bash
+cd ..                     # back to repo root
+pip install -r requirements.txt
+python load_documents.py
+```
+
+What happens:
+
+1. `load_documents.py` chunks [`documents/mongodb_leafy_car_manual.txt`](documents/mongodb_leafy_car_manual.txt)
+   on heading boundaries (~379 chunks) and embeds each chunk with
+   `voyageai/voyage-4-nano` (1024-d, `trust_remote_code=True`, the model's
+   `document` prompt).
+2. It POSTs the chunks to the search-service: `DELETE /chunks` to clear, then
+   `POST /chunks` in batches. (Re-running is therefore safe and idempotent.)
+3. The search-service writes them into its local ObjectBox store as the
+   **sync-enabled** `manual_chunks` entity, over its active Sync client.
+4. The Sync Server replicates them to MongoDB Atlas.
+
+This is the same producer → C++-service-with-sync → Sync Server → Atlas path the
+telemetry stack uses, just run once instead of continuously.
+
+> **Why over HTTP, not a direct ObjectBox write?** The Python ObjectBox SDK has no
+> Sync support, so writing the store directly only produces local-only rows that
+> never reach the Sync Server. The chunks must be written by the sync-connected
+> search-service, and `manual_chunks` must be `SYNC_ENABLED` in its model
+> (`OBXEntityFlags_SYNC_ENABLED`, matching `sync-server-setup/objectbox-model.json`).
+
+> **The embedding model must match on both sides.** The agent embeds queries with
+> the same model and dimension (using the `query` prompt). voyage-4-nano is a
+> Matryoshka model loaded at its native 1024-d; it is pinned to
+> `transformers==4.57.1` because newer transformers break its bundled remote code.
+
+If you change the search schema (e.g. the entity's sync flag or properties),
+delete the on-disk store before reloading so it reinitialises cleanly:
+
+```bash
+cd sync-server-setup
+docker compose down
+Remove-Item -Force .\search-service-data\*.mdb   # PowerShell; or rm on Linux/macOS
+docker compose up -d --build search-service
+# wait until healthy, then re-run python load_documents.py from the repo root
+```
 
 Once all containers are healthy, open the voice assistant at **[http://localhost:5000](http://localhost:5000)**.
 
@@ -193,6 +235,20 @@ Full field-level documentation: [`vss-data.md`](vss-data.md)
 {"type":"Point","coordinates":[longitude, latitude]}
 ```
 Longitude is first per the GeoJSON spec (RFC 7946). MongoDB Atlas geospatial queries work directly on this field.
+
+## Search Service API
+
+The C++ search-service (:8080) owns the sync-enabled `manual_chunks` ObjectBox
+store and a Sync client. `load_documents.py` writes through it; the agent queries it.
+
+```
+POST   /chunks   — ingest chunks (single object, or {"chunks":[ ... ]});
+                   each item: {text, source_file, chunk_index, embedding[1024]}.
+                   Writes flow through Sync to MongoDB Atlas.
+DELETE /chunks   — clear all chunks (used by the loader to reset before a load)
+POST   /search   — vector search; body {embedding[1024], limit}; returns chunks + scores
+GET    /health   — status + chunk_count
+```
 
 ## VSS Telemetry Service API
 

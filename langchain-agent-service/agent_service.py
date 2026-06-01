@@ -34,9 +34,17 @@ MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://loc
 NAVIGATION_SERVICE_URL    = os.getenv("NAVIGATION_SERVICE_URL",    "http://localhost:5001")
 TELEMETRY_SERVICE_URL     = os.getenv("VSS_TELEMETRY_MCP_URL",      "http://localhost:3002")
 
-# Load embedding model once at startup
-print(f"Loading embedding model: {EMBEDDING_MODEL}", flush=True)
-_embed_model = SentenceTransformer(EMBEDDING_MODEL)
+# Load embedding model once at startup.
+# voyage-4-nano ships custom model code (Qwen3 bidirectional) and MUST be loaded
+# with trust_remote_code=True; without it transformers emits a wrong 2048-d
+# vector. It is a Matryoshka model — truncate_dim=1024 selects its native 1024-d
+# head (identical to the Voyage API's output_dimension=1024). Requires
+# transformers==4.57.1 (see requirements.txt). This MUST match how
+# load_documents.py embeds stored chunks (same model, truncate_dim, normalisation)
+# or query vectors won't align with the indexed vectors.
+EMBED_DIM = int(os.getenv("EMBED_DIM", "1024"))
+print(f"Loading embedding model: {EMBEDDING_MODEL} @ {EMBED_DIM} dims", flush=True)
+_embed_model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True, truncate_dim=EMBED_DIM)
 print("Embedding model ready", flush=True)
 
 
@@ -54,8 +62,10 @@ _histories: dict = {}
 _SYSTEM_PROMPT = """\
 You are a unified intelligent car assistant with access to three capabilities:
 
-1. **Car Manual** ({search_tool_name}) — Answer questions about vehicle maintenance,
-   repairs, warning lights, specifications, and procedures.
+1. **Car Manual** ({search_tool_name}) — Answer questions about the MongoDB Leafy 1.0
+   plug-in hybrid hatchback: maintenance procedures, warning lights, troubleshooting
+   by vehicle area, fluid checks, tire repair, technical specifications, and the
+   driver assistance and safety systems.
 
 2. **Vehicle Telemetry** (MCP tools) — Check real-time VSS sensor data across six domains:
    powertrain (speed, RPM, fuel, coolant, gear), battery (SOC, range, charging, voltage,
@@ -167,7 +177,10 @@ def _search_manual_impl(query: str, search_url: str = None) -> str:
     print(f"[search] query='{query[:60]}' url={url}", flush=True)
     try:
         t0 = time.time()
-        embedding = _embed_model.encode(query).tolist()
+        # Queries use the model's "query" prompt; stored chunks used "document".
+        embedding = _embed_model.encode(
+            query, prompt_name="query", normalize_embeddings=True
+        ).tolist()
         print(f"[timing] embedding: {time.time()-t0:.2f}s  dims={len(embedding)}", flush=True)
         t1 = time.time()
         resp = _http.post(

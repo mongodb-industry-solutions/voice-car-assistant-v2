@@ -1,0 +1,2785 @@
+# MongoDB Leafy 1.0 Owner Manual
+
+## Welcome to the MongoDB Leafy 1.0
+
+Thank you for choosing the MongoDB Leafy 1.0, a fictional hybrid hatchback created for drivers who want simplicity, clean design, practical space, and quiet operation. The Leafy 1.0 is designed as an everyday city-and-suburban vehicle with a friendly cabin layout, an efficient hybrid drive system, and intuitive controls.
+
+This manual explains the vehicle in detail, including its parts, controls, warnings, normal behavior, maintenance expectations, and troubleshooting guidance. Because this is a complete owner-style manual, it is written to cover the vehicle from front bumper to rear hatch, from roofline to underbody, and from startup to storage.
+
+Read this manual carefully before driving, charging, cleaning, lifting, towing, or servicing the vehicle.
+
+# Table of Contents
+
+1. Vehicle Identity and Purpose
+2. Exterior Overview
+3. Interior Overview
+4. Controls and Displays
+5. Doors, Locks, Windows, and Mirrors
+6. Seats, Belts, and Occupant Protection
+7. Powertrain and Hybrid Systems
+8. Battery, Fuel, and Charging
+9. Steering, Suspension, Wheels, and Tires
+10. Brakes and Parking Brake
+11. Lighting and Visibility
+12. Climate and Cabin Air Systems
+13. Cargo Area and Utility Features
+14. Driver Assistance and Safety Features
+15. Driving Instructions
+16. Cleaning, Care, and Storage
+17. Routine Inspection and Maintenance
+18. Troubleshooting by Vehicle Area
+19. Emergency Information
+20. Technical Specifications
+21. Glossary
+
+# 1. Vehicle Identity and Purpose
+
+## Brand and Model
+
+- Brand: MongoDB
+- Model: Leafy 1.0
+
+## Vehicle Character
+
+The MongoDB Leafy 1.0 is a fictional compact plug-in hybrid hatchback intended for daily road use. It combines:
+
+- front-wheel drive
+- a gasoline engine
+- an electric traction motor
+- a floor-mounted high-voltage battery
+- a fuel tank and fuel delivery system
+- regenerative braking
+- a five-door body configuration
+- seating for five occupants
+- a digital driver information system
+- a practical rear cargo compartment
+
+The Leafy 1.0 is intended for paved-road driving. It is not designed as an off-road vehicle, a race vehicle, or a towing-heavy utility vehicle.
+
+# 2. Exterior Overview
+
+## Front Exterior Components
+
+The front area of the vehicle contains the following major parts:
+
+- front bumper cover
+- impact beam
+- lower grille panel
+- hood
+- hood latch
+- hood support strut
+- left and right headlamp assemblies
+- daytime running lamps
+- front turn indicators
+- front camera window
+- forward radar cover
+- parking sensors
+- windshield
+- windshield washer nozzles
+- windshield wiper arms
+- windshield wiper blades
+- front emblem panel
+- front charge port door
+- charge status light ring
+- front recovery point cover
+
+### What these parts do
+
+The front bumper and impact beam help manage low-speed impact energy. The headlamps provide nighttime and low-visibility illumination. The radar and camera support driver assistance functions. The windshield protects occupants and provides visibility. The charge port gives access to vehicle charging. The hood covers service-access components such as washer fluid, brake fluid, and low-voltage service points.
+
+### Front exterior troubleshooting
+
+#### Problem: hood will not open
+
+Possible causes:
+
+- interior hood release not fully pulled
+- secondary latch stuck
+- hood slightly loaded by pressure or dirt
+- latch mechanism dry or contaminated
+
+What to do:
+
+1. Pull the interior hood release fully.
+2. Press down lightly on the hood, then lift again.
+3. Reach under the front edge and move the secondary latch fully aside.
+4. If still stuck, do not force the hood upward from one corner.
+
+#### Problem: front parking sensor warning appears with no obstacle
+
+Possible causes:
+
+- dirt, mud, snow, or water film on sensor face
+- heavy rain
+- direct reflective surface nearby
+- sensor misalignment
+
+What to do:
+
+1. Clean the sensor area gently.
+2. Recheck after restarting the vehicle.
+3. If warning persists in clear conditions, service inspection is recommended.
+
+#### Problem: charge port door does not open
+
+Possible causes:
+
+- vehicle locked
+- actuator delay
+- ice around charge door
+- debris in door seam
+
+What to do:
+
+1. Unlock the vehicle fully.
+2. Press the charge port door again.
+3. If frozen, warm the area gently. Do not pry with sharp tools.
+4. If repeated failure occurs, use service support.
+
+## Side Exterior Components
+
+The sides of the vehicle include:
+
+- A-pillars
+- B-pillars
+- C-pillars
+- front doors
+- rear doors
+- side mirrors
+- mirror indicator lamps
+- side windows
+- weather seals
+- rocker panels
+- wheel arches
+- side body panels
+- lower side trim
+- roof rails or roof trim
+- passive entry antenna zones
+
+### What these parts do
+
+The pillars form part of the safety structure. The doors provide entry and exit. The weather seals reduce wind noise and water intrusion. The mirrors provide rearward awareness. The rocker panels and side beams help protect occupants during side impacts.
+
+### Side exterior troubleshooting
+
+#### Problem: water seen near door opening
+
+Possible causes:
+
+- door seal dirty or folded
+- drainage path blocked
+- window not fully closed
+- vehicle parked on steep slope during rain
+
+What to do:
+
+1. Inspect and clean the rubber door seals.
+2. Check that the glass is fully closed.
+3. Dry the area and monitor after the next wash or rain.
+4. If water repeats on multiple doors, inspect for seal damage.
+
+#### Problem: mirror does not fold or adjust correctly
+
+Possible causes:
+
+- mirror motor obstruction
+- ice buildup
+- control setting issue
+- low 12V support battery condition
+
+What to do:
+
+1. Remove visible ice or obstruction.
+2. Retry adjustment with vehicle in Ready mode.
+3. If one direction works but not another, motor or switch service may be needed.
+
+## Rear Exterior Components
+
+The rear of the vehicle includes:
+
+- rear hatch
+- hatch latch
+- hatch hinges
+- rear window
+- rear defogger grid
+- roof spoiler
+- high-mounted stop lamp
+- rear combination lamps
+- reverse lamps
+- rear turn indicators
+- rear fog lamp
+- rear camera
+- rear parking sensors
+- license plate lamps
+- rear bumper
+- lower trim
+- cargo opening seal
+
+### What these parts do
+
+The rear hatch allows cargo access. The rear lamps signal braking, turning, and reversing. The camera and sensors assist maneuvering. The rear defogger helps keep the glass clear in cold or wet conditions.
+
+### Rear exterior troubleshooting
+
+#### Problem: rear hatch does not unlatch
+
+Possible causes:
+
+- vehicle still locked
+- hatch switch delay
+- latch jammed by cargo pressure
+- low 12V support battery
+
+What to do:
+
+1. Unlock the vehicle again.
+2. Remove any cargo pressing hard against the hatch.
+3. Try opening from the center of the handle area.
+4. If electronic release fails, use emergency manual release if equipped.
+
+#### Problem: rear camera image blurry
+
+Possible causes:
+
+- lens dirty
+- water droplets on lens
+- condensation
+- low light conditions
+
+What to do:
+
+1. Wipe the lens with a soft cloth.
+2. Recheck in dry conditions.
+3. Mild temporary fogging may clear as temperatures stabilize.
+
+# 3. Interior Overview
+
+## Cabin Layout
+
+The Leafy 1.0 cabin is designed around a compact, upright driving position with clear sightlines and simple control access.
+
+Major interior areas:
+
+- driver seat zone
+- front passenger zone
+- instrument panel
+- center console
+- front door trim panels
+- rear passenger compartment
+- rear bench
+- cargo transition area
+- headliner and roof trim
+- floor and underfloor storage
+
+## Main Interior Components
+
+- steering wheel
+- horn switch
+- driver airbag module
+- front passenger airbag module
+- instrument display
+- center touchscreen
+- left stalk
+- right stalk
+- start button
+- gear selector
+- drive mode switch
+- regeneration selector
+- hazard warning switch
+- climate controls
+- front vents
+- rear vents
+- glovebox
+- center armrest
+- cupholders
+- storage tray
+- USB ports
+- 12V accessory outlet
+- wireless charging pad
+- dome lamps
+- reading lamps
+- sun visors
+- grab handles
+- door armrests
+- door pockets
+
+### Interior troubleshooting
+
+#### Problem: rattling noise from cabin
+
+Possible causes:
+
+- object in door pocket
+- loose item in cupholder
+- charging cable in cargo bin
+- rear seat latch not fully engaged
+- parcel shelf movement
+
+What to do:
+
+1. Empty all loose-storage areas.
+2. Fold and re-latch rear seats.
+3. Secure cargo floor and parcel shelf.
+4. Re-test on a smooth road.
+
+#### Problem: interior lights do not come on
+
+Possible causes:
+
+- light switch set to off
+- delay timer active
+- low 12V support battery
+- door not recognized as open
+
+What to do:
+
+1. Check dome light switch position.
+2. Open and close each door.
+3. Start the vehicle and test again.
+4. If still inoperative, inspect via service.
+
+# 4. Controls and Displays
+
+## Steering Wheel Controls
+
+The steering wheel contains:
+
+- horn switch
+- audio controls
+- voice command control
+- instrument menu controls
+- cruise or assist controls
+- call controls
+
+The steering wheel is designed for hand placement at comfortable control points while keeping major functions within thumb reach.
+
+## Stalk Controls
+
+### Left stalk
+
+Typically controls:
+
+- turn signals
+- headlamps
+- high beams
+- flash-to-pass
+
+### Right stalk
+
+Typically controls:
+
+- front wipers
+- rear wiper
+- washer functions
+- intermittent wipe settings
+
+## Instrument Display
+
+The instrument display shows key driving information:
+
+- vehicle speed
+- Ready indicator
+- battery state of charge
+- estimated range
+- gear position
+- warning and status icons
+- turn signal status
+- outside temperature
+- tire pressure alerts
+- service reminders
+- drive mode
+- regenerative level
+
+## Center Touchscreen
+
+The center screen provides access to:
+
+- navigation
+- energy usage
+- charging settings
+- media
+- device pairing
+- climate control
+- vehicle settings
+- camera views
+- driver assistance settings
+- trip information
+- maintenance reminders
+
+### Display troubleshooting
+
+#### Problem: center screen slow to respond
+
+Possible causes:
+
+- cold startup delay
+- background system loading
+- recent software restart
+- temporary processor lag
+
+What to do:
+
+1. Wait a few moments after startup.
+2. Avoid tapping multiple times rapidly.
+3. If frozen, use the system restart method if available.
+4. If issue repeats often, schedule software inspection.
+
+#### Problem: instrument screen warning appears and disappears
+
+Possible causes:
+
+- temporary sensor condition
+- startup self-check
+- low temperature effect
+- momentary communication interruption
+
+What to do:
+
+1. Note the exact warning text.
+2. Check whether it returns during the same trip.
+3. Persistent red warnings should not be ignored.
+
+# 5. Doors, Locks, Windows, and Mirrors
+
+## Doors and Locks
+
+The vehicle supports entry through:
+
+- key card
+- mobile key
+- physical emergency key
+- passive entry sensors
+
+The locking system includes:
+
+- central locking controller
+- child safety locks
+- interior lock switch
+- hatch release
+- anti-lockout logic
+
+### Door operation
+
+To open from outside, unlock the vehicle and pull the exterior handle. To open from inside, pull the interior release handle once. On some settings, the first pull may unlock and the second may open.
+
+### Window system
+
+The Leafy 1.0 includes:
+
+- front power windows
+- rear power windows
+- one-touch driver window
+- anti-pinch protection
+- window lock switch
+
+### Mirrors
+
+The mirror system includes:
+
+- left exterior mirror
+- right exterior mirror
+- power adjustment switch
+- mirror heating
+- auto-fold function if equipped
+
+### Troubleshooting for doors, locks, windows, and mirrors
+
+#### Problem: door will not unlock
+
+Possible causes:
+
+- key too far away
+- mobile key inactive
+- 12V support battery low
+- temporary lock module delay
+
+What to do:
+
+1. Bring the key card close to the door area.
+2. Use the physical backup key if needed.
+3. Try unlocking from another door.
+4. If all doors fail electrically, the 12V system may need support.
+
+#### Problem: window stops and reverses
+
+Possible causes:
+
+- anti-pinch triggered
+- dirty window seal
+- ice at the glass edge
+- weak calibration
+
+What to do:
+
+1. Inspect for obstruction.
+2. Clean the window channels.
+3. Retry with a single continuous press.
+4. Recalibration may be needed after low-voltage events.
+
+#### Problem: wind noise from side window area
+
+Possible causes:
+
+- window not fully seated
+- seal contamination
+- mirror trim looseness
+- door seal compression issue
+
+What to do:
+
+1. Lower and raise the window fully.
+2. Clean the window edge and seal.
+3. Inspect for visible seal folding or tears.
+
+# 6. Seats, Belts, and Occupant Protection
+
+## Seats
+
+The Leafy 1.0 includes:
+
+- driver seat
+- front passenger seat
+- rear three-place bench
+- adjustable head restraints
+- seat tracks
+- recline adjusters
+- height adjustment for driver seat
+- seat heaters if equipped
+
+### Proper seat position
+
+The driver should sit upright with a slight bend in the elbows and knees. The seat should allow full pedal control without stretching. The head restraint should align close to the back of the head.
+
+## Seatbelts
+
+The seatbelt system includes:
+
+- lap-shoulder belts
+- height adjusters for front belts
+- buckle receivers
+- pretensioners
+- load limiters
+- belt reminder sensors
+
+Always wear seatbelts correctly. The shoulder belt must cross the chest, not the neck or arm.
+
+## Airbags
+
+The occupant restraint system may include:
+
+- driver front airbag
+- front passenger airbag
+- side torso airbags
+- curtain airbags
+
+Airbags are supplemental restraints and do not replace seatbelts.
+
+## Child restraint support
+
+The rear seats include:
+
+- lower child seat anchors
+- top tether anchors
+- child lock function
+
+### Troubleshooting for seats and restraints
+
+#### Problem: seat will not slide
+
+Possible causes:
+
+- track obstruction
+- seat lever not fully lifted
+- rail contamination
+- object under seat
+
+What to do:
+
+1. Check under the seat for bottles, bags, or cables.
+2. Lift the adjustment bar fully.
+3. Move seat gradually, not with twisting force.
+
+#### Problem: seatbelt will not pull out smoothly
+
+Possible causes:
+
+- belt twisted
+- vehicle parked on slope
+- belt retractor angle sensitive
+- tension from prior fast retraction
+
+What to do:
+
+1. Feed the belt back in slowly.
+2. Sit upright and pull the belt steadily.
+3. Untwist belt webbing fully.
+
+#### Problem: seatbelt warning stays on
+
+Possible causes:
+
+- occupant unbelted
+- object on seat triggering sensor
+- buckle not fully latched
+- seat sensor issue
+
+What to do:
+
+1. Remove bags from front seats.
+2. Reinsert latch firmly.
+3. If warning stays active with empty seat, inspection may be needed.
+
+# 7. Powertrain and Hybrid Systems
+
+## Main drive system
+
+The MongoDB Leafy 1.0 uses a plug-in hybrid propulsion system made up of:
+
+- gasoline engine
+- fuel tank and fuel delivery system
+- high-voltage traction battery
+- battery management system
+- inverter
+- electric traction motor
+- hybrid drive unit
+- regenerative braking system
+- DC-DC converter
+- low-voltage support battery
+- cooling pumps
+- thermal management valves
+- high-voltage contactors
+- orange high-voltage cables
+
+## How the system works
+
+When the vehicle is turned on and shows Ready mode, the Leafy 1.0 can move using the electric motor, the gasoline engine, or both together depending on speed, battery charge, temperature, and power demand. During gentle driving or short-distance operation, the vehicle may favor electric propulsion. During stronger acceleration, higher speeds, steep climbs, or low battery conditions, the gasoline engine may start automatically to assist propulsion or maintain battery charge. When slowing down, regenerative braking allows part of the vehicle’s motion energy to be returned to the battery.
+
+## Normal hybrid vehicle behaviors
+
+The following can be normal:
+
+- a click sound at startup or shutdown
+- the gasoline engine starting automatically
+- cooling fan noise after parking
+- pump sounds while charging
+- changes between electric and engine operation
+- reduced power when battery is very cold or very hot
+- stronger deceleration in high regeneration mode
+
+### Powertrain troubleshooting
+
+#### Problem: vehicle powers on but does not move
+
+Possible causes:
+
+- Ready mode not active
+- gear not fully selected
+- parking brake still engaged
+- system fault limiting drive
+
+What to do:
+
+1. Confirm Ready indicator is shown.
+2. Press brake and select D or R again.
+3. Check for warning messages.
+4. If a red drive system warning appears, do not continue driving.
+
+#### Problem: acceleration feels weaker than normal
+
+Possible causes:
+
+- low battery charge
+- battery too cold or too hot
+- Eco or Sprout mode selected
+- traction control limiting wheel slip
+- power-limiting warning active
+
+What to do:
+
+1. Check battery state of charge.
+2. Review drive mode selection.
+3. Allow battery conditioning if temperatures are extreme.
+4. If power remains limited in mild conditions, inspect warning messages.
+
+#### Problem: whining sound during acceleration
+
+Possible causes:
+
+- normal electric motor tone
+- inverter switching sound
+- reduction gear sound
+
+What to do:
+
+A light smooth electric whine is often normal. A harsh grinding, knocking, or sudden change in pitch is not normal and should be inspected.
+
+# 8. Battery, Fuel, and Charging
+
+## Hybrid energy overview
+
+The Leafy 1.0 stores energy in two ways: gasoline in the fuel tank and electrical energy in the high-voltage battery. The hybrid control system automatically decides when to use the engine, when to use the electric motor, and when to combine both. Drivers may notice the gasoline engine starting and stopping automatically depending on battery charge, outside temperature, cabin heating or cooling demand, and driving load.
+
+## High-voltage battery
+
+The floor-mounted traction battery contains:
+
+- battery modules
+- cell monitoring electronics
+- coolant channels
+- structural tray
+- protective enclosure
+- service disconnect access point
+- impact protection structure
+
+Do not puncture, modify, heat, flood, open, or attempt to repair the battery pack.
+
+## 12V support battery
+
+The vehicle also uses a low-voltage support battery to power computers, locks, lights, and control systems. If this battery is weak, the vehicle may show unusual electrical behavior even when the main traction battery has charge.
+
+## Charging system
+
+Charging components include:
+
+- charge port
+- charge port lock
+- AC charging interface
+- DC fast-charge interface
+- onboard charger
+- charging communication unit
+- charging cable recognition system
+- charge ring indicator
+
+## Charging light meanings
+
+- white pulsing: initializing
+- green pulsing: charging
+- green solid: charging complete
+- amber: charging paused or limited
+- red flashing: charging fault
+
+## Charging guidance
+
+Before charging:
+
+- park safely
+- shift to Park
+- inspect cable and connector
+- keep the port clean and dry
+
+During charging:
+
+- avoid strain on the connector
+- do not force locked connectors
+- follow station instructions
+
+### Battery and charging troubleshooting
+
+#### Problem: charging does not start
+
+Possible causes:
+
+- connector not fully inserted
+- charging station issue
+- schedule set for later
+- charge port lock not engaged
+- battery temperature outside ideal range
+
+What to do:
+
+1. Disconnect and reconnect the charger fully.
+2. Verify the station is active.
+3. Check in-screen charging schedule settings.
+4. Watch the charge light ring.
+5. Try another charging source if available.
+
+#### Problem: charging starts then stops
+
+Possible causes:
+
+- station communication failure
+- power interruption
+- thermal limit
+- cable strain
+- battery protection event
+
+What to do:
+
+1. Inspect connector seating.
+2. Restart the charging session.
+3. If on DC charging, try AC charging as a comparison.
+4. Repeated red fault indications require service inspection.
+
+#### Problem: connector will not release
+
+Possible causes:
+
+- vehicle still locked to port
+- charging session still active
+- actuator delay
+- cold-weather freezing around connector
+
+What to do:
+
+1. Stop charging from the station first.
+2. Unlock the vehicle.
+3. Wait a few seconds and try again.
+4. If icy, warm the area gently.
+
+#### Problem: range is lower than expected after full charge
+
+Possible causes:
+
+- cold weather
+- recent high-speed driving
+- heavy climate use
+- tire pressure low
+- route elevation
+- battery estimation recalculating
+
+What to do:
+
+1. Review recent driving conditions.
+2. Check tire pressures.
+3. Precondition cabin while plugged in.
+4. Use Eco or Sprout mode when needed.
+
+# 9. Steering, Suspension, Wheels, and Tires
+
+## Steering system
+
+The vehicle uses electric power-assisted steering. Main parts include:
+
+- steering wheel
+- steering column
+- steering shaft
+- steering rack
+- tie rods
+- electric steering assist motor
+- steering control module
+
+The system is tuned for light effort at low speed and firmer stability at higher speed.
+
+## Suspension system
+
+The suspension includes:
+
+- front MacPherson struts
+- front springs
+- front dampers
+- front control arms
+- stabilizer bar
+- rear torsion beam
+- rear springs
+- rear dampers
+- suspension bushings
+- wheel hubs
+
+The suspension supports ride comfort, handling balance, braking stability, and wheel control over uneven surfaces.
+
+## Wheels and tires
+
+Wheel and tire parts include:
+
+- alloy wheels
+- tires
+- valve stems
+- tire pressure sensors
+- wheel nuts
+- center caps
+
+### Steering and suspension troubleshooting
+
+#### Problem: steering feels heavier than normal
+
+Possible causes:
+
+- low assist mode due to fault
+- low 12V support battery
+- steering module warning
+- tire pressure low
+
+What to do:
+
+1. Check for steering warning light.
+2. Check tire pressures.
+3. Restart the vehicle safely.
+4. Persistent heavy steering requires service.
+
+#### Problem: vehicle pulls to one side
+
+Possible causes:
+
+- uneven tire pressure
+- road crown effect
+- wheel alignment issue
+- brake drag
+- tire construction variation
+
+What to do:
+
+1. Check and equalize tire pressures.
+2. Test again on a flatter road.
+3. If pull remains, alignment or brake inspection may be needed.
+
+#### Problem: clunk over bumps
+
+Possible causes:
+
+- suspension bushing wear
+- loose cargo creating false noise
+- top mount wear
+- stabilizer link movement
+
+What to do:
+
+1. Remove loose cargo first.
+2. If noise remains over repeated bumps, inspect suspension hardware.
+
+### Tire troubleshooting
+
+#### Problem: tire pressure warning on display
+
+Possible causes:
+
+- one or more tires below target pressure
+- sudden temperature drop
+- puncture
+- sensor learning delay after tire service
+
+What to do:
+
+1. Inspect all tires visually.
+2. Inflate to the recommended pressure.
+3. If one tire drops again quickly, treat as a leak.
+
+#### Problem: uneven tire wear
+
+Possible causes:
+
+- underinflation
+- overinflation
+- alignment issue
+- suspension wear
+- infrequent tire rotation
+
+What to do:
+
+1. Inspect tread across inside, center, and outside.
+2. Correct pressures.
+3. Rotate or align as needed.
+
+# 10. Brakes and Parking Brake
+
+## Brake system components
+
+The braking system includes:
+
+- brake pedal
+- hydraulic circuit
+- brake booster
+- front disc brakes
+- rear disc brakes
+- brake pads
+- ABS control unit
+- wheel speed sensors
+- brake fluid reservoir
+- electronic parking brake actuators
+
+The Leafy 1.0 also uses regenerative braking. This means some slowing is handled electrically before the friction brakes provide additional stopping power.
+
+## Normal brake behavior
+
+Some mild sounds can be normal, especially after moisture, overnight parking, or self-check events.
+
+### Brake troubleshooting
+
+#### Problem: brake pedal feels firmer than usual
+
+Possible causes:
+
+- cold-weather condition
+- brake assist self-check
+- temporary vacuum or boost characteristic
+- hydraulic issue
+
+What to do:
+
+1. Start the vehicle fully in Ready mode.
+2. Apply pedal several times while stationary.
+3. If a brake warning is shown, do not continue driving.
+
+#### Problem: squeal from brakes
+
+Possible causes:
+
+- moisture film on rotors
+- light corrosion after parking
+- pad wear
+- debris between pad and rotor
+
+What to do:
+
+1. Drive carefully and brake gently a few times.
+2. If squeal continues when dry and warm, inspect pads.
+
+#### Problem: grinding noise when braking
+
+Possible causes:
+
+- severe pad wear
+- trapped debris
+- rotor damage
+
+What to do:
+
+Do not ignore grinding. Brake components may be damaged and should be inspected promptly.
+
+#### Problem: parking brake will not release
+
+Possible causes:
+
+- brake not commanded off
+- low 12V support battery
+- system fault
+- frozen rear brake components in cold weather
+
+What to do:
+
+1. Press brake pedal firmly.
+2. Command release again.
+3. Start vehicle fully in Ready mode.
+4. If still locked, do not force driving.
+
+# 11. Lighting and Visibility
+
+## Exterior lighting
+
+The Leafy 1.0 includes:
+
+- low beams
+- high beams
+- daytime running lamps
+- front turn signals
+- rear turn signals
+- brake lamps
+- reverse lamps
+- rear fog lamp
+- license plate lamps
+- hazard flashers
+
+## Visibility systems
+
+- windshield
+- front wipers
+- rear wiper
+- washer reservoir
+- washer nozzles
+- defogger
+- heated rear glass
+- mirror heating
+
+### Lighting and visibility troubleshooting
+
+#### Problem: headlamp appears dim
+
+Possible causes:
+
+- dirty lens
+- voltage irregularity
+- lamp module issue
+- condensation inside housing
+
+What to do:
+
+1. Clean the outer lens.
+2. Compare both sides.
+3. Temporary fine mist may clear. Heavy trapped moisture should be inspected.
+
+#### Problem: wipers smear the glass
+
+Possible causes:
+
+- worn blades
+- dirty windshield
+- oily film
+- washer fluid low or poor quality
+
+What to do:
+
+1. Clean the windshield thoroughly.
+2. Clean or replace blades.
+3. Fill washer reservoir with proper fluid.
+
+#### Problem: washer does not spray
+
+Possible causes:
+
+- empty reservoir
+- frozen fluid
+- clogged nozzle
+- pump issue
+
+What to do:
+
+1. Fill reservoir.
+2. Use suitable seasonal washer fluid.
+3. Clear nozzles gently if blocked.
+
+# 12. Climate and Cabin Air Systems
+
+## Climate system components
+
+- heat pump
+- electric compressor
+- heater support element
+- cabin evaporator
+- cabin heater core function
+- blower motor
+- cabin filter
+- air doors and actuators
+- front vents
+- floor vents
+- defrost vents
+- rear vents
+- rear defogger
+
+## Climate functions
+
+- automatic temperature control
+- manual fan adjustment
+- front defrost
+- rear defog
+- recirculation
+- fresh air intake
+- seat heating
+- preconditioning while plugged in
+
+### Climate troubleshooting
+
+#### Problem: cabin does not cool well
+
+Possible causes:
+
+- high solar load
+- doors or windows not fully closed
+- filter restriction
+- low system efficiency at startup
+- climate setting not in cooling mode
+
+What to do:
+
+1. Set system to Auto.
+2. Reduce cabin heat by closing windows.
+3. If equipped, precondition before driving.
+4. If weak cooling persists in mild weather, inspection may be needed.
+
+#### Problem: weak airflow from vents
+
+Possible causes:
+
+- low fan setting
+- clogged cabin filter
+- vent closed
+- airflow mode directed elsewhere
+
+What to do:
+
+1. Raise fan speed.
+2. open vents fully.
+3. check airflow mode selection.
+4. replace cabin filter if restricted.
+
+#### Problem: windows fog easily
+
+Possible causes:
+
+- recirculation used too long
+- wet floor mats
+- cabin humidity high
+- filter restricted
+
+What to do:
+
+1. Use fresh air mode.
+2. Activate front defrost.
+3. Remove moisture sources from cabin.
+4. Replace cabin filter if old.
+
+# 13. Cargo Area and Utility Features
+
+## Cargo area components
+
+- rear hatch opening
+- parcel shelf
+- cargo floor panel
+- underfloor storage
+- tie-down loops
+- seatback releases
+- charging cable storage area
+- mobility kit storage
+- accessory socket
+
+## Rear seat folding
+
+The rear seatbacks can be folded to expand cargo space. Always ensure seatbacks relock securely before carrying passengers.
+
+### Cargo area troubleshooting
+
+#### Problem: cargo floor feels loose
+
+Possible causes:
+
+- floor panel not seated
+- underfloor bin lid misaligned
+- tools or cable bag interfering
+
+What to do:
+
+1. Remove items from beneath floor panel.
+2. reseat panel evenly.
+3. confirm all support tabs are aligned.
+
+#### Problem: rear seatback will not latch upright
+
+Possible causes:
+
+- seatbelt trapped behind seat
+- cargo blocking latch point
+- latch not aligned
+
+What to do:
+
+1. Pull seatbelt clear.
+2. remove obstruction.
+3. push seatback firmly until latch clicks.
+
+# 14. Driver Assistance and Safety Features
+
+## Driver assistance systems
+
+The Leafy 1.0 may include:
+
+- forward collision alert
+- automatic emergency braking
+- lane keeping assist
+- lane departure warning
+- blind spot monitoring
+- rear cross-traffic alert
+- parking sensors
+- rear camera
+- 360-degree view system
+- driver attention monitor
+- traffic sign recognition
+
+These systems assist the driver but do not replace attention, judgment, or safe driving habits.
+
+## Sensor locations
+
+Systems may rely on:
+
+- front radar
+- windshield camera
+- side sensors
+- rear sensors
+- rear camera
+
+### Driver assistance troubleshooting
+
+#### Problem: lane assist unavailable
+
+Possible causes:
+
+- camera blocked
+- road markings unclear
+- windshield dirty
+- heavy rain or fog
+- system turned off in settings
+
+What to do:
+
+1. Clean windshield in front of camera.
+2. drive on clearly marked roads.
+3. confirm system is enabled.
+
+#### Problem: automatic braking warning appears unexpectedly
+
+Possible causes:
+
+- close object near bumper
+- reflective surface
+- dirt on radar
+- sharp road geometry
+
+What to do:
+
+1. Clean sensor surfaces.
+2. note whether warning repeats in same location.
+3. persistent unexpected intervention requires inspection.
+
+#### Problem: blind spot warning stays off
+
+Possible causes:
+
+- system disabled
+- dirty sensor area
+- speed too low for operation
+- fault in side monitoring system
+
+What to do:
+
+1. confirm feature enabled.
+2. clean rear side bumper zones.
+3. test under normal road conditions.
+
+# 15. Driving Instructions
+
+## Starting the vehicle
+
+1. Enter with an authorized key.
+2. Sit in the driver seat.
+3. Press the brake pedal.
+4. Press the start button.
+5. Wait for the Ready indicator.
+6. Select D, R, or N.
+7. Release the parking brake if needed.
+8. Drive smoothly.
+
+## Gear positions
+
+- P: Park
+- R: Reverse
+- N: Neutral
+- D: Drive
+- B: enhanced regeneration mode
+
+## Drive modes
+
+- Eco
+- Standard
+- Sprout
+- Grove
+- Leaf+
+
+### Mode description
+
+Eco reduces energy use by softening acceleration and climate demand. Standard offers balanced response. Sprout focuses strongly on urban efficiency. Grove prioritizes calm cruising feel. Leaf+ gives the sharpest accelerator response and stronger regeneration feel.
+
+## Driving tips
+
+- accelerate smoothly
+- anticipate traffic
+- use regeneration effectively
+- maintain tire pressure
+- precondition while plugged in
+- avoid carrying unnecessary weight
+
+### Driving behavior troubleshooting
+
+#### Problem: vehicle jerks slightly when slowing
+
+Possible causes:
+
+- high regeneration setting
+- low-speed transition between regen and friction brakes
+- abrupt pedal release
+
+What to do:
+
+1. try a lower regen setting.
+2. release accelerator more smoothly.
+3. if harsh jerking happens repeatedly at all speeds, inspect braking system.
+
+#### Problem: reverse camera delay when selecting R
+
+Possible causes:
+
+- system boot timing
+- temporary display lag
+
+A short delay may be normal. A long blank screen or error message is not.
+
+# 16. Cleaning, Care, and Storage
+
+## Exterior care
+
+Use soft washing materials and a mild automotive soap. Rinse off road salt, dirt, bugs, and tree residue promptly.
+
+Avoid spraying high-pressure water directly into:
+
+- charge port
+- camera housings
+- radar cover
+- door seals
+- electrical connectors
+- underhood fuse and service areas
+
+## Interior care
+
+Use soft microfiber cloths on screens and glossy trim. Do not spray cleaner directly onto displays. Apply cleaner to the cloth first.
+
+## Long-term storage
+
+If storing the vehicle:
+
+- leave battery at a moderate charge level
+- store in dry conditions if possible
+- keep tires properly inflated
+- avoid leaving the vehicle completely discharged
+- check the vehicle periodically
+
+### Cleaning and storage troubleshooting
+
+#### Problem: bad smell in cabin
+
+Possible causes:
+
+- damp floor mats
+- cabin filter contamination
+- standing moisture
+- food residue in cabin or cargo area
+
+What to do:
+
+1. remove all wet items.
+2. clean cabin thoroughly.
+3. replace cabin filter if needed.
+
+#### Problem: charge port area looks discolored
+
+Possible causes:
+
+- dirt film
+- residue from environment
+- minor cosmetic weathering
+
+What to do:
+
+1. clean gently with a dry or lightly damp soft cloth.
+2. never use metal tools or harsh solvents inside charging contacts.
+
+# 17. Routine Inspection and Maintenance
+
+## Before each drive or weekly
+
+Check:
+
+- tire appearance
+- warning lights
+- washer fluid
+- visible glass cleanliness
+- charge cable condition
+- lights if driving at night
+
+## Monthly
+
+Check:
+
+- tire pressure
+- wiper condition
+- door seals
+- cargo area security
+- charging port cleanliness
+
+## Every 10,000 km or 12 months
+
+Inspect:
+
+- cabin air filter
+- brake system condition
+- suspension components
+- steering components
+- cooling system condition
+- software status
+- tire wear pattern
+
+## Every 20,000 km
+
+Service as needed:
+
+- rotate tires
+- inspect alignment
+- inspect brake fluid condition
+- inspect reduction gear condition
+- inspect underbody panels
+
+## Every 40,000 km
+
+Inspect in greater depth:
+
+- battery cooling system
+- high-voltage cable routing
+- motor mounts
+- steering rack boots
+- brake hardware
+- wheel bearings
+- body drains and seals
+
+# 17A. Flat Tire Repair, Temporary Repair, and Wheel Change
+
+## Tire puncture guidance
+
+The MongoDB Leafy 1.0 may be equipped with a tire mobility kit instead of a full-size spare wheel. In this configuration, small tread-area punctures may sometimes be repaired temporarily with sealant and an air compressor. Sidewall damage, torn tires, damaged wheels, blowouts, or tires that have been driven flat for too long should not be repaired using a mobility kit.
+
+## If a flat tire occurs while driving
+
+If you suspect a flat tire, reduce speed gradually and avoid sudden steering inputs. Hold the steering wheel firmly, move the vehicle to a safe location away from traffic, and stop on level ground if possible.
+
+Steps:
+
+1. Slow down gradually.
+2. Turn on the hazard flashers.
+3. Move to a safe shoulder or parking area.
+4. Shift to Park.
+5. Apply the parking brake.
+6. Exit only when safe.
+7. Place a warning triangle if available and appropriate.
+
+## Inspecting the tire
+
+Before attempting any repair, inspect the tire carefully.
+
+A temporary mobility-kit repair may be possible if:
+
+- the puncture is in the tread area
+- the damage is small
+- the tire is still seated on the wheel
+- the wheel itself is not bent or cracked
+
+Do not attempt temporary repair if:
+
+- the sidewall is cut, split, or bulging
+- the wheel is damaged
+- the tire has come off the rim
+- the puncture is large
+- multiple areas are damaged
+- the vehicle was driven extensively on a fully flat tire
+
+## Using the tire mobility kit
+
+The mobility kit usually includes:
+
+- sealant bottle
+- air hose
+- power cable
+- pressure gauge or digital pressure display
+- selector for air or sealant mode
+
+General procedure:
+
+1. Park safely and secure the vehicle.
+2. Remove the mobility kit from the cargo area.
+3. Read the kit markings and connect the hose to the tire valve.
+4. Connect the power cable to the vehicle accessory socket if applicable.
+5. Inject sealant according to kit directions.
+6. Inflate the tire to the target emergency pressure shown on the kit or tire guide.
+7. Drive slowly for a short distance so the sealant can spread inside the tire.
+8. Stop and recheck pressure.
+9. If pressure will not hold, do not continue driving.
+
+After temporary repair:
+
+- drive only at reduced speed
+- avoid long distances
+- have the tire professionally inspected or replaced as soon as possible
+
+## How to change a wheel if a spare wheel is provided
+
+If the vehicle version includes a spare wheel and tools, the wheel may be changed manually. Always work on level ground.
+
+Required items:
+
+- jack
+- wheel wrench
+- spare wheel
+- warning triangle
+- gloves if available
+
+Wheel-change procedure:
+
+1. Move the vehicle to a safe level location.
+2. Turn on hazard flashers.
+3. Shift to Park.
+4. Apply the parking brake.
+5. Place wheel chocks or secure the vehicle from rolling if available.
+6. Remove the wheel cover if fitted.
+7. Loosen the wheel nuts slightly before lifting the vehicle.
+8. Position the jack only at the approved jacking point.
+9. Raise the vehicle until the flat tire clears the ground.
+10. Remove the wheel nuts fully.
+11. Remove the flat tire.
+12. Mount the spare wheel onto the hub.
+13. Install the wheel nuts finger-tight first.
+14. Lower the vehicle carefully.
+15. Tighten the wheel nuts in a crisscross pattern.
+16. Stow the damaged wheel and tools securely.
+17. Check tire pressure as soon as possible.
+
+## Important warnings during tire change
+
+- Never place any part of the body under a vehicle supported only by a jack.
+- Never jack the vehicle on soft, uneven, or sloped ground.
+- Never start the vehicle while it is jacked up.
+- Never use damaged tools.
+- Never loosen or remove fasteners other than the wheel nuts for the affected wheel.
+- Never attempt wheel change near moving traffic if the area is unsafe.
+
+## After installing a spare wheel
+
+If the spare is temporary or space-saving:
+
+- drive at reduced speed
+- avoid hard braking and sharp cornering
+- repair or replace the original tire as soon as possible
+- do not use the temporary spare for long-distance driving unless specifically intended for it
+
+## Flat tire troubleshooting
+
+### Problem: compressor runs but tire does not inflate
+
+Possible causes:
+
+- puncture too large
+- hose not seated properly
+- valve damaged
+- tire bead unseated from rim
+- compressor overheating or faulty
+
+What to do:
+
+1. Stop the attempt.
+2. Check all hose connections.
+3. Inspect for severe tire or wheel damage.
+4. If tire will not take air, do not drive the vehicle.
+
+### Problem: tire inflates but pressure drops again quickly
+
+Possible causes:
+
+- sealant unable to close puncture
+- sidewall damage
+- valve leak
+- wheel rim damage
+
+What to do:
+
+The repair should be treated as unsuccessful. Do not continue except for the minimum needed to reach immediate safety if absolutely necessary.
+
+### Problem: jack feels unstable
+
+Possible causes:
+
+- incorrect jacking point
+- uneven ground
+- jack not centered
+- vehicle shifting during lift
+
+What to do:
+
+Lower the vehicle immediately and reposition the jack on stable, level ground.
+
+# 17B. Fluid Warnings, Fluid Checks, and Related Errors
+
+## Important note about fluids in the Leafy 1.0
+
+Because the MongoDB Leafy 1.0 is a fictional plug-in hybrid vehicle, it uses both hybrid-system fluids and engine-related fluids. These may include:
+
+- windshield washer fluid
+- brake fluid
+- engine oil
+- engine coolant
+- battery coolant
+- power electronics coolant
+- climate system refrigerant
+- reduction gear lubricant
+- transmission or hybrid drive lubricant
+
+Some fluids are user-check items, while others should be handled only by trained service personnel.
+
+## Windshield washer fluid
+
+### What it does
+Washer fluid helps clean the windshield so the driver can maintain visibility.
+
+### Possible warnings or symptoms
+
+- washer fluid low warning
+- washers spray weakly
+- washers do not spray
+- fluid frozen in cold weather
+
+### What to do
+
+1. Refill with suitable automotive washer fluid.
+2. Use cold-weather fluid when needed.
+3. Check for clogged nozzles if spray remains weak.
+4. If the warning remains after refill, inspect the level sensor.
+
+## Brake fluid
+
+### What it does
+Brake fluid transfers hydraulic pressure from the brake pedal to the brake hardware.
+
+### Possible warnings or symptoms
+
+- brake warning light
+- soft brake pedal
+- very firm abnormal brake feel
+- low brake fluid warning
+- reduced braking confidence
+
+### What to do
+
+1. If braking feels unsafe, do not continue driving.
+2. Check for visible fluid leaks around wheels or under the vehicle if safe to do so.
+3. Do not ignore a red brake warning.
+4. Have the system inspected immediately.
+
+## Battery coolant and power electronics coolant
+
+### What they do
+Coolant helps maintain safe operating temperatures for the traction battery, inverter, onboard charger, and related electronics.
+
+### Possible warnings or symptoms
+
+- battery temperature warning
+- reduced power warning
+- charging limited warning
+- thermal management fault
+- cooling pump noise changes
+
+### What to do
+
+1. Reduce load on the vehicle if possible.
+2. Avoid repeated fast charging until the issue is understood.
+3. If a red thermal or battery system warning appears, stop driving when safe.
+4. Service inspection is required for persistent cooling-system warnings.
+
+## Climate refrigerant
+
+### What it does
+Refrigerant allows the climate system and heat pump to cool or condition cabin and thermal-management airflows.
+
+### Possible warnings or symptoms
+
+- poor cooling performance
+- unusual compressor cycling
+- climate fault warning
+- fogging not clearing well during cooling demand
+
+### What to do
+
+1. Confirm correct climate settings.
+2. If cooling remains weak in moderate weather, inspection may be needed.
+3. Refrigerant service should only be performed by qualified technicians.
+
+## Reduction gear lubricant
+
+### What it does
+The reduction gear lubricant protects the internal gears that transfer motor torque to the drive wheels.
+
+### Possible warnings or symptoms
+
+- whining louder than normal
+- grinding noise from drive unit
+- drive unit service warning
+- fluid leak under drive area
+
+### What to do
+
+1. Do not ignore new drivetrain noises.
+2. If a leak is visible, avoid extended driving.
+3. Have the drive unit inspected promptly.
+
+## Fluid-related warning summary
+
+### Red warnings
+Red warnings indicate a condition that may affect safe vehicle operation. Stop the vehicle as soon as it is safe and assess the situation.
+
+### Amber warnings
+Amber warnings indicate the vehicle may still be driven cautiously, but service or inspection is needed soon.
+
+### Information messages
+Information messages may indicate low washer fluid, scheduled maintenance, or temporary thermal limitations.
+
+## Fluid warning troubleshooting
+
+### Problem: low fluid warning appears but no leak is visible
+
+Possible causes:
+
+- fluid actually low but not yet visibly leaking externally
+- sensor delay or sensor fault
+- recent temperature change affecting level reading
+
+What to do:
+
+1. Recheck the affected system.
+2. Monitor whether the message returns repeatedly.
+3. Persistent warnings should be inspected even without visible leakage.
+
+### Problem: fluid seen under vehicle
+
+Possible causes:
+
+- washer fluid leak
+- brake fluid leak
+- coolant leak
+- water condensation from climate system
+
+What to do:
+
+Clear water from air-conditioning condensation can be normal. Colored fluid, oily fluid, slippery fluid, or fluid accompanied by warnings is not normal and should be inspected promptly.
+
+### Problem: repeated thermal warnings during driving or charging
+
+Possible causes:
+
+- high ambient temperature
+- repeated fast charging
+- cooling system restriction
+- pump or valve issue
+
+What to do:
+
+1. Allow the vehicle to cool.
+2. Move to a shaded or cooler location if possible.
+3. Avoid high-load driving and repeated charging until normal operation returns.
+4. Repeated warnings require service.
+
+# 17C. Fuel-Related Problems and Solutions
+
+## Important note about fuel in the Leafy 1.0
+
+The MongoDB Leafy 1.0 is a fictional plug-in hybrid vehicle. It uses both gasoline and stored electrical energy. This means the vehicle has a real fuel system as well as a hybrid battery and charging system.
+
+Main fuel-related components include:
+
+- fuel filler door
+- fuel filler neck
+- fuel tank
+- fuel pump
+- fuel lines
+- fuel injectors
+- gasoline engine
+- evaporative emissions components
+- fuel-level sender
+- fuel gauge
+
+## Common fuel-related concerns
+
+### Problem: low fuel warning appears
+
+Possible causes:
+
+- fuel tank level is low
+- recent driving consumed more fuel than expected
+- the vehicle has operated in engine-priority conditions for an extended period
+
+Possible solutions:
+
+1. Refuel with the correct gasoline grade for the vehicle.
+2. Avoid running the tank extremely low.
+3. Monitor whether the gauge and warning clear after refueling.
+
+### Problem: fuel gauge drops faster than expected
+
+Possible causes:
+
+- aggressive driving
+- high-speed cruising
+- cold weather
+- long climbs
+- frequent short trips with repeated engine warm-up cycles
+- low tire pressure
+- heavy cargo load
+- hybrid battery state low, causing more engine use
+
+Possible solutions:
+
+1. Check tire pressures.
+2. Drive more smoothly.
+3. Reduce unnecessary cargo.
+4. Use Eco mode when appropriate.
+5. Keep the hybrid battery charged when possible on plug-in versions.
+
+### Problem: driver cannot open fuel door
+
+Possible causes:
+
+- vehicle locked
+- fuel-door release delay
+- ice or debris around fuel door
+- latch issue
+
+Possible solutions:
+
+1. Unlock the vehicle fully.
+2. Press the fuel door again or use the cabin release if equipped.
+3. If frozen, warm the area gently.
+4. Do not pry the door sharply with hard tools.
+
+### Problem: vehicle was fueled but still shows low-fuel warning
+
+Possible causes:
+
+- fuel gauge update delay
+- sensor issue
+- insufficient fuel added to clear reserve threshold
+
+Possible solutions:
+
+1. Drive for a short distance and recheck.
+2. Restart the vehicle.
+3. If the warning remains after a normal refuel, inspect the fuel-level sensor system.
+
+### Problem: engine runs more often than expected after refueling
+
+Possible causes:
+
+- low hybrid battery charge
+- cold engine warm-up cycle
+- cabin heating demand
+- defrost operation
+- steep terrain or high-speed driving
+
+Possible solutions:
+
+1. Check hybrid battery charge level.
+2. Drive in a smoother, lower-demand style.
+3. Charge the traction battery if plug-in charging is available.
+4. Reduce unnecessary climate load when practical.
+
+### Problem: fuel smell around vehicle
+
+Possible causes:
+
+- loose fuel cap if fitted
+- spill during refueling
+- evaporative system leak
+- fuel-line or tank issue
+
+Possible solutions:
+
+1. Confirm the filler cap or capless filler area is properly closed.
+2. Clean any spilled fuel from the exterior.
+3. If odor persists strongly, have the fuel system inspected promptly.
+
+### Problem: wrong fuel added
+
+Possible causes:
+
+- incorrect gasoline grade
+- accidental contamination
+- foreign liquid introduced during refueling
+
+Possible solutions:
+
+1. Do not continue driving if contamination is suspected.
+2. Arrange inspection and fuel-system service.
+3. Repeated rough running after refueling should not be ignored.
+
+## Hybrid fuel-equivalent summary
+
+| Symptom | Likely cause | Suggested response |
+| --- | --- | --- |
+| Low fuel light on | Fuel tank low | Refuel soon |
+| Fuel gauge drops fast | High engine use or driving load | Reduce load and inspect tire pressure |
+| Engine running often | Battery low or warm-up demand | Charge battery and drive gently |
+| Fuel smell present | Spill or fuel-system leak | Inspect immediately |
+| Fuel door will not open | Latch or lock issue | Unlock vehicle and retry |
+
+# 18. Troubleshooting by Vehicle Area
+
+This section groups common issues by part of the car for quicker diagnosis.
+
+## Front of vehicle
+
+### Symptom: clicking from front after shutdown
+
+Likely causes:
+
+- cooling pump after-run
+- thermal system balancing
+- contactor or actuator settling
+
+Usually normal if brief and not accompanied by warnings.
+
+### Symptom: front-end scraping sound
+
+Likely causes:
+
+- underbody panel contact
+- debris stuck in lower trim
+- steep ramp approach angle
+
+Inspect before further driving.
+
+## Hood and service area
+
+### Symptom: washer fluid warning remains after refill
+
+Likely causes:
+
+- sensor delay
+- fluid not fully settled
+- sensor fault
+
+Restart and recheck. If warning remains, service inspection is recommended.
+
+## Doors
+
+### Symptom: one door does not respond to central locking
+
+Likely causes:
+
+- door actuator issue
+- harness connection issue
+- low 12V condition
+
+Try lock and unlock repeatedly after vehicle startup. If only one door is affected repeatedly, it may need repair.
+
+## Windows
+
+### Symptom: window makes crunching noise
+
+Likely causes:
+
+- dirt in channels
+- ice
+- regulator strain
+
+Stop repeated operation until cleaned.
+
+## Mirrors
+
+### Symptom: mirror heater seems weak
+
+Likely causes:
+
+- mild ambient temperature
+- timer-limited operation
+- heavy ice too thick to clear quickly
+
+Mirror heaters assist clearing but are not instant de-icing devices.
+
+## Steering
+
+### Symptom: steering wheel off-center while driving straight
+
+Likely causes:
+
+- alignment deviation
+- prior curb impact
+- uneven tire pressure
+
+Alignment should be checked.
+
+## Suspension
+
+### Symptom: bouncing after bumps
+
+Likely causes:
+
+- worn dampers
+- overloaded cargo
+- spring or mount issue
+
+Reduced damping can affect control and braking stability.
+
+## Tires
+
+### Symptom: humming grows louder with speed
+
+Likely causes:
+
+- tire wear pattern
+- road surface interaction
+- wheel bearing issue
+
+If the sound changes when cornering, bearing inspection may be needed.
+
+## Brakes
+
+### Symptom: rust line visible on brake rotor
+
+A light surface rust film after moisture or overnight parking can be normal and often clears with normal braking. Heavy pitting or rough braking feel is not normal.
+
+## Battery
+
+### Symptom: battery percentage drops faster than expected uphill
+
+This can be normal due to load and elevation. Energy use will increase with:
+
+- climbing
+- high speed
+- cold weather
+- cabin heating
+
+## Charging
+
+### Symptom: fast charging slower than expected
+
+Possible causes:
+
+- battery very full
+- battery too cold or hot
+- charger sharing power
+- station output limitation
+
+Charging speed naturally tapers near higher states of charge.
+
+## Motor and drivetrain
+
+### Symptom: vibration on strong acceleration
+
+Likely causes:
+
+- tire issue
+- half-shaft issue
+- mount movement
+- traction event on slippery surface
+
+If repeatable on dry roads, inspect promptly.
+
+## Climate
+
+### Symptom: sweet or unusual odor
+
+Possible causes:
+
+- external odor entering intake
+- cabin contamination
+- thermal system concern
+
+If odor is persistent, strong, or associated with warning lights, do not ignore it.
+
+## Lighting
+
+### Symptom: one lamp housing fogged after wash
+
+A small temporary mist can be normal. Pools of water or repeated heavy condensation are not normal.
+
+## Displays and electronics
+
+### Symptom: phone will not pair
+
+Possible causes:
+
+- phone Bluetooth disabled
+- too many saved devices
+- old pairing record conflict
+- infotainment software glitch
+
+Delete old pairing from both vehicle and phone, then pair again.
+
+## Audio
+
+### Symptom: one speaker seems silent
+
+Possible causes:
+
+- balance or fade setting changed
+- source content issue
+- speaker fault
+
+Check audio settings before assuming hardware failure.
+
+## Seats
+
+### Symptom: heated seat turns off early
+
+Possible causes:
+
+- temperature regulation
+- automatic energy-saving behavior
+- sensor issue
+
+If it cycles normally and later restarts, this may be expected behavior.
+
+## Cargo area
+
+### Symptom: hatch opens but immediately beeps and stops
+
+Possible causes:
+
+- obstruction detected
+- weak strut support
+- latch not clearing fully
+
+Check clearance and latch area.
+
+# 19. Emergency Information
+
+## After a collision
+
+1. Stop safely.
+2. Shift to Park.
+3. Turn on hazard flashers.
+4. Exit if safe.
+5. Keep away from damaged orange high-voltage cables.
+6. Do not touch leaking battery-related components.
+7. Contact emergency services as needed.
+
+## If smoke, heat, or burning odor is present
+
+- move away from the vehicle
+- do not attempt charging
+- do not open high-voltage components
+- seek emergency assistance
+
+## If the vehicle has been flooded
+
+- do not start it
+- do not charge it
+- arrange professional inspection
+
+## Towing
+
+The Leafy 1.0 should preferably be transported on a flatbed. Improper towing can damage the electric drive system, brake system, and underbody battery enclosure.
+
+# 20. Technical Specifications
+
+| Item | Specification |
+| --- | --- |
+| Brand | MongoDB |
+| Model | Leafy 1.0 |
+| Vehicle Type | Compact plug-in hybrid hatchback |
+| Seating Capacity | 5 |
+| Drive Layout | Front-wheel drive |
+| Engine Type | 1.6L inline-4 gasoline engine |
+| Motor Type | Single permanent magnet electric motor |
+| Hybrid System | Plug-in hybrid electric drive |
+| Transmission | Hybrid single-speed reduction drive |
+| Battery Type | Lithium-ion traction battery |
+| Nominal Battery Capacity | 18.4 kWh |
+| Fuel Tank Capacity | 42 L |
+| Estimated Electric-Only Range | 78 km |
+| Estimated Combined Range | 720 km |
+| AC Charging | Up to 7.4 kW |
+| Front Suspension | MacPherson strut |
+| Rear Suspension | Torsion beam |
+| Brakes | Four-wheel disc |
+| Wheels | 17-inch alloy |
+| Cargo Capacity | 395 L |
+| Curb Weight | 1,620 kg |
+
+## Dashboard Indicator Summary
+
+| Indicator | Meaning |
+| --- | --- |
+| Ready | Vehicle is powered and able to move |
+| Battery | Charge level or battery-related status |
+| Turtle | Reduced power mode |
+| Brake | Brake system or parking brake warning |
+| Tire | Tire pressure warning |
+| Lane | Lane support status |
+| Shield | Driver assistance alert |
+| Wrench | Service reminder |
+| Snowflake | Low outside temperature caution |
+
+# 21. Glossary
+
+## Ready Mode
+
+The operating state in which the Leafy 1.0 is powered on and capable of driving.
+
+## Regenerative Braking
+
+The process of slowing the vehicle while recovering part of that energy back into the traction battery.
+
+## State of Charge
+
+The battery level shown as a percentage or graphic estimate.
+
+## High-Voltage System
+
+The electrical system used to power the traction motor and related components.
+
+## 12V Support Battery
+
+The low-voltage battery that powers control systems, lights, locks, displays, and startup logic.
+
+## Drive Mode
+
+A selected operating profile that changes throttle response, regenerative behavior, and efficiency emphasis.
+
+## Thermal Management
+
+The process of controlling component temperatures for battery, motor, power electronics, and cabin comfort.
+
+# 22. What Each Major Car Part Does
+
+This section explains the purpose of the main parts of the MongoDB Leafy 1.0 in straightforward language.
+
+## Front Exterior Parts and Their Functions
+
+### Front bumper
+The front bumper helps absorb minor impact energy and protects structural components behind it.
+
+### Impact beam
+The impact beam sits behind the bumper and helps manage crash forces.
+
+### Hood
+The hood covers the front service area and protects components underneath.
+
+### Hood latch
+The hood latch keeps the hood securely closed while driving.
+
+### Headlamps
+The headlamps illuminate the road ahead during darkness or poor visibility.
+
+### Daytime running lamps
+These lights help make the vehicle more visible to other road users during the day.
+
+### Front turn indicators
+These signal the driver’s intention to turn or change direction.
+
+### Front camera
+The front camera supports parking views and some driver assistance functions.
+
+### Forward radar cover and radar unit
+The radar detects objects ahead and supports functions such as collision alerts and emergency braking assistance.
+
+### Parking sensors
+Parking sensors help detect nearby obstacles during low-speed maneuvering.
+
+### Windshield
+The windshield protects occupants from wind, weather, and debris while giving the driver a clear forward view.
+
+### Washer nozzles
+The washer nozzles spray cleaning fluid onto the windshield.
+
+### Wiper arms and blades
+The wiper arms move the blades across the windshield to clear rain, dirt, or washer fluid.
+
+### Charge port door
+The charge port door protects the charging connection from dirt, water, and damage.
+
+### Charge status light ring
+The light ring shows charging status at a glance.
+
+## Side Exterior Parts and Their Functions
+
+### A-pillars
+The A-pillars support the roof at the front of the cabin and frame the windshield.
+
+### B-pillars
+The B-pillars strengthen the center of the body and support side-impact protection.
+
+### C-pillars
+The C-pillars support the rear roof structure and help reinforce the body shell.
+
+### Front and rear doors
+The doors provide cabin access and help seal the interior from weather and noise.
+
+### Exterior door handles
+The handles allow the doors to be opened from outside.
+
+### Side mirrors
+The mirrors provide visibility to the sides and rear of the vehicle.
+
+### Mirror indicators
+These repeat the turn signal to improve visibility for nearby traffic.
+
+### Side windows
+The side windows provide visibility, ventilation, and weather protection.
+
+### Weather seals
+The weather seals help keep out water, dust, and wind noise.
+
+### Rocker panels
+The rocker panels strengthen the lower body side structure.
+
+### Wheel arches
+The wheel arches provide body clearance for wheel movement and help limit road spray.
+
+## Rear Exterior Parts and Their Functions
+
+### Rear hatch
+The rear hatch gives access to the cargo area.
+
+### Hatch latch
+The latch keeps the hatch closed securely.
+
+### Rear window
+The rear window provides rearward visibility.
+
+### Rear defogger grid
+The defogger grid warms the rear glass to reduce mist or frost.
+
+### Roof spoiler
+The spoiler helps manage airflow and may also house the high-mounted brake lamp.
+
+### High-mounted stop lamp
+This brake light gives following drivers a clear, high-positioned braking signal.
+
+### Rear lamps
+The rear lamps provide tail, brake, and signal lighting functions.
+
+### Reverse lamps
+These illuminate behind the vehicle and indicate that reverse gear is selected.
+
+### Rear camera
+The rear camera helps the driver see directly behind the vehicle while reversing.
+
+### Rear parking sensors
+These help detect obstacles near the rear bumper.
+
+### License plate lamps
+These illuminate the rear license plate.
+
+### Rear bumper
+The rear bumper helps absorb minor impacts and protect rear body components.
+
+## Driver Area Parts and Their Functions
+
+### Steering wheel
+The steering wheel allows the driver to control the direction of the vehicle.
+
+### Horn switch
+The horn switch sounds the horn to warn others.
+
+### Driver airbag
+The driver airbag helps reduce injury risk in certain frontal collisions.
+
+### Instrument display
+The instrument display shows key driving information such as speed, charge level, warnings, and gear position.
+
+### Center touchscreen
+The touchscreen provides access to vehicle settings, media, navigation, charging information, and climate controls.
+
+### Left stalk
+The left stalk usually controls turn signals and lighting functions.
+
+### Right stalk
+The right stalk usually controls front and rear wiper functions.
+
+### Start button
+The start button powers the vehicle into operating mode.
+
+### Gear selector
+The gear selector is used to select Park, Reverse, Neutral, or Drive.
+
+### Drive mode selector
+This changes how the vehicle responds to acceleration and energy use.
+
+### Regeneration selector
+This adjusts how strongly the vehicle slows and recovers energy when the driver lifts off the accelerator.
+
+### Hazard switch
+The hazard switch activates the emergency flashing lights.
+
+### Climate controls
+These controls adjust cabin temperature, airflow, and defogging functions.
+
+### Glovebox
+The glovebox provides enclosed storage for small items.
+
+### Cupholders
+Cupholders keep drink containers secure while driving.
+
+### USB ports
+USB ports provide device charging or data connection.
+
+### Wireless charging pad
+The wireless charging pad charges compatible phones without a cable.
+
+## Pedals and Footwell Parts and Their Functions
+
+### Accelerator pedal
+The accelerator pedal tells the vehicle how much power the driver wants.
+
+### Brake pedal
+The brake pedal slows or stops the vehicle.
+
+### Dead pedal
+The dead pedal supports the driver’s left foot during driving.
+
+### Floor mat anchors
+These help keep the floor mat from sliding out of place.
+
+### Hood release lever
+This lever releases the hood latch from inside the cabin.
+
+## Seating and Occupant Protection Parts and Their Functions
+
+### Driver seat
+The driver seat supports the driver and allows adjustment for proper control.
+
+### Front passenger seat
+The front passenger seat supports the front passenger safely and comfortably.
+
+### Rear bench
+The rear bench provides seating for rear passengers.
+
+### Head restraints
+Head restraints help reduce neck injury during certain impacts.
+
+### Seat rails
+Seat rails allow the seat to slide forward or backward.
+
+### Recline adjuster
+The recline adjuster changes the seatback angle.
+
+### Seat height adjuster
+The height adjuster changes the vertical seating position.
+
+### Seat heaters
+Seat heaters warm the seating surface for comfort in cold conditions.
+
+### Seatbelts
+Seatbelts hold occupants in position and reduce injury risk in sudden stops or collisions.
+
+### Pretensioners
+Pretensioners tighten the seatbelt early in certain collisions.
+
+### Load limiters
+Load limiters help reduce excessive force from the seatbelt on the occupant.
+
+### Airbags
+Airbags provide supplemental cushioning in certain impacts.
+
+### ISOFIX or lower anchors
+These provide secure mounting points for compatible child seats.
+
+### Top tether anchors
+These help stabilize forward-facing child restraints.
+
+## Electric Powertrain Parts and Their Functions
+
+### High-voltage traction battery
+The traction battery stores the electrical energy used to drive the vehicle.
+
+### Battery management system
+This system monitors battery condition, temperature, voltage, and safety limits.
+
+### Inverter
+The inverter converts battery power into the form needed by the motor.
+
+### Electric traction motor
+The motor turns electrical energy into motion to drive the wheels.
+
+### Single-speed reduction gear
+The reduction gear transfers motor output to the wheels at a usable speed and torque.
+
+### DC-DC converter
+This converter reduces high-voltage battery power to low-voltage power for vehicle electronics.
+
+### 12V support battery
+The 12V battery powers lights, computers, locks, and control systems.
+
+### Cooling pumps
+Cooling pumps move coolant through battery and power electronics circuits.
+
+### Thermal management valves
+These control coolant routing to maintain proper component temperatures.
+
+### High-voltage contactors
+These switches connect or isolate the traction battery from the rest of the drive system.
+
+### Orange high-voltage cables
+These cables carry high-voltage power between major electric components.
+
+## Charging Parts and Their Functions
+
+### Charge port
+The charge port is the connection point for charging the vehicle.
+
+### AC charging interface
+This interface supports regular charging from compatible AC sources.
+
+### DC fast-charge interface
+This interface supports higher-speed charging from DC charging stations.
+
+### Onboard charger
+The onboard charger manages AC power conversion for battery charging.
+
+### Charge port lock
+The lock helps keep the connector secured during charging.
+
+### Charging communication unit
+This system allows the vehicle and charger to exchange charging information.
+
+### Charging cable
+The cable carries charging power from the station or outlet to the vehicle.
+
+## Steering and Suspension Parts and Their Functions
+
+### Steering column
+The steering column connects the steering wheel to the steering system.
+
+### Steering rack
+The steering rack converts steering wheel movement into left-right wheel movement.
+
+### Tie rods
+Tie rods connect the steering rack to the wheels and transfer steering input.
+
+### Electric steering assist motor
+This motor reduces steering effort for the driver.
+
+### Front struts
+The front struts support the front suspension and help control wheel movement.
+
+### Springs
+The springs support vehicle weight and absorb road impacts.
+
+### Dampers
+The dampers control spring motion and reduce bouncing.
+
+### Control arms
+Control arms help position and guide wheel movement.
+
+### Stabilizer bar
+The stabilizer bar helps reduce body roll in turns.
+
+### Rear torsion beam
+The rear torsion beam connects the rear wheels and supports rear suspension behavior.
+
+### Bushings
+Bushings cushion and isolate vibration between suspension parts.
+
+## Wheel and Tire Parts and Their Functions
+
+### Wheels
+The wheels support the tires and connect them to the hubs.
+
+### Tires
+The tires provide grip, cushioning, braking traction, and steering response.
+
+### Valve stems
+Valve stems allow inflation and pressure adjustment.
+
+### Tire pressure sensors
+These sensors monitor tire pressure and report low-pressure warnings.
+
+### Wheel nuts
+Wheel nuts secure the wheel to the hub.
+
+## Brake System Parts and Their Functions
+
+### Brake pedal
+The brake pedal allows the driver to request braking force.
+
+### Brake booster
+The brake booster helps reduce the pedal effort needed to brake.
+
+### Brake fluid reservoir
+The reservoir stores brake fluid for the hydraulic brake system.
+
+### Brake lines
+The brake lines carry hydraulic pressure to the brakes.
+
+### Brake calipers
+The calipers press the brake pads against the brake discs.
+
+### Brake pads
+The brake pads create friction to slow the wheels.
+
+### Brake discs
+The brake discs rotate with the wheels and provide the braking surface for the pads.
+
+### ABS control unit
+The ABS system helps prevent wheel lock during hard braking.
+
+### Wheel speed sensors
+These sensors measure wheel rotation for braking and stability systems.
+
+### Electronic parking brake actuators
+These apply and release the parking brake electronically.
+
+## Lighting and Visibility Parts and Their Functions
+
+### Low beams
+Low beams illuminate the road ahead without causing excessive glare.
+
+### High beams
+High beams provide stronger forward illumination when conditions allow.
+
+### Daytime running lamps
+These improve daytime visibility of the vehicle to others.
+
+### Fog lamp
+A fog lamp helps improve visibility in certain poor-weather conditions.
+
+### Windshield washer reservoir
+This reservoir stores cleaning fluid for the windshield washers.
+
+### Rear wiper
+The rear wiper clears the rear window for improved visibility.
+
+### Mirror heaters
+Mirror heaters help remove fog, ice, or frost from the mirrors.
+
+### Rear defogger
+The rear defogger clears condensation or frost from the rear glass.
+
+## Climate and Cabin Air Parts and Their Functions
+
+### Heat pump
+The heat pump helps heat or cool the cabin efficiently.
+
+### Electric compressor
+The compressor supports cabin cooling operation.
+
+### Cabin filter
+The cabin filter helps reduce dust and particles entering the interior airflow.
+
+### Blower motor
+The blower motor pushes air through the vents.
+
+### Air vents
+The vents direct airflow into the cabin.
+
+### Air distribution doors
+These internal doors direct air to the windshield, face vents, or footwell.
+
+### Front defrost outlets
+These send air toward the windshield to clear fog or frost.
+
+### Rear vents
+These provide airflow to rear passengers.
+
+## Cargo Area Parts and Their Functions
+
+### Parcel shelf
+The parcel shelf helps cover cargo from view.
+
+### Cargo floor panel
+The cargo floor panel forms the main load surface in the trunk area.
+
+### Underfloor storage
+This compartment stores smaller items such as tools or charging accessories.
+
+### Tie-down loops
+These help secure cargo so it does not move during driving.
+
+### Seatback releases
+These allow the rear seats to fold for more cargo space.
+
+### 12V accessory socket
+This socket powers compatible low-voltage accessories.
+
+## Safety and Assistance Parts and Their Functions
+
+### Forward collision alert system
+This system warns the driver of a possible frontal collision risk.
+
+### Automatic emergency braking
+This system may help slow the vehicle if a forward collision is detected.
+
+### Lane keeping assist
+This system helps the driver stay within lane markings.
+
+### Blind spot monitoring
+This system warns of vehicles in nearby blind-spot areas.
+
+### Rear cross-traffic alert
+This system helps detect crossing traffic while reversing.
+
+### Driver attention monitor
+This system watches for signs that the driver may need a break.
+
+### 360-degree view system
+This system combines camera views to help with low-speed maneuvering.
+

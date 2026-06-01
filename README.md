@@ -17,7 +17,7 @@ A multi-service, fully Dockerised in-vehicle assistant that combines live VSS te
        │
 ┌──────▼────────────────────────────────────────┐
 │  LangChain ReAct Agent  :5002                  │
-│  Ollama (qwen3:4b)                             │
+│  Ollama (qwen2.5:3b)                             │
 │  Tools: car-manual search · navigation ·       │
 │         9 VSS MCP tools (online mode)          │
 └──┬──────────────┬─────────────────┬────────────┘
@@ -47,7 +47,7 @@ A multi-service, fully Dockerised in-vehicle assistant that combines live VSS te
    │
 ┌──▼────────────────────────┐
 │  navigation-service :5001  │
-│  Ollama (qwen3:4b) + OSRM  │
+│  Ollama (qwen2.5:3b) + OSRM  │
 └────────────────────────────┘
 ```
 
@@ -58,8 +58,9 @@ All services are defined in [`sync-server-setup/docker-compose.yml`](sync-server
 | Service | Port | Description |
 |---|---|---|
 | `voice-assistant-backend` | 5000 | Flask + SocketIO web UI; Whisper STT; Piper TTS |
-| `langchain-agent-service` | 5002 | LangChain ReAct agent (Ollama qwen3:4b) |
+| `langchain-agent-service` | 5002 | LangChain ReAct agent (Ollama qwen2.5:3b) |
 | `navigation-service` | 5001 | LLM-powered navigation + OSRM routing |
+| `ollama` | 11434 | Ollama server — serves qwen2.5:3b; GPU-ready |
 | `search-service` | 8080 | ObjectBox HNSW vector search on car-manual chunks |
 | `mongodb-search-service` | 8085 | MongoDB Atlas vector search (voyage-4-nano) |
 | `conversation-service` | 8081 | ObjectBox conversation history |
@@ -76,19 +77,22 @@ Legacy telemetry stack (`telemetry-service` :8084, `telemetry-simulator` :8082, 
 
 Install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
-### 2. Ollama
+### 2. Ollama (containerised — no local install needed)
 
-Install [Ollama](https://ollama.com/download) and pull the LLM:
+Ollama runs as a Docker container (`ollama` service, port 11434). On first `docker compose up` it automatically pulls `qwen2.5:3b`. Model weights are stored in the named volume `ollama-models` and survive restarts.
 
+To force a re-pull (e.g. to upgrade the model):
 ```bash
-ollama pull qwen3:4b          # LLM for agent + navigation
+docker volume rm sync-server-setup_ollama-models
 ```
 
-The embedding model (`voyageai/voyage-4-nano`, 1024-d) is **not** an Ollama model —
+To enable NVIDIA GPU acceleration, uncomment the `deploy.resources` block in `docker-compose.yml`.
+
+The **embedding model** (`voyageai/voyage-4-nano`, 1024-d) is separate from the LLM:
 it is downloaded automatically from Hugging Face the first time the loader or the
-agent runs. It ships custom model code, so it is loaded with `trust_remote_code=True`
-and is pinned to `transformers==4.57.1` (newer transformers break its remote code).
-No `nub235/voyage-4-nano` Ollama pull is needed (that model was removed from Ollama).
+agent runs (no Ollama pull needed). It ships custom model code, so it is loaded with
+`trust_remote_code=True` and is pinned to `transformers==4.57.1` — newer transformers
+break its bundled remote code.
 
 ### 3. MongoDB Atlas
 
@@ -323,7 +327,7 @@ Schema mismatch with the on-disk database. Delete `sync-server-setup/vss-telemet
 False alarm — the `python:3.11-slim` base image lacks `wget`. Verify with `curl http://localhost:8087/health`.
 
 **Ollama connection error from containers**
-Containers reach the host via `host.docker.internal`. Confirm Ollama is running (`ollama serve`) and the model is pulled.
+Check that the `ollama` container is healthy: `docker compose ps ollama`. If it shows unhealthy, the model may still be pulling — wait and retry.
 
 ## License
 

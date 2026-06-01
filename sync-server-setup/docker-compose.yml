@@ -26,6 +26,43 @@ services:
           --mongo-url "mongodb+srv://$${MONGODB_USER}:$${MONGODB_PASS}@$${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true" \
           --mongo-db "$${MONGODB_DATABASE}"
 
+  # ── Ollama ────────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    # Starts the server, then pulls qwen2.5:3b if not already cached in the volume.
+    # The healthcheck waits until the model is listed before dependent services start.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        OLLAMA_PID=$$!
+        echo "Waiting for Ollama server to be ready..."
+        until ollama list > /dev/null 2>&1; do sleep 2; done
+        echo "Pulling qwen2.5:3b (skipped if already cached)..."
+        ollama pull qwen2.5:3b
+        echo "Ollama ready."
+        wait $$OLLAMA_PID
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list | grep -q qwen2.5"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    # Uncomment to enable NVIDIA GPU acceleration:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
   search-service:
     build:
       context: ../search-service
@@ -62,8 +99,6 @@ services:
       timeout: 5s
       retries: 3
 
-
-
   navigation-service:
     build:
       context: ../navigation-service
@@ -72,11 +107,12 @@ services:
     restart: always
     ports:
       - "5001:5001"  # Navigation API
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      ollama:
+        condition: service_healthy
     environment:
-      - OLLAMA_HOST=http://host.docker.internal:11434
-      - LLM_MODEL=qwen3:4b
+      - OLLAMA_HOST=http://ollama:11434
+      - LLM_MODEL=qwen2.5:3b
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5001/health"]
       interval: 30s
@@ -110,9 +146,9 @@ services:
     restart: always
     ports:
       - "5002:5002"  # Agent API
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
+      ollama:
+        condition: service_healthy
       search-service:
         condition: service_started
       mongodb-search-service:
@@ -122,8 +158,8 @@ services:
       vss-telemetry-mcp-server:
         condition: service_started
     environment:
-      - OLLAMA_HOST=http://host.docker.internal:11434
-      - LLM_MODEL=qwen3:4b
+      - OLLAMA_HOST=http://ollama:11434
+      - LLM_MODEL=qwen2.5:3b
       - EMBEDDING_MODEL=voyageai/voyage-4-nano
       - SEARCH_SERVICE_URL=http://search-service:8080
       - MONGODB_SEARCH_SERVICE_URL=http://mongodb-search-service:8085
@@ -143,9 +179,9 @@ services:
     restart: always
     ports:
       - "5000:5000"  # Web UI
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
+      ollama:
+        condition: service_healthy
       search-service:
         condition: service_started
       conversation-service:
@@ -161,7 +197,7 @@ services:
       - AGENT_SERVICE_URL=http://langchain-agent-service:5002
       - VSS_TELEMETRY_SERVICE_URL=http://vss-telemetry-service:8086
       - VSS_SIMULATOR_URL=http://vss-telemetry-simulator:8087
-      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_HOST=http://ollama:11434
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000"]
       interval: 30s
@@ -227,3 +263,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+volumes:
+  ollama-models:
+    # Named volume — model weights persist across container restarts and rebuilds.
+    # To force a re-pull: docker volume rm sync-server-setup_ollama-models

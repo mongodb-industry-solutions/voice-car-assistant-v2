@@ -1,10 +1,10 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 # System dependencies:
 #   portaudio19-dev + gcc  → build PyAudio
 #   espeak-ng              → pyttsx3 TTS engine on Linux
 #   ffmpeg                 → Whisper audio processing
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     portaudio19-dev \
     espeak-ng \
     libsndfile1 \
@@ -25,8 +25,9 @@ RUN pip install --no-cache-dir torch torchaudio \
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-bake the Whisper "small" model so the first container start is fast.
-RUN python -c "import whisper; whisper.load_model('small')"
+# Pre-bake the Whisper "small" model into /app/.cache/whisper so the
+# non-root user can read it at runtime (HOME=/app at both build and run time).
+RUN HOME=/app python -c "import whisper; whisper.load_model('small')"
 
 # Piper TTS — self-contained binary (bundles its own ONNX runtime).
 RUN mkdir -p /opt/piper \
@@ -42,6 +43,11 @@ RUN wget -q -O /app/en_US-lessac-medium.onnx \
     https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json
 
 COPY . .
+
+RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser \
+    && chown -R appuser:appuser /app /opt/piper
+ENV HOME=/app
+USER appuser
 
 EXPOSE 5000
 

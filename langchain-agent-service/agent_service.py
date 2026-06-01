@@ -1,24 +1,31 @@
 """
 LangChain Agent Service — Unified car assistant
-Combines: car manual RAG, vehicle telemetry (via MongoDB MCP), navigation
+Combines: car manual RAG, vehicle telemetry (via VSS MCP), navigation.
+
+Uses a LangGraph ReAct agent (create_react_agent) with:
+  - ChatOllama as the LLM
+  - MemorySaver checkpointer for per-conversation history
+  - StructuredTool definitions for all capabilities
 """
 
-import asyncio
-import json
 import os
+import re
 import time
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
-import ollama as _ollama
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from sentence_transformers import SentenceTransformer
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_ollama import ChatOllama
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import StructuredTool
+from langgraph.prebuilt import create_react_agent
+from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel, Field
 
 app = Flask(__name__)
@@ -26,15 +33,16 @@ CORS(app)
 
 # ── Service configuration ─────────────────────────────────────────────────────
 
-OLLAMA_HOST               = os.getenv("OLLAMA_HOST",               "http://localhost:11434")
-LLM_MODEL                 = os.getenv("LLM_MODEL",                 "qwen3:4b")
-EMBEDDING_MODEL           = os.getenv("EMBEDDING_MODEL",           "voyageai/voyage-4-nano")
-SEARCH_SERVICE_URL        = os.getenv("SEARCH_SERVICE_URL",        "http://localhost:8080")
+OLLAMA_HOST                = os.getenv("OLLAMA_HOST",                "http://localhost:11434")
+LLM_MODEL                  = os.getenv("LLM_MODEL",                  "qwen3:4b")
+EMBEDDING_MODEL            = os.getenv("EMBEDDING_MODEL",            "voyageai/voyage-4-nano")
+SEARCH_SERVICE_URL         = os.getenv("SEARCH_SERVICE_URL",         "http://localhost:8080")
 MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://localhost:8085")
-NAVIGATION_SERVICE_URL    = os.getenv("NAVIGATION_SERVICE_URL",    "http://localhost:5001")
-TELEMETRY_SERVICE_URL     = os.getenv("VSS_TELEMETRY_MCP_URL",      "http://localhost:3002")
+NAVIGATION_SERVICE_URL     = os.getenv("NAVIGATION_SERVICE_URL",     "http://localhost:5001")
+TELEMETRY_SERVICE_URL      = os.getenv("VSS_TELEMETRY_MCP_URL",      "http://localhost:3002")
 
-# Load embedding model once at startup.
+# ── Module-level singletons (shared across all Gunicorn threads) ──────────────
+
 # voyage-4-nano ships custom model code (Qwen3 bidirectional) and MUST be loaded
 # with trust_remote_code=True; without it transformers emits a wrong 2048-d
 # vector. It is a Matryoshka model — truncate_dim=1024 selects its native 1024-d
@@ -47,25 +55,68 @@ print(f"Loading embedding model: {EMBEDDING_MODEL} @ {EMBED_DIM} dims", flush=Tr
 _embed_model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True, truncate_dim=EMBED_DIM)
 print("Embedding model ready", flush=True)
 
+# LLM — created once; ChatOllama is stateless so it's safe to share across threads
+_llm = ChatOllama(
+    model=LLM_MODEL,
+    base_url=OLLAMA_HOST,
+    temperature=0,
+    keep_alive="10m",
+    num_ctx=4096,
+)
 
-# Shared HTTP session with connection pooling (reused across all tool calls)
+# Conversation memory — keyed by conversation_id (thread_id in LangGraph terms)
+_checkpointer = MemorySaver()
+
+# Shared HTTP session with connection pooling
 _http = requests.Session()
-_http.mount("http://", HTTPAdapter(max_retries=Retry(total=1, backoff_factor=0.3)))
+_http.mount("http://",  HTTPAdapter(max_retries=Retry(total=1, backoff_factor=0.3)))
 _http.mount("https://", HTTPAdapter(max_retries=Retry(total=1, backoff_factor=0.3)))
 
-# ── Conversation memory (per session) ────────────────────────────────────────
-# { conversation_id: [HumanMessage, AIMessage, ...] }
-_histories: dict = {}
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _strip_think_tags(text: str) -> str:
+    """Remove <think>...</think> blocks that qwen3 embeds in content."""
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
+class _TimingCallback(BaseCallbackHandler):
+    """Logs the start/end time of every LLM call and tool call inside the agent loop."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._llm_start: float = 0.0
+        self._tool_start: float = 0.0
+        self._llm_call: int = 0
+
+    def on_llm_start(self, serialized: dict, prompts: list, **kwargs: Any) -> None:
+        self._llm_call += 1
+        self._llm_start = time.time()
+        print(f"[cb] LLM call #{self._llm_call} start", flush=True)
+
+    def on_llm_end(self, response: Any, **kwargs: Any) -> None:
+        print(f"[cb] LLM call #{self._llm_call} end: {time.time() - self._llm_start:.2f}s", flush=True)
+
+    def on_llm_error(self, error: Exception, **kwargs: Any) -> None:
+        print(f"[cb] LLM call #{self._llm_call} error after {time.time() - self._llm_start:.2f}s: {error}", flush=True)
+
+    def on_tool_start(self, serialized: dict, input_str: str, **kwargs: Any) -> None:
+        self._tool_start = time.time()
+        name = serialized.get("name", "?")
+        print(f"[cb] tool '{name}' start  input={input_str[:120]}", flush=True)
+
+    def on_tool_end(self, output: Any, **kwargs: Any) -> None:
+        print(f"[cb] tool end: {time.time() - self._tool_start:.2f}s  output={str(output)[:120]}", flush=True)
+
+    def on_tool_error(self, error: Exception, **kwargs: Any) -> None:
+        print(f"[cb] tool error after {time.time() - self._tool_start:.2f}s: {error}", flush=True)
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = """\
 You are a unified intelligent car assistant with access to three capabilities:
 
-1. **Car Manual** ({search_tool_name}) — Answer questions about the MongoDB Leafy 1.0
-   plug-in hybrid hatchback: maintenance procedures, warning lights, troubleshooting
-   by vehicle area, fluid checks, tire repair, technical specifications, and the
-   driver assistance and safety systems.
+1. **Car Manual** ({search_tool_name}) — Answer questions about vehicle maintenance,
+   repairs, warning lights, specifications, and procedures.
 
 2. **Vehicle Telemetry** (MCP tools) — Check real-time VSS sensor data across six domains:
    powertrain (speed, RPM, fuel, coolant, gear), battery (SOC, range, charging, voltage,
@@ -172,25 +223,16 @@ def _build_system_prompt(lat: Optional[float], lon: Optional[float], network_mod
 # ── Tool helpers ──────────────────────────────────────────────────────────────
 
 def _search_manual_impl(query: str, search_url: str = None) -> str:
-    """Embed query via Ollama and call the appropriate search-service."""
     url = search_url or SEARCH_SERVICE_URL
     print(f"[search] query='{query[:60]}' url={url}", flush=True)
     try:
         t0 = time.time()
-        # Queries use the model's "query" prompt; stored chunks used "document".
-        embedding = _embed_model.encode(
-            query, prompt_name="query", normalize_embeddings=True
-        ).tolist()
+        embedding = _embed_model.encode(query, prompt_name="query", normalize_embeddings=True).tolist()
         print(f"[timing] embedding: {time.time()-t0:.2f}s  dims={len(embedding)}", flush=True)
         t1 = time.time()
-        resp = _http.post(
-            f"{url}/search",
-            json={"embedding": embedding, "limit": 3},
-            timeout=30,
-        )
-        print(f"[timing] search HTTP call: {time.time()-t1:.2f}s  status={resp.status_code}", flush=True)
+        resp = _http.post(f"{url}/search", json={"embedding": embedding, "limit": 3}, timeout=30)
+        print(f"[timing] search HTTP: {time.time()-t1:.2f}s  status={resp.status_code}", flush=True)
         if not resp.ok:
-            print(f"[search] error body: {resp.text[:300]}", flush=True)
             return f"Car manual search service error (HTTP {resp.status_code}): {resp.text[:200]}"
         results = resp.json().get("results", [])
         print(f"[search] results count={len(results)}", flush=True)
@@ -202,161 +244,44 @@ def _search_manual_impl(query: str, search_url: str = None) -> str:
         return f"Manual search error: {e}"
 
 
-# ── Pydantic schemas for tool arguments ──────────────────────────────────────
+# ── Pydantic schemas ──────────────────────────────────────────────────────────
 
 class ManualSearchInput(BaseModel):
     query: str = Field(description="What to look up in the car manual")
-
 
 class NavigateInput(BaseModel):
     destination: str = Field(
         description="What to navigate to, e.g. 'nearest mechanic', 'gas station', \"McDonald's\""
     )
 
+class VehicleEventsInput(BaseModel):
+    minutes:  int = Field(default=30, description="How many minutes back to search (default 30)")
+    severity: str = Field(default="all", description="Filter by severity: 'warning', 'critical', or 'all'")
 
-# ── Core async agent runner ───────────────────────────────────────────────────
-
-async def _run_with_tools(
-    all_tools: list,
-    message: str,
-    history: list,
-    lat: Optional[float],
-    lon: Optional[float],
-    network_mode: str = "offline",
-) -> dict:
-    """
-    Agent loop using the Ollama client directly, bypassing LangChain's ChatOllama
-    which fails to parse qwen3 tool_calls when thinking is also present.
-    """
-    client = _ollama.AsyncClient(host=OLLAMA_HOST)
-    tool_map = {t.name: t for t in all_tools}
-
-    # Convert tools to Ollama API format
-    ollama_tools = []
-    for t in all_tools:
-        if t.args_schema:
-            schema = t.args_schema.model_json_schema()
-            schema.pop("title", None)
-            for prop in schema.get("properties", {}).values():
-                prop.pop("title", None)
-        else:
-            schema = {"type": "object", "properties": {}}
-        ollama_tools.append({
-            "type": "function",
-            "function": {"name": t.name, "description": t.description, "parameters": schema},
-        })
-    print(f"[agent] tools sent to ollama: {[t['function']['name'] for t in ollama_tools]}", flush=True)
-
-    # Convert LangChain history to Ollama message dicts
-    def lc_to_ollama(lc_messages: list) -> list:
-        result = []
-        for m in lc_messages:
-            if isinstance(m, HumanMessage):
-                result.append({"role": "user",      "content": m.content or ""})
-            elif isinstance(m, AIMessage):
-                result.append({"role": "assistant", "content": m.content or ""})
-            elif isinstance(m, ToolMessage):
-                result.append({"role": "tool",      "content": m.content or ""})
-        return result
-
-    messages = (
-        [{"role": "system", "content": _build_system_prompt(lat, lon, network_mode)}]
-        + lc_to_ollama(history)
-        + [{"role": "user", "content": message}]
-    )
-
-    tools_used: list[str] = []
-    answer = ""
-
-    for iteration in range(5):
-        t0 = time.time()
-        response = await client.chat(
-            model=LLM_MODEL,
-            messages=messages,
-            tools=ollama_tools,
-            options={"temperature": 0},
-            keep_alive="10m",
-        )
-        print(f"[timing] LLM call #{iteration+1}: {time.time()-t0:.2f}s", flush=True)
-
-        msg = response.message
-        thinking = getattr(msg, 'thinking', None)
-        print(f"[debug] content={repr(msg.content)[:80]} tool_calls={msg.tool_calls} thinking={repr(thinking)[:80] if thinking else None}", flush=True)
-
-        if msg.tool_calls:
-            # Process one tool call at a time so the LLM sees each result before deciding the next step
-            tc = msg.tool_calls[0]
-            messages.append({
-                "role": "assistant",
-                "content": msg.content or "",
-                "tool_calls": [
-                    {"function": {"name": tc.function.name, "arguments": dict(tc.function.arguments)}}
-                ],
-            })
-            tool = tool_map.get(tc.function.name)
-            tools_used.append(tc.function.name)
-            if tool:
-                try:
-                    t1 = time.time()
-                    result = await tool.ainvoke(dict(tc.function.arguments))
-                    print(f"[timing] tool '{tc.function.name}': {time.time()-t1:.2f}s", flush=True)
-                except Exception as e:
-                    result = f"Error: {e}"
-            else:
-                print(f"[agent] tool '{tc.function.name}' not available in {network_mode} mode", flush=True)
-                result = "Live vehicle telemetry is not available in offline mode. Please switch to online mode."
-            messages.append({"role": "tool", "content": str(result)})
-            continue
-
-        # qwen3 sometimes outputs tool calls as raw JSON text instead of tool_calls
-        content = msg.content or ""
-        if content:
-            try:
-                parsed = json.loads(content)
-                if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
-                    name = parsed["name"]
-                    arguments = parsed["arguments"]
-                    tool = tool_map.get(name)
-                    if tool:
-                        print(f"[agent] raw JSON tool call detected: {name}", flush=True)
-                        tools_used.append(name)
-                        messages.append({"role": "assistant", "content": content})
-                        try:
-                            t1 = time.time()
-                            result = await tool.ainvoke(arguments)
-                            print(f"[timing] tool '{name}': {time.time()-t1:.2f}s", flush=True)
-                        except Exception as e:
-                            result = f"Error: {e}"
-                        messages.append({"role": "tool", "content": str(result)})
-                        continue
-            except (json.JSONDecodeError, TypeError):
-                pass
-
-        answer = content
-        break
-
-    return {"output": answer, "tools_used": tools_used}
+class DrivingHistoryInput(BaseModel):
+    domain:  str = Field(description="Domain to query: powertrain, battery, location, cabin, or adas")
+    minutes: int = Field(default=10, description="How many minutes back to search (default 10)")
 
 
-async def run_agent(
+# ── Agent runner ──────────────────────────────────────────────────────────────
+
+def run_agent(
     message: str,
     conversation_id: str,
     lat: Optional[float],
     lon: Optional[float],
     network_mode: str = "offline",
 ) -> dict:
-    """
-    Full agent pipeline:
-      1. Build navigate_to tool (closure captures lat/lon + nav result store)
-      2. Open MCP connection and load telemetry tools
-      3. Run agent inside the MCP context so the connection stays alive
-      4. Return answer + navigation data + tools used
-    """
-    navigation_result: list = []  # populated by navigate_to closure
+    navigation_result: list = []
     is_online = network_mode == "online"
     active_search_url = MONGODB_SEARCH_SERVICE_URL if is_online else SEARCH_SERVICE_URL
+    tool_name = "search_car_manual_atlas" if is_online else "search_car_manual_objectbox"
 
-    # ── Custom tools ──────────────────────────────────────────────────────────
+    # ── Tool definitions ──────────────────────────────────────────────────────
+
+    def _search_manual(query: str) -> str:
+        print(f"[agent] {tool_name} called, url={active_search_url}", flush=True)
+        return _search_manual_impl(query, active_search_url)
 
     def _navigate(destination: str) -> str:
         try:
@@ -378,116 +303,127 @@ async def run_agent(
         except Exception as e:
             return f"Navigation service unavailable: {e}"
 
-    tool_name = "search_car_manual_atlas" if is_online else "search_car_manual_objectbox"
-
-    def _search_manual_for_mode(query: str) -> str:
-        print(f"[agent] {tool_name} called, url={active_search_url}", flush=True)
-        return _search_manual_impl(query, active_search_url)
-
-    manual_tool = StructuredTool.from_function(
-        func=_search_manual_for_mode,
-        name=tool_name,
-        description=(
-            "Search the car manual for maintenance procedures, repair guides, "
-            "warning light explanations, and vehicle specifications."
-        ),
-        args_schema=ManualSearchInput,
-    )
-    navigate_tool = StructuredTool.from_function(
-        func=_navigate,
-        name="navigate_to",
-        description=(
-            "Navigate to a nearby destination. Use when the user wants directions "
-            "to a mechanic, gas station, hospital, pharmacy, or any other place."
-        ),
-        args_schema=NavigateInput,
-    )
-
-    # ── VSS Telemetry tools (direct REST calls to VSS MCP server) ───────────
-
-    def _call_telemetry_tool(name: str, args: dict = {}) -> str:
+    def _call_telemetry(name: str, args: dict = {}) -> str:
         try:
-            resp = _http.post(
-                f"{TELEMETRY_SERVICE_URL}/tools/{name}",
-                json=args,
-                timeout=10,
-            )
+            resp = _http.post(f"{TELEMETRY_SERVICE_URL}/tools/{name}", json=args, timeout=10)
             if resp.ok:
-                data = resp.json()
-                return data.get("result", resp.text)
+                return resp.json().get("result", resp.text)
             return f"Telemetry error: {resp.status_code}"
         except Exception as e:
             return f"Telemetry service unavailable: {e}"
 
-    class VehicleEventsInput(BaseModel):
-        minutes:  int = Field(default=30, description="How many minutes back to search (default 30)")
-        severity: str = Field(default="all", description="Filter by severity: 'warning', 'critical', or 'all'")
-
-    class DrivingHistoryInput(BaseModel):
-        domain:  str = Field(description="Domain to query: powertrain, battery, location, cabin, or adas")
-        minutes: int = Field(default=10, description="How many minutes back to search (default 10)")
-
-    telemetry_tools = [
+    tools = [
         StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_vehicle_status"),
-            name="get_vehicle_status",
-            description="Get a full snapshot of the vehicle: VehicleMeta plus all current state entities (powertrain, battery, chassis, cabin, location, ADAS).",
+            func=_search_manual,
+            name=tool_name,
+            description=(
+                "Search the car manual for maintenance procedures, repair guides, "
+                "warning light explanations, and vehicle specifications."
+            ),
+            args_schema=ManualSearchInput,
         ),
         StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_powertrain_status"),
-            name="get_powertrain_status",
-            description="Get current powertrain state: speed, RPM, fuel level, coolant temperature, transmission gear, throttle, and odometer.",
-        ),
-        StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_battery_status"),
-            name="get_battery_status",
-            description="Get current battery state: state of charge (SOC%), estimated range, charging status, voltage, current, temperature, and state of health.",
-        ),
-        StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_chassis_status"),
-            name="get_chassis_status",
-            description="Get current chassis state: tire pressures for all four tires (with warnings), ABS status, ESC status, and brake fluid level.",
-        ),
-        StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_cabin_status"),
-            name="get_cabin_status",
-            description="Get current cabin state: door open/lock status for all doors, temperature setpoint, interior temperature, HVAC, fan speed, and windows.",
-        ),
-        StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_location"),
-            name="get_location",
-            description="Get current vehicle location: latitude, longitude, altitude, heading, GPS speed, and geohash.",
-        ),
-        StructuredTool.from_function(
-            func=lambda: _call_telemetry_tool("get_adas_status"),
-            name="get_adas_status",
-            description="Get current ADAS state: cruise control, lane keep assist, lane departure warning, collision warning, blind spot warnings, and automatic emergency braking.",
-        ),
-        StructuredTool.from_function(
-            func=lambda minutes, severity: _call_telemetry_tool("get_vehicle_events", {"minutes": minutes, "severity": severity}),
-            name="get_vehicle_events",
-            description="Query recent vehicle events (warnings, alerts, critical notices). Filter by time window and optionally by severity.",
-            args_schema=VehicleEventsInput,
-        ),
-        StructuredTool.from_function(
-            func=lambda domain, minutes: _call_telemetry_tool("get_driving_history", {"domain": domain, "minutes": minutes}),
-            name="get_driving_history",
-            description="Retrieve time-series samples from a specific telemetry domain. Valid domains: powertrain, battery, location, cabin, adas.",
-            args_schema=DrivingHistoryInput,
+            func=_navigate,
+            name="navigate_to",
+            description=(
+                "Navigate to a nearby destination. Use when the user wants directions "
+                "to a mechanic, gas station, hospital, pharmacy, or any other place."
+            ),
+            args_schema=NavigateInput,
         ),
     ]
 
-    history = _histories.get(conversation_id, [])
-    all_tools = [manual_tool, navigate_tool] + (telemetry_tools if is_online else [])
-    print(f"[agent] network_mode={network_mode} tools={[t.name for t in all_tools]}", flush=True)
-    result = await _run_with_tools(all_tools, message, history, lat, lon, network_mode)
+    if is_online:
+        tools += [
+            StructuredTool.from_function(
+                func=lambda: _call_telemetry("get_vehicle_status"),
+                name="get_vehicle_status",
+                description="Get a full snapshot of the vehicle: VehicleMeta plus all current state entities (powertrain, battery, chassis, cabin, location, ADAS).",
+            ),
+            StructuredTool.from_function(
+                func=lambda: _call_telemetry("get_powertrain_status"),
+                name="get_powertrain_status",
+                description="Get current powertrain state: speed, RPM, fuel level, coolant temperature, transmission gear, throttle, and odometer.",
+            ),
+            StructuredTool.from_function(
+                func=lambda: _call_telemetry("get_battery_status"),
+                name="get_battery_status",
+                description="Get current battery state: state of charge (SOC%), estimated range, charging status, voltage, current, temperature, and state of health.",
+            ),
+            StructuredTool.from_function(
+                func=lambda: _call_telemetry("get_chassis_status"),
+                name="get_chassis_status",
+                description="Get current chassis state: tire pressures for all four tires (with warnings), ABS status, ESC status, and brake fluid level.",
+            ),
+            StructuredTool.from_function(
+                func=lambda: _call_telemetry("get_cabin_status"),
+                name="get_cabin_status",
+                description="Get current cabin state: door open/lock status for all doors, temperature setpoint, interior temperature, HVAC, fan speed, and windows.",
+            ),
+            StructuredTool.from_function(
+                func=lambda: _call_telemetry("get_location"),
+                name="get_location",
+                description="Get current vehicle location: latitude, longitude, altitude, heading, GPS speed, and geohash.",
+            ),
+            StructuredTool.from_function(
+                func=lambda: _call_telemetry("get_adas_status"),
+                name="get_adas_status",
+                description="Get current ADAS state: cruise control, lane keep assist, lane departure warning, collision warning, blind spot warnings, and automatic emergency braking.",
+            ),
+            StructuredTool.from_function(
+                func=lambda minutes, severity: _call_telemetry("get_vehicle_events", {"minutes": minutes, "severity": severity}),
+                name="get_vehicle_events",
+                description="Query recent vehicle events (warnings, alerts, critical notices). Filter by time window and optionally by severity.",
+                args_schema=VehicleEventsInput,
+            ),
+            StructuredTool.from_function(
+                func=lambda domain, minutes: _call_telemetry("get_driving_history", {"domain": domain, "minutes": minutes}),
+                name="get_driving_history",
+                description="Retrieve time-series samples from a specific telemetry domain. Valid domains: powertrain, battery, location, cabin, adas.",
+                args_schema=DrivingHistoryInput,
+            ),
+        ]
 
-    answer = result.get("output", "I couldn't generate a response.")
-    tools_used = result.get("tools_used", [])
+    print(f"[agent] network_mode={network_mode} tools={[t.name for t in tools]}", flush=True)
 
-    # Update conversation memory (cap at 20 turns)
-    updated = history + [HumanMessage(content=message), AIMessage(content=answer)]
-    _histories[conversation_id] = updated[-20:]
+    # ── LangGraph ReAct agent ─────────────────────────────────────────────────
+
+    system_prompt = _build_system_prompt(lat, lon, network_mode)
+
+    agent = create_react_agent(
+        model=_llm,
+        tools=tools,
+        prompt=SystemMessage(content=system_prompt),
+        checkpointer=_checkpointer,
+    )
+
+    config = {
+        "configurable": {"thread_id": conversation_id},
+        "callbacks": [_TimingCallback()],
+    }
+
+    t0 = time.time()
+    print(f"[agent] invoke start — conversation_id={conversation_id}", flush=True)
+    result = agent.invoke(
+        {"messages": [HumanMessage(content=message)]},
+        config=config,
+    )
+    print(f"[timing] agent total: {time.time()-t0:.2f}s", flush=True)
+
+    # Last message in the graph state is always the final AIMessage
+    final_message = result["messages"][-1]
+    answer = _strip_think_tags(final_message.content or "")
+    if not answer:
+        answer = "I couldn't generate a response."
+
+    # Only count tools used in the current turn — MemorySaver keeps full history,
+    # so we slice to messages after the last HumanMessage.
+    all_msgs = result["messages"]
+    last_human = max(
+        (i for i, m in enumerate(all_msgs) if isinstance(m, HumanMessage)),
+        default=-1,
+    )
+    tools_used = [m.name for m in all_msgs[last_human + 1:] if isinstance(m, ToolMessage)]
 
     return {
         "answer": answer,
@@ -504,9 +440,64 @@ def health():
     return jsonify({"status": "ok", "service": "langchain-agent-service"})
 
 
+@app.route("/debug/search", methods=["POST"])
+def debug_search():
+    """
+    Directly query the search service with timing breakdown.
+    Body: { "query": "...", "mode": "offline" | "online" }
+    """
+    data = request.json or {}
+    query = (data.get("query") or "").strip()
+    mode  = data.get("mode", "offline")
+
+    if not query:
+        return jsonify({"error": "query is required"}), 400
+
+    search_url = MONGODB_SEARCH_SERVICE_URL if mode == "online" else SEARCH_SERVICE_URL
+
+    t0 = time.time()
+    try:
+        embedding = _embed_model.encode(query, prompt_name="query", normalize_embeddings=True).tolist()
+    except Exception as e:
+        return jsonify({"error": f"embedding failed: {e}"}), 500
+    t_embed = time.time() - t0
+
+    t1 = time.time()
+    try:
+        resp = _http.post(f"{search_url}/search", json={"embedding": embedding, "limit": 3}, timeout=30)
+        t_http = time.time() - t1
+        if not resp.ok:
+            return jsonify({
+                "query": query, "search_url": search_url,
+                "timing_ms": {"embed": round(t_embed * 1000), "http": round(t_http * 1000)},
+                "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
+            }), 502
+        results = resp.json().get("results", [])
+    except Exception as e:
+        t_http = time.time() - t1
+        return jsonify({
+            "query": query, "search_url": search_url,
+            "timing_ms": {"embed": round(t_embed * 1000), "http": round(t_http * 1000)},
+            "error": f"unreachable: {e}",
+        }), 502
+
+    return jsonify({
+        "query": query,
+        "mode": mode,
+        "search_url": search_url,
+        "timing_ms": {
+            "embed": round(t_embed * 1000),
+            "http":  round(t_http * 1000),
+            "total": round((t_embed + t_http) * 1000),
+        },
+        "result_count": len(results),
+        "results": [{"score": r.get("score"), "snippet": r.get("text", "")[:200]} for r in results],
+    })
+
+
 @app.route("/agent/chat", methods=["POST"])
 def agent_chat():
-    data = request.json or {}
+    data            = request.json or {}
     message         = data.get("message", "").strip()
     conversation_id = data.get("conversation_id") or str(uuid.uuid4())
     lat             = data.get("lat")
@@ -517,10 +508,10 @@ def agent_chat():
         return jsonify({"error": "message is required"}), 400
 
     try:
-        result = asyncio.run(run_agent(message, conversation_id, lat, lon, network_mode))
+        result = run_agent(message, conversation_id, lat, lon, network_mode)
         return jsonify(result)
     except Exception as e:
-        print(f"[agent] Error: {e}")
+        print(f"[agent] error: {e}", flush=True)
         return jsonify({
             "error": str(e),
             "answer": "I encountered an error processing your request. Please try again.",
@@ -532,11 +523,11 @@ def agent_chat():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5002))
-    print(f"🤖 LangChain Agent Service starting on port {port}")
-    print(f"   LLM:              {LLM_MODEL} @ {OLLAMA_HOST}")
-    print(f"   Embeddings:       {EMBEDDING_MODEL} (local)")
-    print(f"   Search (offline): {SEARCH_SERVICE_URL}")
-    print(f"   Search (online):  {MONGODB_SEARCH_SERVICE_URL}")
-    print(f"   Navigation:       {NAVIGATION_SERVICE_URL}")
-    print(f"   VSS Telemetry:    {TELEMETRY_SERVICE_URL}")
+    print(f"LangChain Agent Service starting on port {port}")
+    print(f"  LLM:              {LLM_MODEL} @ {OLLAMA_HOST}")
+    print(f"  Embeddings:       {EMBEDDING_MODEL} (local)")
+    print(f"  Search (offline): {SEARCH_SERVICE_URL}")
+    print(f"  Search (online):  {MONGODB_SEARCH_SERVICE_URL}")
+    print(f"  Navigation:       {NAVIGATION_SERVICE_URL}")
+    print(f"  VSS Telemetry:    {TELEMETRY_SERVICE_URL}")
     app.run(host="0.0.0.0", port=port, debug=False)

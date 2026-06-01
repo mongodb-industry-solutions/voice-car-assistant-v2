@@ -175,8 +175,9 @@ PROCEDURES & ADVICE come from the car manual; CURRENT READINGS come from telemet
 2) CURRENT LIVE READINGS — ONLY when the user asks for the vehicle's current / real-time
    sensor values (e.g. "what's my tire pressure right now", "is the battery charging",
    "what's my current speed") call the matching telemetry tool:
-     → engine / powertrain / fuel / speed / gear → get_powertrain_status
-     → battery / charging / range               → get_battery_status
+     → engine / speed / gear / RPM / coolant     → get_powertrain_status
+     → fuel / petrol / gas / fuel level          → get_fuel_status
+     → battery / charge / SOC / electric range   → get_battery_status
      → tires / brakes / ABS / ESC               → get_chassis_status
      → cabin / doors / HVAC / windows           → get_cabin_status
      → location / GPS / heading                 → get_location
@@ -350,7 +351,12 @@ def run_agent(
             StructuredTool.from_function(
                 func=lambda: _call_telemetry("get_powertrain_status"),
                 name="get_powertrain_status",
-                description="Get current powertrain state: speed, RPM, fuel level, coolant temperature, transmission gear, throttle, and odometer.",
+                description="Get current powertrain state: speed, RPM, coolant temperature, transmission gear, throttle, and odometer.",
+            ),
+            StructuredTool.from_function(
+                func=lambda: _call_telemetry("get_fuel_status"),
+                name="get_fuel_status",
+                description="Get the vehicle's liquid FUEL status: fuel level %, litres remaining, and consumption rate. Use for fuel / petrol / gas / 'how much fuel left' questions — NOT the electric battery.",
             ),
             StructuredTool.from_function(
                 func=lambda: _call_telemetry("get_battery_status"),

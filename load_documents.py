@@ -30,6 +30,15 @@ from typing import List
 import requests
 from sentence_transformers import SentenceTransformer
 
+# Windows-only: its consoles default to cp1252 and crash on non-ASCII output
+# (e.g. "→"). macOS/Linux terminals are already UTF-8, so this is skipped there.
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 MANUAL_FILE        = "documents/mongodb_leafy_car_manual.txt"
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://localhost:8080")
 EMBEDDING_MODEL    = os.getenv("EMBEDDING_MODEL", "voyageai/voyage-4-nano")
@@ -101,12 +110,6 @@ def wait_for_service(url: str, attempts: int = 20, delay: float = 3.0) -> None:
     sys.exit(1)
 
 
-def reset_chunks(url: str) -> None:
-    resp = requests.delete(f"{url}/chunks", timeout=30)
-    resp.raise_for_status()
-    print(f"Cleared existing chunks: {resp.json()}")
-
-
 def post_batch(url: str, batch: List[dict]) -> dict:
     resp = requests.post(f"{url}/chunks", json={"chunks": batch}, timeout=60)
     resp.raise_for_status()
@@ -138,8 +141,9 @@ def main() -> None:
     chunks = chunk_manual(text)
     print(f"Created {len(chunks)} chunks from {manual_path.name}\n")
 
-    print("Clearing existing chunks in search-service …")
-    reset_chunks(SEARCH_SERVICE_URL)
+    # NOTE: the search-service has no clear/delete endpoint by design. To reload
+    # from scratch, wipe the on-disk store first (see README "Resetting the search
+    # index"); otherwise new chunks are appended to whatever already exists.
 
     written = 0
     batch: List[dict] = []

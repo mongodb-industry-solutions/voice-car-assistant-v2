@@ -521,7 +521,7 @@ int main(int argc, char* argv[]) {
     
     // Create HTTP server
     httplib::Server svr;
-    
+
     // Health check endpoint
     svr.Get("/health", [](const httplib::Request&, httplib::Response& res) {
         try {
@@ -575,32 +575,63 @@ int main(int argc, char* argv[]) {
     // the Sync Server and on to MongoDB (mirrors the telemetry POST /vss/snapshot).
     // Accepts a single chunk object, or a batch via {"chunks": [ ... ]}.
     svr.Post("/chunks", [](const httplib::Request& req, httplib::Response& res) {
+        auto bad_request = [&res](const std::string& msg) {
+            res.status = 400;
+            res.set_content(json{{"error", msg}}.dump(), "application/json");
+        };
+
+        // Malformed JSON is a client error → 400, not 500.
+        json body;
         try {
-            auto body = json::parse(req.body);
+            body = json::parse(req.body);
+        } catch (const std::exception& e) {
+            bad_request(std::string("Invalid JSON body: ") + e.what());
+            return;
+        }
 
-            // Normalise to an array of chunk objects.
-            json items;
-            if (body.is_array()) {
-                items = body;
-            } else if (body.contains("chunks") && body["chunks"].is_array()) {
-                items = body["chunks"];
-            } else {
-                items = json::array({body});  // single chunk object
-            }
+        // Normalise to an array of chunk objects.
+        json items;
+        if (body.is_array()) {
+            items = body;
+        } else if (body.is_object() && body.contains("chunks") && body["chunks"].is_array()) {
+            items = body["chunks"];
+        } else if (body.is_object()) {
+            items = json::array({body});  // single chunk object
+        } else {
+            bad_request("Body must be a chunk object, an array of chunks, or {\"chunks\": [ ... ]}.");
+            return;
+        }
 
+        try {
             auto chunkBox = store->box<ManualChunk>();
             int inserted = 0;
 
-            for (const auto& item : items) {
-                std::vector<float> embedding = item["embedding"].get<std::vector<float>>();
-                if (embedding.size() != 1024) {
-                    json error;
-                    error["error"] = "Each embedding must be 1024 dimensions (got "
-                                   + std::to_string(embedding.size()) + ")";
-                    res.status = 400;
-                    res.set_content(error.dump(), "application/json");
+            for (size_t i = 0; i < items.size(); ++i) {
+                const auto& item = items[i];
+
+                // ── Per-item validation — all client errors → 400 ──────────────
+                if (!item.is_object()) {
+                    bad_request("Chunk " + std::to_string(i) + " must be a JSON object.");
                     return;
                 }
+                auto emb_it = item.find("embedding");
+                if (emb_it == item.end() || !emb_it->is_array()) {
+                    bad_request("Chunk " + std::to_string(i) + " is missing an 'embedding' array.");
+                    return;
+                }
+                std::vector<float> embedding;
+                try {
+                    embedding = emb_it->get<std::vector<float>>();
+                } catch (const std::exception&) {
+                    bad_request("Chunk " + std::to_string(i) + " 'embedding' must be an array of numbers.");
+                    return;
+                }
+                if (embedding.size() != 1024) {
+                    bad_request("Chunk " + std::to_string(i) + " embedding must be 1024 dimensions (got "
+                                + std::to_string(embedding.size()) + ").");
+                    return;
+                }
+
                 ManualChunk chunk;
                 chunk.id          = 0;  // new insert
                 chunk.text        = item.value("text", "");
@@ -618,24 +649,7 @@ int main(int argc, char* argv[]) {
             res.set_content(response.dump(), "application/json");
 
         } catch (const std::exception& e) {
-            json error;
-            error["error"] = e.what();
-            res.status = 500;
-            res.set_content(error.dump(), "application/json");
-        }
-    });
-
-    // Clear all chunks — lets the loader reset before a fresh load without
-    // wiping the on-disk store. Removals propagate through sync as well.
-    svr.Delete("/chunks", [](const httplib::Request&, httplib::Response& res) {
-        try {
-            auto chunkBox = store->box<ManualChunk>();
-            uint64_t removed = chunkBox.removeAll();
-            json response;
-            response["removed"]     = removed;
-            response["chunk_count"] = chunkBox.count();
-            res.set_content(response.dump(), "application/json");
-        } catch (const std::exception& e) {
+            // Genuine server-side failure (e.g. store write) → 500.
             json error;
             error["error"] = e.what();
             res.status = 500;

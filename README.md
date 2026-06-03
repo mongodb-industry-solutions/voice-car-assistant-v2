@@ -19,7 +19,7 @@ A multi-service, fully Dockerised in-vehicle assistant that combines live VSS te
 │  LangChain ReAct Agent  :5002                  │
 │  Ollama (qwen2.5:3b)                             │
 │  Tools: car-manual search · navigation ·       │
-│         9 VSS MCP tools (online mode)          │
+│         10 VSS MCP tools (online mode)         │
 └──┬──────────────┬─────────────────┬────────────┘
    │              │                 │
    │    ┌─────────▼──────┐  ┌───────▼──────────────────┐
@@ -67,7 +67,7 @@ All services are defined in [`sync-server-setup/docker-compose.yml`](sync-server
 | `sync-server` | 9980 / 9999 | ObjectBox Sync Server — replicates to MongoDB Atlas |
 | `vss-telemetry-service` | 8086 | C++ ObjectBox service — 14 typed VSS entities |
 | `vss-telemetry-simulator` | 8087 | Python VSS data generator — auto-starts on launch |
-| `vss-telemetry-mcp-server` | 3002 | Node.js MCP server — 9 agent tools, reads MongoDB |
+| `vss-telemetry-mcp-server` | 3002 | Node.js MCP server — 10 agent tools, reads MongoDB |
 
 Legacy telemetry stack (`telemetry-service` :8084, `telemetry-simulator` :8082, `telemetry-mcp-server` :3001) is kept for rollback but is not wired to the agent or UI.
 
@@ -147,8 +147,9 @@ What happens:
    on heading boundaries (~379 chunks) and embeds each chunk with
    `voyageai/voyage-4-nano` (1024-d, `trust_remote_code=True`, the model's
    `document` prompt).
-2. It POSTs the chunks to the search-service: `DELETE /chunks` to clear, then
-   `POST /chunks` in batches. (Re-running is therefore safe and idempotent.)
+2. It POSTs the chunks to the search-service via `POST /chunks` in batches.
+   (There is no clear/delete endpoint — to reload from scratch, wipe the store
+   first; see "Resetting the search index" below. Otherwise chunks are appended.)
 3. The search-service writes them into its local ObjectBox store as the
    **sync-enabled** `manual_chunks` entity, over its active Sync client.
 4. The Sync Server replicates them to MongoDB Atlas.
@@ -249,7 +250,6 @@ store and a Sync client. `load_documents.py` writes through it; the agent querie
 POST   /chunks   — ingest chunks (single object, or {"chunks":[ ... ]});
                    each item: {text, source_file, chunk_index, embedding[1024]}.
                    Writes flow through Sync to MongoDB Atlas.
-DELETE /chunks   — clear all chunks (used by the loader to reset before a load)
 POST   /search   — vector search; body {embedding[1024], limit}; returns chunks + scores
 GET    /health   — status + chunk_count
 ```
@@ -278,8 +278,9 @@ The LangChain agent calls these tools in online mode via `POST /tools/<name>`:
 | Tool | Description |
 |---|---|
 | `get_vehicle_status` | Full snapshot — all domains + vehicle identity |
-| `get_powertrain_status` | Engine, speed, fuel, gear |
-| `get_battery_status` | SoC, SoH, charging state, range |
+| `get_powertrain_status` | Engine, speed, RPM, gear, coolant, odometer |
+| `get_fuel_status` | Liquid fuel: level %, litres remaining, consumption rate |
+| `get_battery_status` | SoC, SoH, charging state, electric range |
 | `get_chassis_status` | Tyre pressures, ABS, traction control |
 | `get_cabin_status` | Temperature, HVAC, doors, seatbelt |
 | `get_location` | GPS position (lat/lon parsed from GeoJSON), heading, geohash |

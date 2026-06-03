@@ -30,15 +30,6 @@ from typing import List
 import requests
 from sentence_transformers import SentenceTransformer
 
-# Windows-only: its consoles default to cp1252 and crash on non-ASCII output
-# (e.g. "→"). macOS/Linux terminals are already UTF-8, so this is skipped there.
-if sys.platform == "win32":
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except (AttributeError, ValueError):
-        pass
-
 MANUAL_FILE        = "documents/mongodb_leafy_car_manual.txt"
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://localhost:8080")
 EMBEDDING_MODEL    = os.getenv("EMBEDDING_MODEL", "voyageai/voyage-4-nano")

@@ -51,6 +51,7 @@ TELEMETRY_SERVICE_URL      = os.getenv("VSS_TELEMETRY_MCP_URL",      "http://loc
 # load_documents.py embeds stored chunks (same model, truncate_dim, normalisation)
 # or query vectors won't align with the indexed vectors.
 EMBED_DIM = int(os.getenv("EMBED_DIM", "1024"))
+if EMBED_DIM != 1024: raise ValueError(f"EMBED_DIM must be 1024 to match search-service (got {EMBED_DIM})")
 print(f"Loading embedding model: {EMBEDDING_MODEL} @ {EMBED_DIM} dims", flush=True)
 _embed_model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True, truncate_dim=EMBED_DIM)
 print("Embedding model ready", flush=True)

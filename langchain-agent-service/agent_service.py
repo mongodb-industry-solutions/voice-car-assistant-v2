@@ -351,7 +351,7 @@ def run_agent(
             StructuredTool.from_function(
                 func=lambda: _call_telemetry("get_powertrain_status"),
                 name="get_powertrain_status",
-                description="Get current powertrain state: speed, RPM, coolant temperature, transmission gear, throttle, and odometer.",
+                description="Get current powertrain state: speed, RPM, coolant temperature, transmission gear, throttle, and odometer. For fuel level, use get_fuel_status.",
             ),
             StructuredTool.from_function(
                 func=lambda: _call_telemetry("get_fuel_status"),

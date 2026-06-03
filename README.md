@@ -19,7 +19,7 @@ A multi-service, fully Dockerised in-vehicle assistant that combines live VSS te
 │  LangChain ReAct Agent  :5002                  │
 │  Ollama (qwen2.5:3b)                             │
 │  Tools: car-manual search · navigation ·       │
-│         9 VSS MCP tools (online mode)          │
+│         10 VSS MCP tools (online mode)         │
 └──┬──────────────┬─────────────────┬────────────┘
    │              │                 │
    │    ┌─────────▼──────┐  ┌───────▼──────────────────┐
@@ -67,7 +67,7 @@ All services are defined in [`sync-server-setup/docker-compose.yml`](sync-server
 | `sync-server` | 9980 / 9999 | ObjectBox Sync Server — replicates to MongoDB Atlas |
 | `vss-telemetry-service` | 8086 | C++ ObjectBox service — 14 typed VSS entities |
 | `vss-telemetry-simulator` | 8087 | Python VSS data generator — auto-starts on launch |
-| `vss-telemetry-mcp-server` | 3002 | Node.js MCP server — 9 agent tools, reads MongoDB |
+| `vss-telemetry-mcp-server` | 3002 | Node.js MCP server — 10 agent tools, reads MongoDB |
 
 Legacy telemetry stack (`telemetry-service` :8084, `telemetry-simulator` :8082, `telemetry-mcp-server` :3001) is kept for rollback but is not wired to the agent or UI.
 
@@ -87,6 +87,12 @@ docker volume rm sync-server-setup_ollama-models
 ```
 
 To enable NVIDIA GPU acceleration, uncomment the `deploy.resources` block in `docker-compose.yml`.
+
+The **embedding model** (`voyageai/voyage-4-nano`, 1024-d) is separate from the LLM:
+it is downloaded automatically from Hugging Face the first time the loader or the
+agent runs (no Ollama pull needed). It ships custom model code, so it is loaded with
+`trust_remote_code=True` and is pinned to `transformers==4.57.1` — newer transformers
+break its bundled remote code.
 
 ### 3. MongoDB Atlas
 
@@ -116,17 +122,7 @@ MONGODB_CLUSTER=your_cluster.xxxxx.mongodb.net
 MONGODB_DATABASE=your_database_name
 ```
 
-### 2. Load the car manual into ObjectBox
-
-Run this once to embed the car manual documents into the vector search database:
-
-```bash
-cd ..                     # back to repo root
-pip install -r requirements.txt
-python load_documents.py
-```
-
-### 3. Start all services
+### 2. Start all services
 
 ```bash
 cd sync-server-setup
@@ -134,6 +130,54 @@ docker compose up
 ```
 
 Open the **ObjectBox Sync Server admin UI** at [http://localhost:9980](http://localhost:9980) and activate your trial licence when prompted.
+
+### 3. Load the car manual into the search-service (once)
+
+Run this **after** the stack is up, when `search-service` is healthy:
+
+```bash
+cd ..                     # back to repo root
+pip install -r requirements.txt
+python load_documents.py
+```
+
+What happens:
+
+1. `load_documents.py` chunks [`documents/mongodb_leafy_car_manual.txt`](documents/mongodb_leafy_car_manual.txt)
+   on heading boundaries (~379 chunks) and embeds each chunk with
+   `voyageai/voyage-4-nano` (1024-d, `trust_remote_code=True`, the model's
+   `document` prompt).
+2. It POSTs the chunks to the search-service via `POST /chunks` in batches.
+   (There is no clear/delete endpoint — to reload from scratch, wipe the store
+   first; see "Resetting the search index" below. Otherwise chunks are appended.)
+3. The search-service writes them into its local ObjectBox store as the
+   **sync-enabled** `manual_chunks` entity, over its active Sync client.
+4. The Sync Server replicates them to MongoDB Atlas.
+
+This is the same producer → C++-service-with-sync → Sync Server → Atlas path the
+telemetry stack uses, just run once instead of continuously.
+
+> **Why over HTTP, not a direct ObjectBox write?** The Python ObjectBox SDK has no
+> Sync support, so writing the store directly only produces local-only rows that
+> never reach the Sync Server. The chunks must be written by the sync-connected
+> search-service, and `manual_chunks` must be `SYNC_ENABLED` in its model
+> (`OBXEntityFlags_SYNC_ENABLED`, matching `sync-server-setup/objectbox-model.json`).
+
+> **The embedding model must match on both sides.** The agent embeds queries with
+> the same model and dimension (using the `query` prompt). voyage-4-nano is a
+> Matryoshka model loaded at its native 1024-d; it is pinned to
+> `transformers==4.57.1` because newer transformers break its bundled remote code.
+
+If you change the search schema (e.g. the entity's sync flag or properties),
+delete the on-disk store before reloading so it reinitialises cleanly:
+
+```bash
+cd sync-server-setup
+docker compose down
+Remove-Item -Force .\search-service-data\*.mdb   # PowerShell; or rm on Linux/macOS
+docker compose up -d --build search-service
+# wait until healthy, then re-run python load_documents.py from the repo root
+```
 
 Once all containers are healthy, open the voice assistant at **[http://localhost:5000](http://localhost:5000)**.
 
@@ -197,6 +241,19 @@ Full field-level documentation: [`vss-data.md`](vss-data.md)
 ```
 Longitude is first per the GeoJSON spec (RFC 7946). MongoDB Atlas geospatial queries work directly on this field.
 
+## Search Service API
+
+The C++ search-service (:8080) owns the sync-enabled `manual_chunks` ObjectBox
+store and a Sync client. `load_documents.py` writes through it; the agent queries it.
+
+```
+POST   /chunks   — ingest chunks (single object, or {"chunks":[ ... ]});
+                   each item: {text, source_file, chunk_index, embedding[1024]}.
+                   Writes flow through Sync to MongoDB Atlas.
+POST   /search   — vector search; body {embedding[1024], limit}; returns chunks + scores
+GET    /health   — status + chunk_count
+```
+
 ## VSS Telemetry Service API
 
 ```
@@ -221,8 +278,9 @@ The LangChain agent calls these tools in online mode via `POST /tools/<name>`:
 | Tool | Description |
 |---|---|
 | `get_vehicle_status` | Full snapshot — all domains + vehicle identity |
-| `get_powertrain_status` | Engine, speed, fuel, gear |
-| `get_battery_status` | SoC, SoH, charging state, range |
+| `get_powertrain_status` | Speed, RPM, coolant, gear, throttle, odometer, ignition (no fuel — see `get_fuel_status`) |
+| `get_fuel_status` | Liquid fuel: level %, litres remaining, consumption rate |
+| `get_battery_status` | SoC, SoH, charging state, electric range |
 | `get_chassis_status` | Tyre pressures, ABS, traction control |
 | `get_cabin_status` | Temperature, HVAC, doors, seatbelt |
 | `get_location` | GPS position (lat/lon parsed from GeoJSON), heading, geohash |

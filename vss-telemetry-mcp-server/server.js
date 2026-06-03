@@ -140,12 +140,17 @@ async function get_powertrain_status() {
   );
   if (!doc) return noData("PowertrainState");
 
+  // Fuel is reported by get_fuel_status; exclude it here so this tool's payload
+  // matches its description (engine/drivetrain only) and the two tools don't overlap.
+  const nonFuel = { ...doc };
+  delete nonFuel.fuelLevelPct;
+  delete nonFuel.fuelRateLph;
+
   const lines = [
     `Powertrain Status — ${VEHICLE_ID}`,
     "=".repeat(50),
     `Speed:         ${doc.speedKph             ?? "N/A"} km/h`,
     `Engine RPM:    ${doc.engineRpm            ?? "N/A"} rpm`,
-    `Fuel Level:    ${doc.fuelLevelPct         ?? "N/A"} %`,
     `Coolant Temp:  ${doc.coolantTempC         ?? "N/A"} °C${doc.coolantTempC != null ? (doc.coolantTempC > 110 ? "  ⚠ OVERHEATING" : doc.coolantTempC > 95 ? "  (warm)" : "  (normal)") : ""}`,
     `Gear:          ${doc.gear                 ?? "N/A"}`,
     `Throttle:      ${doc.throttlePct          ?? "N/A"} %`,
@@ -154,7 +159,38 @@ async function get_powertrain_status() {
     `Last Updated:  ${doc.updatedAt != null ? new Date(doc.updatedAt).toISOString() : "N/A"}`,
     "",
     "Raw document:",
-    fmt(doc),
+    fmt(nonFuel),
+  ];
+  return lines.join("\n");
+}
+
+async function get_fuel_status() {
+  const db = await getDb();
+  const [pt, meta] = await Promise.all([
+    db.collection("PowertrainState").findOne({ vehicleId: VEHICLE_ID }, { projection: { _id: 0 } }),
+    db.collection("VehicleMeta")    .findOne({ vehicleId: VEHICLE_ID }, { projection: { _id: 0 } }),
+  ]);
+  if (!pt) return noData("PowertrainState");
+
+  const pct    = pt.fuelLevelPct;
+  const tankL  = meta ? meta.fuelTankCapacityL : null;
+  const litres = (pct != null && tankL != null) ? (pct / 100 * tankL).toFixed(1) : null;
+  const label  =
+    pct == null ? ""
+    : pct < 10  ? "  ⚠ CRITICALLY LOW"
+    : pct < 20  ? "  (low)"
+    : "";
+
+  const lines = [
+    `Fuel Status — ${VEHICLE_ID}`,
+    "=".repeat(50),
+    `Fuel Level:        ${pct != null ? pct.toFixed(1) : "N/A"} %${label}`,
+    `Fuel Remaining:    ${litres ?? "N/A"} L${tankL != null ? `  (tank: ${tankL} L)` : ""}`,
+    `Consumption Rate:  ${pt.fuelRateLph != null ? pt.fuelRateLph.toFixed(1) : "N/A"} L/h`,
+    `Last Updated:      ${pt.updatedAt != null ? new Date(pt.updatedAt).toISOString() : "N/A"}`,
+    "",
+    "NOTE: This is liquid fuel only. For the high-voltage drive battery (state of "
+      + "charge, electric range, charging), use get_battery_status instead.",
   ];
   return lines.join("\n");
 }
@@ -396,6 +432,7 @@ async function get_driving_history({ domain = "powertrain", minutes = 10 } = {})
 const toolHandlers = {
   get_vehicle_status:   (_args) => get_vehicle_status(),
   get_powertrain_status:(_args) => get_powertrain_status(),
+  get_fuel_status:      (_args) => get_fuel_status(),
   get_battery_status:   (_args) => get_battery_status(),
   get_chassis_status:   (_args) => get_chassis_status(),
   get_cabin_status:     (_args) => get_cabin_status(),
@@ -430,11 +467,26 @@ server.tool(
 // 2. get_powertrain_status
 server.tool(
   "get_powertrain_status",
-  "Get current powertrain state: speed, RPM, fuel level, coolant temperature, transmission gear, throttle, and odometer.",
+  "Get current powertrain state: speed, RPM, coolant temperature, transmission gear, throttle, and odometer. For fuel level, use get_fuel_status.",
   {},
   async () => {
     try {
       const text = await get_powertrain_status();
+      return { content: [{ type: "text", text }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }] };
+    }
+  }
+);
+
+// 2b. get_fuel_status
+server.tool(
+  "get_fuel_status",
+  "Get the vehicle's liquid FUEL status: fuel level %, litres remaining, and consumption rate. Use this for any fuel / petrol / gas / 'how much fuel left' question — NOT for the electric battery (that is get_battery_status).",
+  {},
+  async () => {
+    try {
+      const text = await get_fuel_status();
       return { content: [{ type: "text", text }] };
     } catch (e) {
       return { content: [{ type: "text", text: `Error: ${e.message}` }] };

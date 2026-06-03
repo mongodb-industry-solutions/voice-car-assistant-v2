@@ -180,16 +180,7 @@ socket.on('status', (data) => {
             micIcon.textContent = '🎤';
             break;
         case 'processing':
-            showStatus('🔄 Processing...');
-            micIcon.textContent = '⚙️';
-            break;
-        case 'searching':
-            showStatus('🔍 Searching manual...');
-            micIcon.textContent = '🔍';
-            break;
-        case 'generating':
-            showStatus('💭 Thinking...');
-            micIcon.textContent = '🤖';
+            hideStatus();
             break;
         case 'speaking':
             showStatus('🔊 Speaking...');
@@ -198,12 +189,6 @@ socket.on('status', (data) => {
         case 'ready':
             hideStatus();
             micIcon.textContent = '🎤';
-            break;
-        case 'error':
-            hideStatus();
-            micIcon.textContent = '❌';
-            isListening = false;
-            micButton.classList.remove('listening');
             break;
     }
 });

@@ -278,7 +278,7 @@ The LangChain agent calls these tools in online mode via `POST /tools/<name>`:
 | Tool | Description |
 |---|---|
 | `get_vehicle_status` | Full snapshot — all domains + vehicle identity |
-| `get_powertrain_status` | Engine, speed, RPM, gear, coolant, odometer |
+| `get_powertrain_status` | Speed, RPM, coolant, gear, throttle, odometer, ignition (no fuel — see `get_fuel_status`) |
 | `get_fuel_status` | Liquid fuel: level %, litres remaining, consumption rate |
 | `get_battery_status` | SoC, SoH, charging state, electric range |
 | `get_chassis_status` | Tyre pressures, ABS, traction control |

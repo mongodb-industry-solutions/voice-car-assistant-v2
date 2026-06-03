@@ -54,10 +54,14 @@ def _char_split(text: str, max_chars: int, overlap: int) -> List[str]:
                 if pos > max_chars * 0.6:
                     piece = piece[: pos + len(sep)]
                     break
-        piece = piece.strip()
-        if piece:
-            pieces.append(piece)
-        advance = max(len(piece) - overlap, 50)  # always move forward
+        consumed = len(piece)          # original slice length (after separator-trim)
+        chunk = piece.strip()
+        if chunk:
+            pieces.append(chunk)
+        # Advance over the slice actually consumed from `text`, NOT the stripped
+        # content length — stripped whitespace or a kept separator (e.g. ". ")
+        # would otherwise shrink the step and duplicate/skip text at boundaries.
+        advance = max(consumed - overlap, 50)  # always move forward
         start += advance
     return pieces
 

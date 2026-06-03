@@ -136,50 +136,75 @@ def main() -> None:
     # from scratch, wipe the on-disk store first (see README "Resetting the search
     # index"); otherwise new chunks are appended to whatever already exists.
 
-    written = 0
+    inserted_total = 0   # chunks the server confirmed it inserted, this run
+    embed_failures = 0   # chunks that failed to embed (never sent)
+    post_failures  = 0   # chunks dropped because their batch POST failed
     batch: List[dict] = []
 
-    def flush() -> None:
-        nonlocal written, batch
+    def flush() -> bool:
+        """POST the current batch and clear it. Returns True on success.
+
+        The batch is cleared up-front, regardless of outcome: the service has no
+        de-duplication, so a failed POST must never leave chunks queued to be
+        re-sent on the next flush (that would duplicate any that did land).
+        """
+        nonlocal inserted_total, post_failures, batch
         if not batch:
-            return
-        result = post_batch(SEARCH_SERVICE_URL, batch)
-        written = result.get("chunk_count", written)
-        batch = []
+            return True
+        pending, batch = batch, []
+        try:
+            result = post_batch(SEARCH_SERVICE_URL, pending)
+        except requests.RequestException as exc:
+            post_failures += len(pending)
+            print(f"  ERROR posting batch of {len(pending)} chunks (dropped): {exc}")
+            return False
+        inserted_total += int(result.get("inserted", len(pending)))
+        return True
 
     for idx, chunk in enumerate(chunks):
+        # Stored chunks use the model's "document" prompt; queries use the
+        # "query" prompt (defined in the model's config). They must stay split.
         try:
-            # Stored chunks use the model's "document" prompt; queries use the
-            # "query" prompt (defined in the model's config). They must stay split.
             embedding = model.encode(
                 chunk, prompt_name="document", normalize_embeddings=True
             ).tolist()
-            if len(embedding) != EMBED_DIM:
-                print(f"ERROR: got {len(embedding)} dims, expected {EMBED_DIM}. "
-                      f"truncate_dim was not honoured by this model — aborting.")
-                sys.exit(1)
-            batch.append({
-                "text":        chunk,
-                "source_file": manual_path.name,
-                "chunk_index": idx,
-                "embedding":   embedding,
-            })
-            if len(batch) >= BATCH_SIZE:
-                flush()
-                print(f"  posted {idx + 1}/{len(chunks)} chunks …")
         except Exception as exc:
-            print(f"  ERROR on chunk {idx}: {exc}")
-    flush()
+            embed_failures += 1
+            print(f"  ERROR embedding chunk {idx} (skipped): {exc}")
+            continue
+
+        if len(embedding) != EMBED_DIM:
+            print(f"ERROR: got {len(embedding)} dims, expected {EMBED_DIM}. "
+                  f"truncate_dim was not honoured by this model — aborting.")
+            sys.exit(1)
+
+        batch.append({
+            "text":        chunk,
+            "source_file": manual_path.name,
+            "chunk_index": idx,
+            "embedding":   embedding,
+        })
+        if len(batch) >= BATCH_SIZE:
+            flush()
+            print(f"  processed {idx + 1}/{len(chunks)} chunks (inserted {inserted_total}) …")
+
+    flush()  # final partial batch — flush() handles its own errors
 
     print(f"\n{'=' * 60}")
-    print(f"Chunks generated : {len(chunks)}")
-    print(f"Records in DB    : {written}")
-    if written != len(chunks):
-        print("WARNING: counts differ — some POSTs may have failed")
-    print(f"Search service   : {SEARCH_SERVICE_URL}")
+    print(f"Chunks generated   : {len(chunks)}")
+    print(f"Inserted this run  : {inserted_total}")
+    if embed_failures:
+        print(f"Embedding failures : {embed_failures}")
+    if post_failures:
+        print(f"Dropped (POST fail): {post_failures}")
+    print(f"Search service     : {SEARCH_SERVICE_URL}")
     print(f"{'=' * 60}\n")
     print("Chunks are written via the sync-enabled search-service, so they will "
           "replicate to the Sync Server and MongoDB Atlas.")
+
+    # Non-zero exit so a caller/CI can tell the load was incomplete.
+    if embed_failures or post_failures:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

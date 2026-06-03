@@ -65,6 +65,7 @@ OBX_model* create_obx_model() {
     
     // Entity 2: manuals (from sync-server schema)
     obx_model_entity(model, "manuals", 2, 3456789012345678901);
+    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);  // match sync-server flags:2
     obx_model_property(model, "id", OBXPropertyType_Long, 1, 2345678901234567890);
     obx_model_property_flags(model, OBXPropertyFlags_ID);
     obx_model_property(model, "filename", OBXPropertyType_String, 2, 3456789012345678902);
@@ -77,6 +78,7 @@ OBX_model* create_obx_model() {
     
     // Entity 3: conversations (not used, but required for sync compatibility)
     obx_model_entity(model, "conversations", 3, 1111222233334444555);
+    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);  // match sync-server flags:2
     obx_model_property(model, "id", OBXPropertyType_Long, 1, 1111222233334444556);
     obx_model_property_flags(model, OBXPropertyFlags_ID);
     obx_model_property(model, "conversation_id", OBXPropertyType_String, 2, 2222333344445555666);
@@ -96,6 +98,7 @@ OBX_model* create_obx_model() {
     
     // Entity 4: telemetry_snapshots (not used, but required for sync compatibility)
     obx_model_entity(model, "telemetry_snapshots", 4, 2222333344445555777);
+    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);  // match sync-server flags:2
     obx_model_property(model, "id", OBXPropertyType_Long, 1, 2222333344445555778);
     obx_model_property_flags(model, OBXPropertyFlags_ID);
     obx_model_property(model, "timestamp", OBXPropertyType_Long, 2, 3333444455556666888);

@@ -45,7 +45,11 @@ OBX_model* create_obx_model() {
     OBX_model* model = obx_model();
     
     // Entity 1: manual_chunks (from sync-server schema)
+    // SYNC_ENABLED so chunks written here propagate to the Sync Server → MongoDB.
+    // Must match "flags": 2 in sync-server-setup/objectbox-model.json, otherwise
+    // writes stay local-only (this was the original "data never syncs" bug).
     obx_model_entity(model, "manual_chunks", 1, 2807783899453578393);
+    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
     obx_model_property(model, "id", OBXPropertyType_Long, 1, 871349036716677797);
     obx_model_property_flags(model, OBXPropertyFlags_ID);
     obx_model_property(model, "text", OBXPropertyType_String, 2, 6563616578029045320);
@@ -61,6 +65,7 @@ OBX_model* create_obx_model() {
     
     // Entity 2: manuals (from sync-server schema)
     obx_model_entity(model, "manuals", 2, 3456789012345678901);
+    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);  // match sync-server flags:2
     obx_model_property(model, "id", OBXPropertyType_Long, 1, 2345678901234567890);
     obx_model_property_flags(model, OBXPropertyFlags_ID);
     obx_model_property(model, "filename", OBXPropertyType_String, 2, 3456789012345678902);
@@ -73,6 +78,7 @@ OBX_model* create_obx_model() {
     
     // Entity 3: conversations (not used, but required for sync compatibility)
     obx_model_entity(model, "conversations", 3, 1111222233334444555);
+    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);  // match sync-server flags:2
     obx_model_property(model, "id", OBXPropertyType_Long, 1, 1111222233334444556);
     obx_model_property_flags(model, OBXPropertyFlags_ID);
     obx_model_property(model, "conversation_id", OBXPropertyType_String, 2, 2222333344445555666);
@@ -92,6 +98,7 @@ OBX_model* create_obx_model() {
     
     // Entity 4: telemetry_snapshots (not used, but required for sync compatibility)
     obx_model_entity(model, "telemetry_snapshots", 4, 2222333344445555777);
+    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);  // match sync-server flags:2
     obx_model_property(model, "id", OBXPropertyType_Long, 1, 2222333344445555778);
     obx_model_property_flags(model, OBXPropertyFlags_ID);
     obx_model_property(model, "timestamp", OBXPropertyType_Long, 2, 3333444455556666888);
@@ -517,7 +524,7 @@ int main(int argc, char* argv[]) {
     
     // Create HTTP server
     httplib::Server svr;
-    
+
     // Health check endpoint
     svr.Get("/health", [](const httplib::Request&, httplib::Response& res) {
         try {
@@ -557,7 +564,7 @@ int main(int argc, char* argv[]) {
             
             json result = search_chunks(embedding, limit);
             res.set_content(result.dump(), "application/json");
-            
+
         } catch (const std::exception& e) {
             json error;
             error["error"] = e.what();
@@ -565,7 +572,94 @@ int main(int argc, char* argv[]) {
             res.set_content(error.dump(), "application/json");
         }
     });
-    
+
+    // Ingest endpoint — load_documents.py POSTs embedded chunks here. Because the
+    // box is SYNC_ENABLED and the sync client is connected, these inserts flow to
+    // the Sync Server and on to MongoDB (mirrors the telemetry POST /vss/snapshot).
+    // Accepts a single chunk object, or a batch via {"chunks": [ ... ]}.
+    svr.Post("/chunks", [](const httplib::Request& req, httplib::Response& res) {
+        auto bad_request = [&res](const std::string& msg) {
+            res.status = 400;
+            res.set_content(json{{"error", msg}}.dump(), "application/json");
+        };
+
+        // Malformed JSON is a client error → 400, not 500.
+        json body;
+        try {
+            body = json::parse(req.body);
+        } catch (const std::exception& e) {
+            bad_request(std::string("Invalid JSON body: ") + e.what());
+            return;
+        }
+
+        // Normalise to an array of chunk objects.
+        json items;
+        if (body.is_array()) {
+            items = body;
+        } else if (body.is_object() && body.contains("chunks") && body["chunks"].is_array()) {
+            items = body["chunks"];
+        } else if (body.is_object()) {
+            items = json::array({body});  // single chunk object
+        } else {
+            bad_request("Body must be a chunk object, an array of chunks, or {\"chunks\": [ ... ]}.");
+            return;
+        }
+
+        try {
+            auto chunkBox = store->box<ManualChunk>();
+            int inserted = 0;
+
+            for (size_t i = 0; i < items.size(); ++i) {
+                const auto& item = items[i];
+
+                // ── Per-item validation — all client errors → 400 ──────────────
+                if (!item.is_object()) {
+                    bad_request("Chunk " + std::to_string(i) + " must be a JSON object.");
+                    return;
+                }
+                auto emb_it = item.find("embedding");
+                if (emb_it == item.end() || !emb_it->is_array()) {
+                    bad_request("Chunk " + std::to_string(i) + " is missing an 'embedding' array.");
+                    return;
+                }
+                std::vector<float> embedding;
+                try {
+                    embedding = emb_it->get<std::vector<float>>();
+                } catch (const std::exception&) {
+                    bad_request("Chunk " + std::to_string(i) + " 'embedding' must be an array of numbers.");
+                    return;
+                }
+                if (embedding.size() != 1024) {
+                    bad_request("Chunk " + std::to_string(i) + " embedding must be 1024 dimensions (got "
+                                + std::to_string(embedding.size()) + ").");
+                    return;
+                }
+
+                ManualChunk chunk;
+                chunk.id          = 0;  // new insert
+                chunk.text        = item.value("text", "");
+                chunk.source_file = item.value("source_file", "");
+                chunk.chunk_index = item.value("chunk_index", 0);
+                chunk.embedding   = std::move(embedding);
+                chunk.syncClock   = 0;  // set by the Sync Server
+                chunkBox.put(chunk);
+                inserted++;
+            }
+
+            json response;
+            response["inserted"]    = inserted;
+            response["chunk_count"] = chunkBox.count();
+            res.set_content(response.dump(), "application/json");
+
+        } catch (const std::exception& e) {
+            // Genuine server-side failure (e.g. store write) → 500.
+            json error;
+            error["error"] = e.what();
+            res.status = 500;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
     std::cout << "Starting HTTP server on 0.0.0.0:" << config.port << "..." << std::endl;
     svr.listen("0.0.0.0", config.port);
     

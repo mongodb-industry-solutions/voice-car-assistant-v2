@@ -26,6 +26,7 @@ FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y \
     libssl3 \
     wget \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -45,7 +46,8 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser \
 # Declare volume for persistent database storage (chown must precede VOLUME)
 VOLUME ["/app/conversation-db"]
 
-USER appuser
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Expose port
 EXPOSE 8081
@@ -54,5 +56,5 @@ EXPOSE 8081
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
     CMD wget -q --spider http://localhost:8081/health || exit 1
 
-# Run the service
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["./conversation_service", "/app/conversation-db", "ws://sync-server:9999", "true"]

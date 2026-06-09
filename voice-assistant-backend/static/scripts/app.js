@@ -231,9 +231,21 @@ socket.on('search_results', (data) => {
     currentSources = data.chunks || [];
 });
 
-// Answer received
+// Incremental token stream — update the thinking bubble text as tokens arrive
+let _streamedText = '';
+socket.on('answer_token', (data) => {
+    _streamedText += data.text;
+    if (_thinkingBubble) {
+        const textEl = _thinkingBubble.querySelector('.message-text');
+        if (textEl) textEl.textContent = _streamedText;
+        scrollToBottom();
+    }
+});
+
+// Answer received — finalise the streamed bubble with tools/sources metadata
 socket.on('answer', (data) => {
     console.log('💬 Answer:', data.text.substring(0, 50) + '...');
+    _streamedText = '';
     removeThinkingBubble();
     addAssistantMessage(data.text, currentSources, data.tools_used || []);
     currentSources = [];
@@ -272,6 +284,15 @@ socket.on('error', (data) => {
 
 socket.on('session_complete', () => {
     hideStatus();
+});
+
+// Tool-call progress indicator — shown while the agent waits for a tool to execute
+socket.on('agent_status', (data) => {
+    if (data.text) {
+        showStatus(data.text);
+    } else {
+        hideStatus();
+    }
 });
 
 // ── Browser speech recognition (Web Speech API) ───────────────────────────────

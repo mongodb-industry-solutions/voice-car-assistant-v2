@@ -274,6 +274,15 @@ socket.on('session_complete', () => {
     hideStatus();
 });
 
+// Tool-call progress indicator — shown while the agent waits for a tool to execute
+socket.on('agent_status', (data) => {
+    if (data.text) {
+        showStatus(data.text);
+    } else {
+        hideStatus();
+    }
+});
+
 // ── Browser speech recognition (Web Speech API) ───────────────────────────────
 
 let recognition = null;

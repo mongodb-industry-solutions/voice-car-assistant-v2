@@ -5,9 +5,12 @@ Combines: car manual RAG, vehicle telemetry (via VSS MCP), navigation.
 Uses a LangGraph ReAct agent (create_react_agent) with:
   - ChatOllama as the LLM
   - MemorySaver checkpointer for per-conversation history
-  - StructuredTool definitions for all capabilities
+  - Two agents pre-compiled at startup: _OFFLINE_AGENT and _ONLINE_AGENT
+    Selected per-request by network_mode; graph compilation cost is zero per request.
 """
 
+import functools
+import json
 import os
 import re
 import time
@@ -16,13 +19,13 @@ from typing import Any, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from sentence_transformers import SentenceTransformer
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, stream_with_context, Response
 from flask_cors import CORS
 from langchain_ollama import ChatOllama
 from langchain_core.callbacks import BaseCallbackHandler
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessageChunk, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.runnables import RunnableLambda, RunnableConfig
 from langchain_core.tools import StructuredTool
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
@@ -34,7 +37,7 @@ CORS(app)
 # ── Service configuration ─────────────────────────────────────────────────────
 
 OLLAMA_HOST                = os.getenv("OLLAMA_HOST",                "http://localhost:11434")
-LLM_MODEL                  = os.getenv("LLM_MODEL",                  "qwen3:4b")
+LLM_MODEL                  = os.getenv("LLM_MODEL",                  "qwen2.5:3b")
 EMBEDDING_MODEL            = os.getenv("EMBEDDING_MODEL",            "voyageai/voyage-4-nano")
 SEARCH_SERVICE_URL         = os.getenv("SEARCH_SERVICE_URL",         "http://localhost:8080")
 MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://localhost:8085")
@@ -44,44 +47,75 @@ TELEMETRY_SERVICE_URL      = os.getenv("VSS_TELEMETRY_MCP_URL",      "http://loc
 # ── Module-level singletons (shared across all Gunicorn threads) ──────────────
 
 # voyage-4-nano ships custom model code (Qwen3 bidirectional) and MUST be loaded
-# with trust_remote_code=True; without it transformers emits a wrong 2048-d
-# vector. It is a Matryoshka model — truncate_dim=1024 selects its native 1024-d
-# head (identical to the Voyage API's output_dimension=1024). Requires
-# transformers==4.57.1 (see requirements.txt). This MUST match how
-# load_documents.py embeds stored chunks (same model, truncate_dim, normalisation)
-# or query vectors won't align with the indexed vectors.
+# with trust_remote_code=True; without it transformers emits a wrong 2048-d vector.
+# It is a Matryoshka model — truncate_dim=1024 selects its native 1024-d head.
+# Requires transformers==4.57.1 (see requirements.txt).
 EMBED_DIM = int(os.getenv("EMBED_DIM", "1024"))
-if EMBED_DIM != 1024: raise ValueError(f"EMBED_DIM must be 1024 to match search-service (got {EMBED_DIM})")
+if EMBED_DIM != 1024:
+    raise ValueError(f"EMBED_DIM must be 1024 to match search-service (got {EMBED_DIM})")
 print(f"Loading embedding model: {EMBEDDING_MODEL} @ {EMBED_DIM} dims", flush=True)
 _embed_model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True, truncate_dim=EMBED_DIM)
 print("Embedding model ready", flush=True)
 
-# LLM — created once; ChatOllama is stateless so it's safe to share across threads
+# LLM — stateless; safe to share across gthread workers
+# num_ctx=1536: fits ~350 tokens of system+tools + 600-char tool result (~150 tok) + history with margin
+# num_predict=400: qwen2.5:3b emits ~50-100 tokens of preamble before the tool call JSON even without
+#   explicit thinking; 200 was cut off mid-tool-call causing silent fallback to direct answers
 _llm = ChatOllama(
     model=LLM_MODEL,
     base_url=OLLAMA_HOST,
     temperature=0,
-    keep_alive="10m",
-    num_ctx=4096,
+    keep_alive=-1,
+    num_ctx=1536,
+    num_predict=400,
 )
 
-# Conversation memory — keyed by conversation_id (thread_id in LangGraph terms)
+# Conversation memory — keyed by conversation_id as thread_id
 _checkpointer = MemorySaver()
 
-# Shared HTTP session with connection pooling
+# No retries: slow failures in the hot path should surface immediately
 _http = requests.Session()
-_http.mount("http://",  HTTPAdapter(max_retries=Retry(total=1, backoff_factor=0.3)))
-_http.mount("https://", HTTPAdapter(max_retries=Retry(total=1, backoff_factor=0.3)))
+_http.mount("http://",  HTTPAdapter(max_retries=0))
+_http.mount("https://", HTTPAdapter(max_retries=0))
+
+# Regex to extract structured navigation data embedded in navigate_to tool output
+_NAV_DATA_RE = re.compile(r"\[ROUTE_DATA:(.*?)\]$", re.DOTALL)
+
+# Max characters returned by search tools — caps LLM context bloat from large manual chunks
+# ~2 400 chars ≈ 600 tokens; a typical manual section fits; the LLM uses ~10 % of it anyway
+MAX_SEARCH_CHARS = 2400
+
+# Max characters returned by telemetry tools — domain status dumps are 800–2 000 chars;
+# 600 chars (~150 tokens) captures the key fields and keeps call #2 prefill fast
+MAX_TELEMETRY_CHARS = 600
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _strip_think_tags(text: str) -> str:
-    """Remove <think>...</think> blocks that qwen3 embeds in content."""
+    """Remove <think>...</think> blocks that qwen3 embeds even with /no_think."""
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
 
+def _strip_route_data(messages: list) -> list:
+    """
+    Strip [ROUTE_DATA:...] blocks from ToolMessages before they reach the LLM.
+    The geometry JSON can be hundreds of tokens (coordinate arrays) that the LLM
+    has no use for — the frontend handles map rendering from the extracted navigation dict.
+    Extraction of the navigation data happens in run_agent/stream_agent from the raw
+    graph state before this stripping, so nothing is lost for the caller.
+    """
+    out = []
+    for msg in messages:
+        if isinstance(msg, ToolMessage) and _NAV_DATA_RE.search(msg.content or ""):
+            cleaned = _NAV_DATA_RE.sub("", msg.content).rstrip()
+            out.append(ToolMessage(content=cleaned, tool_call_id=msg.tool_call_id, name=msg.name))
+        else:
+            out.append(msg)
+    return out
+
+
 class _TimingCallback(BaseCallbackHandler):
-    """Logs the start/end time of every LLM call and tool call inside the agent loop."""
+    """Logs per-LLM-call and per-tool latency inside the agent loop."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -98,12 +132,11 @@ class _TimingCallback(BaseCallbackHandler):
         print(f"[cb] LLM call #{self._llm_call} end: {time.time() - self._llm_start:.2f}s", flush=True)
 
     def on_llm_error(self, error: Exception, **kwargs: Any) -> None:
-        print(f"[cb] LLM call #{self._llm_call} error after {time.time() - self._llm_start:.2f}s: {error}", flush=True)
+        print(f"[cb] LLM error after {time.time() - self._llm_start:.2f}s: {error}", flush=True)
 
     def on_tool_start(self, serialized: dict, input_str: str, **kwargs: Any) -> None:
         self._tool_start = time.time()
-        name = serialized.get("name", "?")
-        print(f"[cb] tool '{name}' start  input={input_str[:120]}", flush=True)
+        print(f"[cb] tool '{serialized.get('name', '?')}' start  input={input_str[:120]}", flush=True)
 
     def on_tool_end(self, output: Any, **kwargs: Any) -> None:
         print(f"[cb] tool end: {time.time() - self._tool_start:.2f}s  output={str(output)[:120]}", flush=True)
@@ -111,165 +144,249 @@ class _TimingCallback(BaseCallbackHandler):
     def on_tool_error(self, error: Exception, **kwargs: Any) -> None:
         print(f"[cb] tool error after {time.time() - self._tool_start:.2f}s: {error}", flush=True)
 
+
 # ── System prompt ─────────────────────────────────────────────────────────────
 
-_SYSTEM_PROMPT = """\
-You are a unified intelligent car assistant with access to three capabilities:
+# Static body — never recomputed per request.
+# Kept short (~230 tokens) to maximise usable num_ctx for history and tool results.
+# Tool descriptions carry the per-tool routing detail; this prompt covers behaviour rules only.
+# The only dynamic part is the one-line location hint appended in _build_prompt.
+_SYSTEM_PROMPT_BODY = """\
+You are a car assistant. Plain prose only, no preamble, max 3 sentences.
 
-1. **Car Manual** ({search_tool_name}) — Answer questions about vehicle maintenance,
-   repairs, warning lights, specifications, and procedures.
+TOOL USE IS MANDATORY:
+• "How do I", "what does X mean", procedures, repairs, warning lights, specs, owner's manual → search_car_manual. Never answer from memory.
+• "What is my current X", live sensor values → matching LIVE READING tool. Never guess values.
+• Navigation → navigate_to immediately.
+• Problem reported → get_vehicle_events first, then relevant domain tool.
+• Reading + what to do → telemetry tool then search_car_manual.
 
-2. **Vehicle Telemetry** (MCP tools) — Check real-time VSS sensor data across six domains:
-   powertrain (speed, RPM, fuel, coolant, gear), battery (SOC, range, charging, voltage,
-   health), chassis (tire pressures, ABS, ESC, brake fluid), cabin (doors, HVAC, windows),
-   location (GPS coordinates, heading), and ADAS (cruise control, lane keep, collision warning).
-   Use get_vehicle_events first when the user reports a problem, then the relevant domain
-   tool (e.g. get_chassis_status for tire/brake issues, get_powertrain_status for engine).
-   AVAILABILITY: {telemetry_availability}.
-
-3. **Navigation** (navigate_to) — Find and route to nearby places: mechanics, gas
-   stations, pharmacies, hospitals, etc.
-
-MULTI-TOOL USE — use as many tools as the user's request requires:
-
-• If the user asks for a single thing, use one tool. If the request requires multiple
-  steps or actions, use multiple tools in sequence — one per loop iteration.
-
-• When the user's request involves a condition (e.g. "check X and if critical do Y"),
-  call the first tool, read the result, then call the next tool only if the condition
-  is met. Do NOT skip steps and do NOT ask the user to confirm between steps.
-
-• When the user explicitly asks for multiple actions in one message (e.g. "check engine
-  AND navigate to a mechanic"), call all required tools in the correct order.
-
-RULES — follow these exactly:
-
-• When {search_tool_name} returns text content, ALWAYS present that information to the
-  user. Summarise it clearly. Never say you could not retrieve it.
-
-• Only say you were unable to retrieve data if the tool explicitly returns an error
-  message or empty content.
-
-• If the user asks about live vehicle sensor data and you are in offline mode, tell
-  them that telemetry is only available in online mode.
-
-• Never fabricate or guess sensor readings. Never invent values for telemetry tools.
-
-• Never output raw JSON or tool call objects. Always respond in plain human-readable
-  language after using a tool.
-
-• Never mention page numbers from the car manual in your answers.
-
-TOOL ROUTING — decide by the user's INTENT, not by keywords alone. The key distinction:
-PROCEDURES & ADVICE come from the car manual; CURRENT READINGS come from telemetry tools.
-
-1) PROCEDURES & ADVICE — "how do I…", "what to do…", "how do I fix / replace / change /
-   check…", "what does this warning mean", or any maintenance, repair, or troubleshooting
-   question → you MUST call {search_tool_name}. This applies EVEN in online mode and EVEN
-   for tires, brakes, battery, or engine — the telemetry tools contain NO procedures.
-   Never answer these from your own knowledge; always search the manual first.
-   Examples:
-     • "what to do in case I have a flat tire"  → {search_tool_name}
-     • "how do I check the brake fluid"         → {search_tool_name}
-     • "what does the coolant warning mean"     → {search_tool_name}
-
-2) CURRENT LIVE READINGS — ONLY when the user asks for the vehicle's current / real-time
-   sensor values (e.g. "what's my tire pressure right now", "is the battery charging",
-   "what's my current speed") call the matching telemetry tool:
-     → engine / speed / gear / RPM / coolant     → get_powertrain_status
-     → fuel / petrol / gas / fuel level          → get_fuel_status
-     → battery / charge / SOC / electric range   → get_battery_status
-     → tires / brakes / ABS / ESC               → get_chassis_status
-     → cabin / doors / HVAC / windows           → get_cabin_status
-     → location / GPS / heading                 → get_location
-     → ADAS / cruise control / lane keep        → get_adas_status
-     → full current snapshot or overview        → get_vehicle_status, then get_vehicle_events
-
-3) BOTH — if the user wants a current reading AND what to do about it, call the telemetry
-   tool for the reading and {search_tool_name} for the procedure.
-
-When the user asks to check a system AND navigate in the same message:
-  • Step 1: call the relevant domain tool (e.g. get_chassis_status for tires/brakes)
-  • Step 2: call navigate_to immediately — do NOT ask for confirmation first
-
-When the user responds with a short confirmation ("yes", "sure", "ok", "please", "go ahead",
-"yes please", etc.) to a navigation offer you just made, call navigate_to immediately.
-Do NOT search the manual again, do NOT repeat safety advice, do NOT ask again — just navigate.
-
-{location_context}
-
-Be concise and safety-focused. For critical issues (overheating, brake failure, etc.)
-lead with the safety action before anything else.\
+RULES: Summarise search_car_manual results. Never mention page numbers. After navigate_to, confirm destination and ETA only — no turn-by-turn steps. Lead with safety action for critical issues.\
 """
 
 
-def _build_system_prompt(lat: Optional[float], lon: Optional[float], network_mode: str = "offline") -> str:
-    if lat is not None and lon is not None:
-        loc = (
-            "The user's GPS location is known. "
-            "You can call navigate_to with just the destination name — coordinates are handled automatically. "
-            "Never mention raw coordinates or numbers to the user."
-        )
-    else:
-        loc = (
-            "The user's GPS location is not yet available. "
-            "If navigation is requested, ask them to allow location access in the browser."
-        )
-    is_online = network_mode == "online"
-    telemetry = (
-        "Available — use the MCP tools to answer telemetry questions"
-        if is_online
-        else "NOT available in offline mode — tell the user to switch to online mode for live sensor data"
+def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
+    """
+    Called by LangGraph before every LLM invocation.
+    Prepends the static system prompt + a one-line location hint, and trims
+    history to the last 20 messages so num_ctx is never silently overflowed.
+    LangGraph may pass either the raw message list or the full state dict depending
+    on version — both are handled here.
+    """
+    messages = input_["messages"] if isinstance(input_, dict) else input_
+    cfg = config.get("configurable", {})
+    lat = cfg.get("lat")
+    loc_hint = (
+        "The user's GPS location is known. "
+        "Call navigate_to with just the destination name — coordinates are handled automatically. "
+        "Never mention raw coordinates to the user."
+        if lat is not None
+        else
+        "The user's GPS location is not available. "
+        "Ask them to allow location access in the browser if navigation is requested."
     )
-    search_tool = "search_car_manual_atlas" if is_online else "search_car_manual_objectbox"
-    return _SYSTEM_PROMPT.format(
-        location_context=loc,
-        telemetry_availability=telemetry,
-        search_tool_name=search_tool,
-    )
+    trimmed = messages[-20:] if len(messages) > 20 else messages
+    trimmed = _strip_route_data(trimmed)
+    return [SystemMessage(content=_SYSTEM_PROMPT_BODY + f"\n\n{loc_hint}")] + trimmed
 
 
-# ── Tool helpers ──────────────────────────────────────────────────────────────
+_PROMPT_RUNNABLE = RunnableLambda(_build_prompt)
 
-def _search_manual_impl(query: str, search_url: str = None) -> str:
-    url = search_url or SEARCH_SERVICE_URL
-    print(f"[search] query='{query[:60]}' url={url}", flush=True)
+
+# ── Tool implementations (module-level, stateless) ────────────────────────────
+
+@functools.lru_cache(maxsize=256)
+def _embed_query(query: str) -> tuple:
+    """Cached embedding — avoids recomputing for repeated or identical queries."""
+    return tuple(_embed_model.encode(query, prompt_name="query", normalize_embeddings=True).tolist())
+
+
+def _search_manual_impl(query: str, search_url: str) -> str:
+    print(f"[search] query='{query[:60]}' url={search_url}", flush=True)
     try:
         t0 = time.time()
-        embedding = _embed_model.encode(query, prompt_name="query", normalize_embeddings=True).tolist()
-        print(f"[timing] embedding: {time.time()-t0:.2f}s  dims={len(embedding)}", flush=True)
+        embedding = list(_embed_query(query))
+        print(f"[timing] embedding: {time.time() - t0:.2f}s  dims={len(embedding)}", flush=True)
         t1 = time.time()
-        resp = _http.post(f"{url}/search", json={"embedding": embedding, "limit": 3}, timeout=30)
-        print(f"[timing] search HTTP: {time.time()-t1:.2f}s  status={resp.status_code}", flush=True)
+        resp = _http.post(f"{search_url}/search", json={"embedding": embedding, "limit": 3}, timeout=5)
+        print(f"[timing] search HTTP: {time.time() - t1:.2f}s  status={resp.status_code}", flush=True)
         if not resp.ok:
-            return f"Car manual search service error (HTTP {resp.status_code}): {resp.text[:200]}"
+            return f"Car manual search error (HTTP {resp.status_code}): {resp.text[:200]}"
         results = resp.json().get("results", [])
-        print(f"[search] results count={len(results)}", flush=True)
         if not results:
             return "No relevant information found in the car manual."
-        return "\n\n---\n\n".join(r["text"] for r in results)
+        joined = "\n\n---\n\n".join(r["text"] for r in results)
+        if len(joined) > MAX_SEARCH_CHARS:
+            print(f"[search] truncating result {len(joined)} → {MAX_SEARCH_CHARS} chars", flush=True)
+            joined = joined[:MAX_SEARCH_CHARS]
+        return joined
     except Exception as e:
         print(f"[search] exception: {e}", flush=True)
         return f"Manual search error: {e}"
 
 
+def _search_manual_offline(query: str) -> str:
+    return _search_manual_impl(query, SEARCH_SERVICE_URL)
+
+
+def _search_manual_online(query: str) -> str:
+    return _search_manual_impl(query, MONGODB_SEARCH_SERVICE_URL)
+
+
+def _navigate(destination: str, config: RunnableConfig) -> str:
+    """
+    LangChain injects `config` automatically because the parameter is typed
+    as RunnableConfig — it is NOT part of the LLM-facing tool schema.
+    lat/lon are read from config["configurable"] set by the caller.
+    Navigation route data is embedded after a marker so the caller can extract
+    it from the ToolMessage without re-calling the navigation service.
+    """
+    cfg = config.get("configurable", {})
+    lat = cfg.get("lat")
+    lon = cfg.get("lon")
+    try:
+        resp = _http.post(
+            f"{NAVIGATION_SERVICE_URL}/navigate",
+            json={"query": destination, "lat": lat, "lon": lon},
+            timeout=60,
+        )
+        if resp.ok:
+            data = resp.json()
+            dest, route = data["destination"], data["route"]
+            text = (
+                f"Route found to {dest['name']}: "
+                f"{route['distance_text']} away, ~{route['duration_text']} by car. "
+                "Route is now displayed on the map."
+            )
+            # Strip turn-by-turn steps before embedding — the LLM must not narrate
+            # them, and the frontend only needs the geometry to draw the route.
+            route_for_llm = {k: v for k, v in data.items() if k != "route"}
+            route_for_llm["route"] = {k: v for k, v in route.items() if k != "steps"}
+            return text + f"\n[ROUTE_DATA:{json.dumps(route_for_llm)}]"
+        return f"Navigation failed: {resp.json().get('error', 'unknown error')}"
+    except Exception as e:
+        return f"Navigation service unavailable: {e}"
+
+
+def _call_telemetry(name: str, args: dict | None = None) -> str:
+    try:
+        resp = _http.post(
+            f"{TELEMETRY_SERVICE_URL}/tools/{name}",
+            json=args or {},
+            timeout=10,
+        )
+        if resp.ok:
+            result = resp.json().get("result", resp.text)
+            if len(result) > MAX_TELEMETRY_CHARS:
+                print(f"[telemetry] truncating {name} result {len(result)} → {MAX_TELEMETRY_CHARS} chars", flush=True)
+                result = result[:MAX_TELEMETRY_CHARS]
+            return result
+        return f"Telemetry error: {resp.status_code}"
+    except Exception as e:
+        return f"Telemetry service unavailable: {e}"
+
+
 # ── Pydantic schemas ──────────────────────────────────────────────────────────
 
 class ManualSearchInput(BaseModel):
-    query: str = Field(description="What to look up in the car manual")
+    query: str = Field(description="Search query")
 
 class NavigateInput(BaseModel):
-    destination: str = Field(
-        description="What to navigate to, e.g. 'nearest mechanic', 'gas station', \"McDonald's\""
-    )
+    destination: str = Field(description="Place name or type, e.g. 'gas station', 'nearest mechanic'")
+
+class _NoInput(BaseModel):
+    """Empty schema for zero-argument telemetry tools."""
 
 class VehicleEventsInput(BaseModel):
-    minutes:  int = Field(default=30, description="How many minutes back to search (default 30)")
-    severity: str = Field(default="all", description="Filter by severity: 'warning', 'critical', or 'all'")
+    minutes:  int = Field(default=30, description="Minutes back to search")
+    severity: str = Field(default="all", description="'warning', 'critical', or 'all'")
 
-class DrivingHistoryInput(BaseModel):
-    domain:  str = Field(description="Domain to query: powertrain, battery, location, cabin, or adas")
-    minutes: int = Field(default=10, description="How many minutes back to search (default 10)")
+
+
+# ── Tool objects ──────────────────────────────────────────────────────────────
+
+# Both search tools share the same name so the system prompt needs no placeholder.
+# Each agent gets exactly one of these — offline uses ObjectBox, online uses Atlas.
+_SEARCH_MANUAL_OFFLINE_TOOL = StructuredTool.from_function(
+    func=_search_manual_offline,
+    name="search_car_manual",
+    description="PROCEDURES & INSTRUCTIONS: how-to guides, repair steps, maintenance procedures, warning light meanings, owner's manual content, technical specifications. Use for any 'how do I' or 'what does X mean' question.",
+    args_schema=ManualSearchInput,
+)
+
+_SEARCH_MANUAL_ONLINE_TOOL = StructuredTool.from_function(
+    func=_search_manual_online,
+    name="search_car_manual",
+    description="PROCEDURES & INSTRUCTIONS: how-to guides, repair steps, maintenance procedures, warning light meanings, owner's manual content, technical specifications. Use for any 'how do I' or 'what does X mean' question.",
+    args_schema=ManualSearchInput,
+)
+
+_NAVIGATE_TOOL = StructuredTool.from_function(
+    func=_navigate,
+    name="navigate_to",
+    description="Find and show a route to a nearby place (mechanic, gas station, hospital, pharmacy, etc.).",
+    args_schema=NavigateInput,
+)
+
+# Zero-argument telemetry tools use _NoInput so the LLM calls them with {}
+# instead of an ambiguous empty string, which prevents tool-call parse errors.
+# Descriptions are one line and carry the keyword routing hints that were removed from the system prompt.
+_TELEMETRY_TOOLS = [
+    StructuredTool.from_function(
+        func=lambda: _call_telemetry("get_powertrain_status"),
+        name="get_powertrain_status",
+        description="LIVE READING: current speed, RPM, coolant temp, gear, throttle, odometer.",
+        args_schema=_NoInput,
+    ),
+    StructuredTool.from_function(
+        func=lambda: _call_telemetry("get_fuel_status"),
+        name="get_fuel_status",
+        description="LIVE READING: current fuel level %, litres remaining, consumption rate.",
+        args_schema=_NoInput,
+    ),
+    StructuredTool.from_function(
+        func=lambda: _call_telemetry("get_battery_status"),
+        name="get_battery_status",
+        description="LIVE READING: current battery SOC%, range, charging state, voltage, temperature.",
+        args_schema=_NoInput,
+    ),
+    StructuredTool.from_function(
+        func=lambda: _call_telemetry("get_chassis_status"),
+        name="get_chassis_status",
+        description="LIVE READING: current tire pressures (all four), ABS, ESC, brake fluid level.",
+        args_schema=_NoInput,
+    ),
+    StructuredTool.from_function(
+        func=lambda minutes, severity: _call_telemetry("get_vehicle_events", {"minutes": minutes, "severity": severity}),
+        name="get_vehicle_events",
+        description="LIVE READING: recent vehicle warnings, alerts, and critical events.",
+        args_schema=VehicleEventsInput,
+    ),
+]
+# get_cabin_status, get_location, get_adas_status, get_driving_history removed to reduce
+# tool schema token count; restoring them adds ~160 tokens to every LLM call prefill.
+
+
+# ── Pre-compiled agents ───────────────────────────────────────────────────────
+# Compiled once at startup; .invoke() is called per-request with different configs.
+# Both agents share _checkpointer — MessagesState is compatible across both graphs.
+
+print("Compiling offline agent...", flush=True)
+_OFFLINE_AGENT = create_react_agent(
+    model=_llm,
+    tools=[_SEARCH_MANUAL_OFFLINE_TOOL, _NAVIGATE_TOOL],
+    prompt=_PROMPT_RUNNABLE,
+    checkpointer=_checkpointer,
+)
+
+print("Compiling online agent...", flush=True)
+_ONLINE_AGENT = create_react_agent(
+    model=_llm,
+    tools=[_SEARCH_MANUAL_ONLINE_TOOL, _NAVIGATE_TOOL] + _TELEMETRY_TOOLS,
+    prompt=_PROMPT_RUNNABLE,
+    checkpointer=_checkpointer,
+)
+print("Agents ready.", flush=True)
 
 
 # ── Agent runner ──────────────────────────────────────────────────────────────
@@ -281,170 +398,150 @@ def run_agent(
     lon: Optional[float],
     network_mode: str = "offline",
 ) -> dict:
-    navigation_result: list = []
-    is_online = network_mode == "online"
-    active_search_url = MONGODB_SEARCH_SERVICE_URL if is_online else SEARCH_SERVICE_URL
-    tool_name = "search_car_manual_atlas" if is_online else "search_car_manual_objectbox"
-
-    # ── Tool definitions ──────────────────────────────────────────────────────
-
-    def _search_manual(query: str) -> str:
-        print(f"[agent] {tool_name} called, url={active_search_url}", flush=True)
-        return _search_manual_impl(query, active_search_url)
-
-    def _navigate(destination: str) -> str:
-        try:
-            resp = _http.post(
-                f"{NAVIGATION_SERVICE_URL}/navigate",
-                json={"query": destination, "lat": lat, "lon": lon},
-                timeout=60,
-            )
-            if resp.ok:
-                data = resp.json()
-                navigation_result.append(data)
-                dest, route = data["destination"], data["route"]
-                return (
-                    f"Route found to {dest['name']}: "
-                    f"{route['distance_text']} away, ~{route['duration_text']} by car. "
-                    "Route is now displayed on the map."
-                )
-            return f"Navigation failed: {resp.json().get('error', 'unknown error')}"
-        except Exception as e:
-            return f"Navigation service unavailable: {e}"
-
-    def _call_telemetry(name: str, args: dict = {}) -> str:
-        try:
-            resp = _http.post(f"{TELEMETRY_SERVICE_URL}/tools/{name}", json=args, timeout=10)
-            if resp.ok:
-                return resp.json().get("result", resp.text)
-            return f"Telemetry error: {resp.status_code}"
-        except Exception as e:
-            return f"Telemetry service unavailable: {e}"
-
-    tools = [
-        StructuredTool.from_function(
-            func=_search_manual,
-            name=tool_name,
-            description=(
-                "Search the car manual for maintenance procedures, repair guides, "
-                "warning light explanations, and vehicle specifications."
-            ),
-            args_schema=ManualSearchInput,
-        ),
-        StructuredTool.from_function(
-            func=_navigate,
-            name="navigate_to",
-            description=(
-                "Navigate to a nearby destination. Use when the user wants directions "
-                "to a mechanic, gas station, hospital, pharmacy, or any other place."
-            ),
-            args_schema=NavigateInput,
-        ),
-    ]
-
-    if is_online:
-        tools += [
-            StructuredTool.from_function(
-                func=lambda: _call_telemetry("get_vehicle_status"),
-                name="get_vehicle_status",
-                description="Get a full snapshot of the vehicle: VehicleMeta plus all current state entities (powertrain, battery, chassis, cabin, location, ADAS).",
-            ),
-            StructuredTool.from_function(
-                func=lambda: _call_telemetry("get_powertrain_status"),
-                name="get_powertrain_status",
-                description="Get current powertrain state: speed, RPM, coolant temperature, transmission gear, throttle, odometer, and ignition status. For fuel level, use get_fuel_status.",
-            ),
-            StructuredTool.from_function(
-                func=lambda: _call_telemetry("get_fuel_status"),
-                name="get_fuel_status",
-                description="Get the vehicle's liquid FUEL status: fuel level %, litres remaining, and consumption rate. Use for fuel / petrol / gas / 'how much fuel left' questions — NOT the electric battery.",
-            ),
-            StructuredTool.from_function(
-                func=lambda: _call_telemetry("get_battery_status"),
-                name="get_battery_status",
-                description="Get current battery state: state of charge (SOC%), estimated range, charging status, voltage, current, temperature, and state of health.",
-            ),
-            StructuredTool.from_function(
-                func=lambda: _call_telemetry("get_chassis_status"),
-                name="get_chassis_status",
-                description="Get current chassis state: tire pressures for all four tires (with warnings), ABS status, ESC status, and brake fluid level.",
-            ),
-            StructuredTool.from_function(
-                func=lambda: _call_telemetry("get_cabin_status"),
-                name="get_cabin_status",
-                description="Get current cabin state: door open/lock status for all doors, temperature setpoint, interior temperature, HVAC, fan speed, and windows.",
-            ),
-            StructuredTool.from_function(
-                func=lambda: _call_telemetry("get_location"),
-                name="get_location",
-                description="Get current vehicle location: latitude, longitude, altitude, heading, GPS speed, and geohash.",
-            ),
-            StructuredTool.from_function(
-                func=lambda: _call_telemetry("get_adas_status"),
-                name="get_adas_status",
-                description="Get current ADAS state: cruise control, lane keep assist, lane departure warning, collision warning, blind spot warnings, and automatic emergency braking.",
-            ),
-            StructuredTool.from_function(
-                func=lambda minutes, severity: _call_telemetry("get_vehicle_events", {"minutes": minutes, "severity": severity}),
-                name="get_vehicle_events",
-                description="Query recent vehicle events (warnings, alerts, critical notices). Filter by time window and optionally by severity.",
-                args_schema=VehicleEventsInput,
-            ),
-            StructuredTool.from_function(
-                func=lambda domain, minutes: _call_telemetry("get_driving_history", {"domain": domain, "minutes": minutes}),
-                name="get_driving_history",
-                description="Retrieve time-series samples from a specific telemetry domain. Valid domains: powertrain, battery, location, cabin, adas.",
-                args_schema=DrivingHistoryInput,
-            ),
-        ]
-
-    print(f"[agent] network_mode={network_mode} tools={[t.name for t in tools]}", flush=True)
-
-    # ── LangGraph ReAct agent ─────────────────────────────────────────────────
-
-    system_prompt = _build_system_prompt(lat, lon, network_mode)
-
-    agent = create_react_agent(
-        model=_llm,
-        tools=tools,
-        prompt=SystemMessage(content=system_prompt),
-        checkpointer=_checkpointer,
-    )
+    agent = _ONLINE_AGENT if network_mode == "online" else _OFFLINE_AGENT
 
     config = {
-        "configurable": {"thread_id": conversation_id},
+        "configurable": {
+            "thread_id": conversation_id,
+            "lat": lat,
+            "lon": lon,
+            "network_mode": network_mode,
+        },
         "callbacks": [_TimingCallback()],
+        "recursion_limit": 8,
     }
 
+    print(f"[agent] invoke start — conversation_id={conversation_id} mode={network_mode}", flush=True)
     t0 = time.time()
-    print(f"[agent] invoke start — conversation_id={conversation_id}", flush=True)
-    result = agent.invoke(
-        {"messages": [HumanMessage(content=message)]},
-        config=config,
-    )
-    print(f"[timing] agent total: {time.time()-t0:.2f}s", flush=True)
+    result = agent.invoke({"messages": [HumanMessage(content=message)]}, config=config)
+    print(f"[timing] agent total: {time.time() - t0:.2f}s", flush=True)
 
-    # Last message in the graph state is always the final AIMessage
     final_message = result["messages"][-1]
     answer = _strip_think_tags(final_message.content or "")
     if not answer:
         answer = "I couldn't generate a response."
 
-    # Only count tools used in the current turn — MemorySaver keeps full history,
-    # so we slice to messages after the last HumanMessage.
+    # Slice to messages generated in this turn only
     all_msgs = result["messages"]
     last_human = max(
         (i for i, m in enumerate(all_msgs) if isinstance(m, HumanMessage)),
         default=-1,
     )
-    tools_used = [m.name for m in all_msgs[last_human + 1:] if isinstance(m, ToolMessage)]
+    turn_msgs = all_msgs[last_human + 1:]
+    tools_used = [m.name for m in turn_msgs if isinstance(m, ToolMessage)]
+
+    # Extract structured navigation data from the navigate_to ToolMessage.
+    # The tool embeds JSON after [ROUTE_DATA:] so the LLM sees only the human-readable text.
+    navigation = None
+    nav_msg = next(
+        (m for m in turn_msgs if isinstance(m, ToolMessage) and m.name == "navigate_to"),
+        None,
+    )
+    if nav_msg:
+        match = _NAV_DATA_RE.search(nav_msg.content)
+        if match:
+            try:
+                navigation = json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
 
     return {
         "answer": answer,
         "tools_used": tools_used,
-        "navigation": navigation_result[0] if navigation_result else None,
+        "navigation": navigation,
         "conversation_id": conversation_id,
     }
+
+
+def stream_agent(
+    message: str,
+    conversation_id: str,
+    lat: Optional[float],
+    lon: Optional[float],
+    network_mode: str = "offline",
+):
+    """
+    Generator that yields SSE-formatted strings.
+    Emits one `data: {"token": "..."}` event per AIMessageChunk, then a final
+    `data: {"done": true, "answer": "...", "tools_used": [...], "navigation": {...}}`.
+    The `answer` field in the done event is the full response with think tags stripped,
+    intended for TTS — the client uses streamed tokens for progressive display.
+    """
+    agent = _ONLINE_AGENT if network_mode == "online" else _OFFLINE_AGENT
+    config = {
+        "configurable": {
+            "thread_id": conversation_id,
+            "lat": lat,
+            "lon": lon,
+            "network_mode": network_mode,
+        },
+        "callbacks": [_TimingCallback()],
+        "recursion_limit": 8,
+    }
+
+    tools_used: list[str] = []
+    full_content = ""
+    navigation = None
+    _status_emitted: set[str] = set()  # track which tool-call statuses we've already sent
+
+    # Human-readable labels shown in the UI while the tool is running
+    _TOOL_STATUS = {
+        "search_car_manual":   "Searching car manual…",
+        "navigate_to":         "Finding route…",
+        "get_powertrain_status": "Checking powertrain…",
+        "get_fuel_status":     "Checking fuel…",
+        "get_battery_status":  "Checking battery…",
+        "get_chassis_status":  "Checking tires & chassis…",
+        "get_vehicle_events":  "Checking vehicle events…",
+    }
+
+    print(f"[agent] stream start — conversation_id={conversation_id} mode={network_mode}", flush=True)
+    t0 = time.time()
+    try:
+        for item in agent.stream(
+            {"messages": [HumanMessage(content=message)]},
+            config=config,
+            stream_mode="messages",
+        ):
+            # LangGraph >=0.2 yields (chunk, metadata) tuples; guard against
+            # versions that yield chunks directly.
+            chunk = item[0] if isinstance(item, tuple) else item
+
+            if isinstance(chunk, AIMessageChunk):
+                # Detect tool-call decision as soon as the first tool_call_chunk arrives —
+                # emit a status event immediately so the UI shows feedback during the
+                # dead period before the tool result comes back.
+                if not chunk.content and hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks:
+                    for tc in chunk.tool_call_chunks:
+                        name = getattr(tc, "name", None) or (tc.get("name") if isinstance(tc, dict) else None)
+                        if name and name not in _status_emitted:
+                            _status_emitted.add(name)
+                            label = _TOOL_STATUS.get(name, f"Calling {name}…")
+                            yield f"data: {json.dumps({'status': label})}\n\n"
+                elif chunk.content:
+                    full_content += chunk.content
+                    yield f"data: {json.dumps({'token': chunk.content})}\n\n"
+
+            elif isinstance(chunk, ToolMessage):
+                tools_used.append(chunk.name)
+                # Clear the status indicator now that the tool has returned
+                yield f"data: {json.dumps({'status': None})}\n\n"
+                if chunk.name == "navigate_to":
+                    match = _NAV_DATA_RE.search(chunk.content)
+                    if match:
+                        try:
+                            navigation = json.loads(match.group(1))
+                        except json.JSONDecodeError:
+                            pass
+
+    except Exception as e:
+        print(f"[agent] stream error: {e}", flush=True)
+        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        return
+
+    print(f"[timing] agent stream total: {time.time() - t0:.2f}s", flush=True)
+    clean_answer = _strip_think_tags(full_content) or "I couldn't generate a response."
+    yield f"data: {json.dumps({'done': True, 'answer': clean_answer, 'tools_used': tools_used, 'navigation': navigation, 'conversation_id': conversation_id})}\n\n"
 
 
 # ── Flask endpoints ───────────────────────────────────────────────────────────
@@ -456,11 +553,8 @@ def health():
 
 @app.route("/debug/search", methods=["POST"])
 def debug_search():
-    """
-    Directly query the search service with timing breakdown.
-    Body: { "query": "...", "mode": "offline" | "online" }
-    """
-    data = request.json or {}
+    """Directly query the search service with timing breakdown."""
+    data  = request.json or {}
     query = (data.get("query") or "").strip()
     mode  = data.get("mode", "offline")
 
@@ -471,14 +565,14 @@ def debug_search():
 
     t0 = time.time()
     try:
-        embedding = _embed_model.encode(query, prompt_name="query", normalize_embeddings=True).tolist()
+        embedding = list(_embed_query(query))
     except Exception as e:
         return jsonify({"error": f"embedding failed: {e}"}), 500
     t_embed = time.time() - t0
 
     t1 = time.time()
     try:
-        resp = _http.post(f"{search_url}/search", json={"embedding": embedding, "limit": 3}, timeout=30)
+        resp = _http.post(f"{search_url}/search", json={"embedding": embedding, "limit": 3}, timeout=5)
         t_http = time.time() - t1
         if not resp.ok:
             return jsonify({
@@ -533,6 +627,28 @@ def agent_chat():
             "navigation": None,
             "conversation_id": conversation_id,
         }), 500
+
+
+@app.route("/agent/chat/stream", methods=["POST"])
+def agent_chat_stream():
+    data            = request.json or {}
+    message         = data.get("message", "").strip()
+    conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+    lat             = data.get("lat")
+    lon             = data.get("lon")
+    network_mode    = data.get("network_mode", "offline")
+
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
+    return Response(
+        stream_with_context(stream_agent(message, conversation_id, lat, lon, network_mode)),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # prevent nginx from buffering SSE chunks
+        },
+    )
 
 
 if __name__ == "__main__":

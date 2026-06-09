@@ -113,10 +113,10 @@ def _push_tts(sid: str, text: str) -> None:
             os.unlink(tmp_path)
 
 
-# ── Agent helper ──────────────────────────────────────────────────────────────
+# ── Agent helpers ─────────────────────────────────────────────────────────────
 
 def _call_agent(message: str, conversation_id: str, lat=None, lon=None, network_mode: str = "offline") -> dict:
-    """Forward a message to the unified LangChain agent service."""
+    """Blocking call to the agent service. Used by the voice loop (needs full answer before TTS)."""
     try:
         resp = http_requests.post(
             f"{AGENT_SERVICE_URL}/agent/chat",
@@ -151,6 +151,58 @@ def _call_agent(message: str, conversation_id: str, lat=None, lon=None, network_
             "navigation": None,
             "conversation_id": conversation_id,
         }
+
+
+def _call_agent_stream(message: str, conversation_id: str, sid: str, lat=None, lon=None, network_mode: str = "offline") -> dict:
+    """
+    Stream agent response via SSE, forwarding each token to the client over SocketIO.
+    Emits `answer_token` events as tokens arrive so the UI renders progressively.
+    Returns the final done payload (answer, tools_used, navigation) for TTS and persistence.
+    """
+    fallback = {"answer": "", "tools_used": [], "navigation": None, "conversation_id": conversation_id}
+    try:
+        resp = http_requests.post(
+            f"{AGENT_SERVICE_URL}/agent/chat/stream",
+            json={
+                "message": message,
+                "conversation_id": conversation_id,
+                "lat": lat,
+                "lon": lon,
+                "network_mode": network_mode,
+            },
+            stream=True,
+            timeout=180,
+        )
+        resp.raise_for_status()
+
+        for raw_line in resp.iter_lines():
+            if not raw_line or not raw_line.startswith(b"data: "):
+                continue
+            try:
+                event = json.loads(raw_line[6:])
+            except json.JSONDecodeError:
+                continue
+
+            if "token" in event:
+                socketio.emit("answer_token", {"text": event["token"]}, to=sid)
+            elif "status" in event:
+                # Tool-call status update — show while the agent is fetching data
+                socketio.emit("agent_status", {"text": event["status"]}, to=sid)
+            elif event.get("done"):
+                return event
+            elif "error" in event:
+                fallback["answer"] = f"Agent error: {event['error']}"
+                return fallback
+
+        fallback["answer"] = "No response received from agent."
+        return fallback
+
+    except http_requests.exceptions.ConnectionError:
+        fallback["answer"] = "The agent service is not running. Please check that all containers are up."
+        return fallback
+    except Exception as e:
+        fallback["answer"] = f"Agent unavailable: {e}"
+        return fallback
 
 
 # ── Conversation persistence ──────────────────────────────────────────────────
@@ -303,33 +355,34 @@ def handle_send_message(data):
     user_id         = session.get('user_id')         or str(uuid.uuid4())
     network_mode    = session.get('network_mode',    'offline')
 
+    sid = request.sid
     emit('question', {'text': message})
     emit('status', {'state': 'processing', 'message': '🤖 Thinking...'})
 
     _save_message(conversation_id, user_id, 'user', message)
 
-    agent_result = _call_agent(
+    # Stream tokens to the client as they arrive; _call_agent_stream emits
+    # `answer_token` events per chunk and returns the final done payload.
+    agent_result = _call_agent_stream(
         message,
         conversation_id,
+        sid,
         user_location['lat'],
         user_location['lon'],
         network_mode,
     )
 
-    answer = agent_result['answer']
+    answer = agent_result.get('answer', '')
     _save_message(conversation_id, user_id, 'assistant', answer)
 
     if agent_result.get('navigation'):
         emit('navigation_result', agent_result['navigation'])
 
-    # Start TTS synthesis in parallel with sending the answer to the client.
-    sid = request.sid
-    threading.Thread(
-        target=_push_tts,
-        args=(sid, answer),
-        daemon=True,
-    ).start()
+    # TTS runs on the clean full answer from the done event.
+    threading.Thread(target=_push_tts, args=(sid, answer), daemon=True).start()
 
+    # `answer` finalises the UI state (tools badge, scroll, etc.) and signals
+    # the end of the streaming turn. The text is already rendered token-by-token.
     emit('answer', {'text': answer, 'tools_used': agent_result.get('tools_used', [])})
     emit('status', {'state': 'ready', 'message': 'Ready'})
 

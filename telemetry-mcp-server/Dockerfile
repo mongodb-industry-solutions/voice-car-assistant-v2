@@ -9,6 +9,10 @@ RUN npm install --omit=dev
 
 COPY . .
 
+# node:20-slim ships a built-in 'node' user (UID 1000); transfer ownership and drop privileges.
+RUN chown -R node:node /app
+USER node
+
 EXPOSE 3001
 
 ENV MCP_TRANSPORT=sse

@@ -175,24 +175,26 @@ def _call_agent_stream(message: str, conversation_id: str, sid: str, lat=None, l
         )
         resp.raise_for_status()
 
-        for raw_line in resp.iter_lines():
-            if not raw_line or not raw_line.startswith(b"data: "):
-                continue
-            try:
-                event = json.loads(raw_line[6:])
-            except json.JSONDecodeError:
-                continue
+        try:
+            for raw_line in resp.iter_lines():
+                if not raw_line or not raw_line.startswith(b"data: "):
+                    continue
+                try:
+                    event = json.loads(raw_line[6:])
+                except json.JSONDecodeError:
+                    continue
 
-            if "token" in event:
-                socketio.emit("answer_token", {"text": event["token"]}, to=sid)
-            elif "status" in event:
-                # Tool-call status update — show while the agent is fetching data
-                socketio.emit("agent_status", {"text": event["status"]}, to=sid)
-            elif event.get("done"):
-                return event
-            elif "error" in event:
-                fallback["answer"] = f"Agent error: {event['error']}"
-                return fallback
+                if "token" in event:
+                    socketio.emit("answer_token", {"text": event["token"]}, to=sid)
+                elif "status" in event:
+                    socketio.emit("agent_status", {"text": event["status"]}, to=sid)
+                elif event.get("done"):
+                    return event
+                elif "error" in event:
+                    fallback["answer"] = f"Agent error: {event['error']}"
+                    return fallback
+        finally:
+            resp.close()
 
         fallback["answer"] = "No response received from agent."
         return fallback

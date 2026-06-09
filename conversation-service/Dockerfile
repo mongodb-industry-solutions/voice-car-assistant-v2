@@ -49,6 +49,10 @@ VOLUME ["/app/conversation-db"]
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Container starts as root so entrypoint.sh can fix bind-mount ownership,
+# then drops to appuser via gosu before exec-ing the service.
+USER root
+
 # Expose port
 EXPOSE 8081
 

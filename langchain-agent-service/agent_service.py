@@ -14,6 +14,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 import uuid
 from typing import Any, Optional
 
@@ -89,11 +90,113 @@ MAX_SEARCH_CHARS = 2400
 # 600 chars (~150 tokens) captures the key fields and keeps call #2 prefill fast
 MAX_TELEMETRY_CHARS = 600
 
+# ── Input validation ──────────────────────────────────────────────────────────
+
+MAX_MESSAGE_CHARS = 500
+
+# Patterns that indicate a prompt-injection attempt rather than a car question.
+# Compiled once at module load; matched case-insensitively against the raw message.
+_INJECTION_PATTERNS = re.compile(
+    r"ignore\s+(all\s+|previous\s+|prior\s+|your\s+)?instructions"
+    r"|^\s*(system|assistant|user)\s*:"
+    r"|\[\s*system\s*\]"
+    r"|<\s*system\s*>"
+    r"|you\s+are\s+now\s+(a|an|the)\b"
+    r"|act\s+as\s+(a|an|the)\b"
+    r"|pretend\s+(you\s+are|to\s+be)\b"
+    r"|new\s+instructions\s*:"
+    r"|override\s*:"
+    r"|jailbreak",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+class _InputError(ValueError):
+    """Raised for invalid or suspicious request parameters."""
+
+
+def _sanitize_message(raw: str) -> str:
+    """
+    Validate and clean a user message before it enters the agent.
+
+    Steps:
+    1. Length cap — prevents large injection payloads and context bloat.
+    2. Control-character stripping — removes null bytes and Unicode Cc/Cf
+       characters (except \\n/\\t) that can confuse model tokenisation.
+    3. Injection pattern detection — rejects messages that match known
+       prompt-override phrases; raises _InputError so the caller returns 400.
+    """
+    if not raw or not raw.strip():
+        raise _InputError("message is required")
+    if len(raw) > MAX_MESSAGE_CHARS:
+        raise _InputError(f"message too long (max {MAX_MESSAGE_CHARS} characters)")
+
+    # Strip Unicode control characters (category Cc/Cf) except tab and newline.
+    cleaned = "".join(
+        ch for ch in raw
+        if ch in ("\t", "\n") or unicodedata.category(ch) not in ("Cc", "Cf")
+    )
+
+    if _INJECTION_PATTERNS.search(cleaned):
+        print(f"[security] injection attempt blocked: {cleaned[:120]!r}", flush=True)
+        raise _InputError("message contains disallowed content")
+
+    return cleaned.strip()
+
+
+def _validate_conversation_id(raw: str | None) -> str:
+    """Accept a valid UUID v4 string or generate a fresh one. Rejects arbitrary strings."""
+    if raw is None:
+        return str(uuid.uuid4())
+    if _UUID_RE.match(raw):
+        return raw
+    # Non-UUID IDs could be used to probe other users' thread histories.
+    print(f"[security] invalid conversation_id rejected: {raw!r}", flush=True)
+    return str(uuid.uuid4())
+
+
+def _validate_network_mode(raw: str | None) -> str:
+    if raw in ("online", "offline"):
+        return raw
+    return "offline"
+
+
+def _validate_coord(value: Any, name: str) -> Optional[float]:
+    """Parse and range-check a latitude or longitude value."""
+    if value is None:
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        raise _InputError(f"invalid {name}: must be a number")
+    limits = {"lat": (-90.0, 90.0), "lon": (-180.0, 180.0)}
+    lo, hi = limits[name]
+    if not (lo <= f <= hi):
+        raise _InputError(f"invalid {name}: {f} out of range [{lo}, {hi}]")
+    return f
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _strip_think_tags(text: str) -> str:
-    """Remove <think>...</think> blocks that qwen3 embeds even with /no_think."""
+    """Remove <think>...</think> blocks that some models embed in their output."""
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
+def _ui_tool_name(name: str, network_mode: str) -> str:
+    """
+    Map the internal tool name to a UI-facing name for the tools_used badge list.
+    Both agents use 'search_car_manual' as the tool name; the frontend badge map
+    expects 'search_car_manual_objectbox' (offline) or 'search_car_manual_atlas' (online).
+    """
+    if name == "search_car_manual":
+        return "search_car_manual_atlas" if network_mode == "online" else "search_car_manual_objectbox"
+    return name
 
 
 def _strip_route_data(messages: list) -> list:
@@ -428,7 +531,7 @@ def run_agent(
         default=-1,
     )
     turn_msgs = all_msgs[last_human + 1:]
-    tools_used = [m.name for m in turn_msgs if isinstance(m, ToolMessage)]
+    tools_used = [_ui_tool_name(m.name, network_mode) for m in turn_msgs if isinstance(m, ToolMessage)]
 
     # Extract structured navigation data from the navigate_to ToolMessage.
     # The tool embeds JSON after [ROUTE_DATA:] so the LLM sees only the human-readable text.
@@ -523,7 +626,7 @@ def stream_agent(
                     yield f"data: {json.dumps({'token': chunk.content})}\n\n"
 
             elif isinstance(chunk, ToolMessage):
-                tools_used.append(chunk.name)
+                tools_used.append(_ui_tool_name(chunk.name, network_mode))
                 # Clear the status indicator now that the tool has returned
                 yield f"data: {json.dumps({'status': None})}\n\n"
                 if chunk.name == "navigate_to":
@@ -603,17 +706,27 @@ def debug_search():
     })
 
 
+def _parse_request(data: dict) -> tuple:
+    """
+    Validate and sanitize all user-controlled fields from a request payload.
+    Returns (message, conversation_id, lat, lon, network_mode).
+    Raises _InputError with a human-readable message on any violation.
+    """
+    message         = _sanitize_message(data.get("message", ""))
+    conversation_id = _validate_conversation_id(data.get("conversation_id"))
+    lat             = _validate_coord(data.get("lat"), "lat")
+    lon             = _validate_coord(data.get("lon"), "lon")
+    network_mode    = _validate_network_mode(data.get("network_mode"))
+    return message, conversation_id, lat, lon, network_mode
+
+
 @app.route("/agent/chat", methods=["POST"])
 def agent_chat():
-    data            = request.json or {}
-    message         = data.get("message", "").strip()
-    conversation_id = data.get("conversation_id") or str(uuid.uuid4())
-    lat             = data.get("lat")
-    lon             = data.get("lon")
-    network_mode    = data.get("network_mode", "offline")
-
-    if not message:
-        return jsonify({"error": "message is required"}), 400
+    data = request.json or {}
+    try:
+        message, conversation_id, lat, lon, network_mode = _parse_request(data)
+    except _InputError as e:
+        return jsonify({"error": str(e)}), 400
 
     try:
         result = run_agent(message, conversation_id, lat, lon, network_mode)
@@ -631,15 +744,11 @@ def agent_chat():
 
 @app.route("/agent/chat/stream", methods=["POST"])
 def agent_chat_stream():
-    data            = request.json or {}
-    message         = data.get("message", "").strip()
-    conversation_id = data.get("conversation_id") or str(uuid.uuid4())
-    lat             = data.get("lat")
-    lon             = data.get("lon")
-    network_mode    = data.get("network_mode", "offline")
-
-    if not message:
-        return jsonify({"error": "message is required"}), 400
+    data = request.json or {}
+    try:
+        message, conversation_id, lat, lon, network_mode = _parse_request(data)
+    except _InputError as e:
+        return jsonify({"error": str(e)}), 400
 
     return Response(
         stream_with_context(stream_agent(message, conversation_id, lat, lon, network_mode)),

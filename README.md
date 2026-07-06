@@ -21,26 +21,32 @@ A multi-service, fully Dockerised in-vehicle assistant that combines live VSS te
 │  Ollama (qwen2.5:3b)                           │
 │  Two pre-compiled graphs (offline / online)    │
 │  Tools: car-manual search · navigation ·       │
-│         5 VSS telemetry tools (online mode)    │
+│         4 VSS telemetry tools (online mode)    │
 │  Streaming: POST /agent/chat/stream (SSE)      │
 └──┬──────────────┬─────────────────┬────────────┘
    │              │                 │
-   │    ┌─────────▼──────┐  ┌───────▼──────────────────┐
-   │    │ search-service │  │  vss-telemetry-mcp-server │
-   │    │ :8080          │  │  :3002  (Node.js MCP)     │
-   │    │ ObjectBox HNSW │  │  reads MongoDB Atlas      │
-   │    │ vector search  │  └───────────────────────────┘
+   │    ┌─────────▼──────┐  ┌───────▼──────────────────────────┐
+   │    │ search-service │  │  vss-telemetry-mcp-server         │
+   │    │ :8080          │  │  :3002  (Node.js MCP)             │
+   │    │ ObjectBox HNSW │  │  reads telemetry-status (unified) │
+   │    │ vector search  │  └───────────────────────────────────┘
    │    └────────────────┘             ▲
+   │                                   │ Atlas Trigger (assembleTelemetry)
+   │                        ┌──────────┴──────────────────┐
+   │                        │  MongoDB Atlas               │
+   │                        │  individual entity collections│
+   │                        │  → telemetry-data (time-series)│
+   │                        │  → telemetry-status (unified) │
+   │                        └──────────┬──────────────────┘
    │                                   │ ObjectBox Sync
    │                        ┌──────────┴──────────────────┐
    │                        │  ObjectBox Sync Server       │
    │                        │  :9999 sync  :9980 admin     │
-   │                        │  replicates → MongoDB Atlas  │
    │                        └──────────┬──────────────────┘
    │                                   │
    │                        ┌──────────▼──────────────────┐
    │                        │  vss-telemetry-service :8086 │
-   │                        │  C++ ObjectBox, 14 entities  │
+   │                        │  C++ ObjectBox, 13 entities  │
    │                        └──────────┬──────────────────┘
    │                                   │ POST /vss/snapshot every 2 s
    │                        ┌──────────▼──────────────────┐
@@ -68,11 +74,9 @@ All services are defined in [`sync-server-setup/docker-compose.yml`](sync-server
 | `mongodb-search-service` | 8085 | MongoDB Atlas vector search (voyage-4-nano) |
 | `conversation-service` | 8081 | ObjectBox conversation history |
 | `sync-server` | 9980 / 9999 | ObjectBox Sync Server — replicates to MongoDB Atlas |
-| `vss-telemetry-service` | 8086 | C++ ObjectBox service — 14 typed VSS entities |
+| `vss-telemetry-service` | 8086 | C++ ObjectBox service — 13 typed VSS entities |
 | `vss-telemetry-simulator` | 8087 | Python VSS data generator — auto-starts on launch |
-| `vss-telemetry-mcp-server` | 3002 | Node.js MCP server — telemetry tools, reads MongoDB |
-
-Legacy telemetry stack (`telemetry-service` :8084, `telemetry-simulator` :8082, `telemetry-mcp-server` :3001) is kept for rollback but is not wired to the agent or UI.
+| `vss-telemetry-mcp-server` | 3002 | Node.js MCP server — 8 tools, reads unified Atlas collections |
 
 ## Agent Service
 
@@ -106,7 +110,7 @@ Tools are labelled explicitly to prevent routing errors with a small model:
 | Agent | Tools |
 |---|---|
 | Offline | `search_car_manual` (ObjectBox), `navigate_to` |
-| Online | `search_car_manual` (MongoDB Atlas), `navigate_to`, `get_powertrain_status`, `get_fuel_status`, `get_battery_status`, `get_chassis_status`, `get_vehicle_events` |
+| Online | `search_car_manual` (MongoDB Atlas), `navigate_to`, `get_powertrain_status`, `get_fuel_status`, `get_battery_status`, `get_chassis_status` |
 
 ### Navigation
 
@@ -179,7 +183,28 @@ MONGODB_CLUSTER=your_cluster.xxxxx.mongodb.net
 MONGODB_DATABASE=your_database_name
 ```
 
-### 2. Start all services
+### 2. Set up Atlas unified collections (one-time)
+
+The MCP server reads from two unified Atlas collections assembled by an Atlas App Services trigger. Create them before starting the stack:
+
+```bash
+cd atlas-app
+cp .env.example .env
+# Fill in MONGODB_USER, MONGODB_PASS, MONGODB_CLUSTER, MONGODB_CLUSTER_NAME,
+# MONGODB_DATABASE, ATLAS_PROJECT_ID in atlas-app/.env
+
+npm install
+node setup_collections.js   # creates telemetry-data (time-series) + telemetry-status
+```
+
+Then deploy the trigger (requires [Atlas CLI](https://www.mongodb.com/docs/atlas/cli/stable/install-atlas-cli/) installed and authenticated):
+
+```bash
+bash deploy.sh
+# On first run, copy the printed App ID into .env as ATLAS_APP_ID
+```
+
+### 3. Start all services
 
 ```bash
 cd sync-server-setup
@@ -188,7 +213,7 @@ docker compose up
 
 Open the **ObjectBox Sync Server admin UI** at [http://localhost:9980](http://localhost:9980) and activate your trial licence when prompted.
 
-### 3. Load the car manual into the search-service (once)
+### 4. Load the car manual into the search-service (once)
 
 Run this **after** the stack is up, when `search-service` is healthy:
 
@@ -254,7 +279,6 @@ All telemetry widgets poll `/api/vss/latest` every 3 seconds from the C++ servic
 
 - "What is my current fuel level?" *(live telemetry)*
 - "Is the battery charging? What's the estimated range?" *(live telemetry)*
-- "Are there any active warnings or DTCs?" *(vehicle events)*
 - "How do I check the brake fluid?" *(car manual search)*
 - "What does the engine temperature warning light mean?" *(car manual search)*
 - "How do I change a flat tire?" *(car manual search)*
@@ -262,7 +286,7 @@ All telemetry widgets poll `/api/vss/latest` every 3 seconds from the C++ servic
 
 ## VSS Telemetry Schema
 
-The C++ service stores 14 typed entities (IDs 10–24), all sync-enabled to MongoDB Atlas.
+The C++ service stores 13 typed entities (IDs 10–23), all sync-enabled to MongoDB Atlas.
 
 ### Metadata
 | Entity | ID | Description |
@@ -283,10 +307,16 @@ The C++ service stores 14 typed entities (IDs 10–24), all sync-enabled to Mong
 ### Sample entities — append-only history, pruned after 24 h
 `PowertrainSample` (19), `BatterySample` (20), `LocationSample` (21), `CabinSample` (22), `AdasSample` (23)
 
-### Events
-`VehicleEvent` (24) — DTC/anomaly events with severity, VSS path, code; retained 7 days.
-
 Full field-level documentation: [`vss-data.md`](vss-data.md)
+
+### Unified Atlas collections (produced by Atlas Trigger)
+
+The Atlas App Services trigger (`atlas-app/`) fires on every `PowertrainState` write and assembles all entity data into two unified collections:
+
+| Collection | Type | Write cadence | Purpose |
+|---|---|---|---|
+| `telemetry-data` | Native time-series (`timeField: timestamp`, `metaField: vehicleId`) | Every ~2 s | Historical telemetry |
+| `telemetry-status` | Standard, unique index on `vehicleId` | Every ~10 s (debounced) | Current state — MCP server reads from here |
 
 ### Location format
 
@@ -312,7 +342,6 @@ GET    /health   — status + chunk_count
 
 ```
 POST /vss/snapshot              — upsert all State entities + append all Samples
-POST /vss/event                 — append a VehicleEvent
 POST /vss/meta                  — upsert VehicleMeta (seeded once at startup)
 GET  /vss/latest                — full current state (all domains)
 GET  /vss/powertrain/history?minutes=N
@@ -320,24 +349,22 @@ GET  /vss/battery/history?minutes=N
 GET  /vss/location/history?minutes=N
 GET  /vss/cabin/history?minutes=N
 GET  /vss/adas/history?minutes=N
-GET  /vss/events?minutes=N[&severity=warning|critical]
 DELETE /vss/prune?older_than_hours=N
 GET  /health
 ```
 
 ## MCP Tools (vss-telemetry-mcp-server)
 
-The MCP server exposes all tools via `POST /tools/<name>`. The LangChain agent uses the following subset in online mode:
+The MCP server reads exclusively from `telemetry-status` (one `findOne` per tool call) and exposes all tools via `POST /tools/<name>`. The LangChain agent uses the following subset in online mode:
 
-| Tool | Type | Description |
-|---|---|---|
-| `get_powertrain_status` | LIVE READING | Speed, RPM, coolant temp, gear, throttle, odometer |
-| `get_fuel_status` | LIVE READING | Fuel level %, litres remaining, consumption rate |
-| `get_battery_status` | LIVE READING | SoC%, SoH%, charging state, estimated electric range |
-| `get_chassis_status` | LIVE READING | Tyre pressures (all four), ABS, traction control |
-| `get_vehicle_events` | LIVE READING | Recent DTC/anomaly warnings and critical events |
+| Tool | Description |
+|---|---|
+| `get_powertrain_status` | Speed, RPM, coolant temp, gear, throttle, odometer (from `data.powertrain`) |
+| `get_fuel_status` | Fuel level %, litres remaining, consumption rate (from `data.powertrain` + `meta`) |
+| `get_battery_status` | SoC%, SoH%, charging state, estimated electric range (from `data.battery`) |
+| `get_chassis_status` | Tyre pressures (all four), ABS, traction control (from `data.chassis`) |
 
-Additional MCP tools available on the server but not wired to the agent (to keep LLM context small): `get_vehicle_status`, `get_cabin_status`, `get_location`, `get_adas_status`, `get_driving_history`. They can be re-added to `_TELEMETRY_TOOLS` in `agent_service.py` if needed — note that each tool adds ~30 tokens to every LLM call prefill.
+Additional tools on the server but not wired to the agent: `get_vehicle_status`, `get_cabin_status`, `get_location`, `get_adas_status`. Each adds ~30 tokens to every LLM call prefill — re-add to `_TELEMETRY_TOOLS` in `agent_service.py` if needed.
 
 ## Data Flow
 
@@ -346,8 +373,11 @@ vss-telemetry-simulator (8087)
   → POST /vss/snapshot every 2 s
     → vss-telemetry-service (8086, ObjectBox C++)   ← UI polls /vss/latest
       → ObjectBox Sync Server (9999)
-        → MongoDB Atlas
-          → vss-telemetry-mcp-server (3002)          ← LangChain agent (online mode)
+        → MongoDB Atlas (individual entity collections)
+          → Atlas Trigger on PowertrainState (assembleTelemetry)
+              ├── INSERT telemetry-data (time-series, every ~2 s)
+              └── UPSERT telemetry-status (every ~10 s)
+                    → vss-telemetry-mcp-server (3002)   ← LangChain agent (online mode)
 ```
 
 State writes always read the existing entity first to preserve `syncClock`, so the Sync Server accepts updates rather than reverting them.

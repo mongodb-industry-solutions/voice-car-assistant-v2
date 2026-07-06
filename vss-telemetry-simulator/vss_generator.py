@@ -1,12 +1,14 @@
 """
 Generates realistic VSS (Vehicle Signal Specification) telemetry data
 for a single simulated vehicle.
+
+Only fields that the vss-telemetry-service schema actually persists are emitted;
+values the reduced Sample schema does not store are not generated.
 """
 
 import random
 import math
 import time
-import geohash2 as geohash
 
 VEHICLE_ID = "VSS-DEMO-VIN-001"
 VIN        = "WBA12345VSS00001"
@@ -22,7 +24,6 @@ class VssGenerator:
 
         # Powertrain state
         self.speed_kph = 0.0
-        self.odometer_km = 12345.0
         self.fuel_level_pct = 75.0
         self.coolant_temp_c = 20.0  # starts cold
         self.throttle_pct = 0.0
@@ -32,7 +33,7 @@ class VssGenerator:
         self.soc_pct = 85.0
         self.soh_pct = 97.5
         self.battery_temp_c = 22.0
-        self.charging_state = "not_charging"
+        self.charging_state = "not_charging"  # internal: drives SOC/voltage/current logic
         self.charging_power_kw = 0.0
         self.voltage_v = 13.8
 
@@ -57,7 +58,6 @@ class VssGenerator:
 
         # ADAS state
         self.cruise_set_speed_kph = 0.0
-        self.autopilot_mode = "none"
 
 
     # ------------------------------------------------------------------ #
@@ -130,10 +130,6 @@ class VssGenerator:
         self.fuel_level_pct = self._clamp(self.fuel_level_pct - fuel_consumed_pct, 0.0, 100.0)
         if self.fuel_level_pct < 5.0:
             self.fuel_level_pct = 80.0  # refuel
-
-        # Odometer
-        distance_km = (self.speed_kph / 3600.0) * dt
-        self.odometer_km += distance_km
 
         # Coolant warms up after cold start, stays between 85-95 normal
         coolant_target = 90.0 if self.tick > 30 else 20.0 + self.tick * 2.5
@@ -245,22 +241,18 @@ class VssGenerator:
             self.accuracy_m + random.gauss(0, 0.1), 2.0, 6.0
         )
 
-        geo = geohash.encode(lat, lon, precision=7)
-
         # ---- ADAS ----
         cruise_enabled = self.speed_kph > 80.0
         if cruise_enabled:
             self.cruise_set_speed_kph = self._clamp(
                 round(self.speed_kph / 10.0) * 10.0, 80.0, 150.0
             )
-            self.autopilot_mode = "highway_assist"
         else:
             self.cruise_set_speed_kph = 0.0
-            self.autopilot_mode = "none"
 
         collision_warning_active = random.random() < 0.01
 
-        # Build snapshot
+        # Build snapshot — only fields persisted by the vss-telemetry-service schema
         snapshot = {
             "vehicle_id": VEHICLE_ID,
             "ts": int(time.time() * 1000),
@@ -268,19 +260,16 @@ class VssGenerator:
             "powertrain": {
                 "speedKph": round(self.speed_kph, 1),
                 "engineRpm": round(engine_rpm, 0),
-                "odometerKm": round(self.odometer_km, 2),
                 "fuelLevelPct": round(self.fuel_level_pct, 1),
                 "fuelRateLph": round(fuel_rate_lph, 2),
                 "coolantTempC": round(self.coolant_temp_c, 1),
                 "throttlePct": round(self.throttle_pct, 1),
                 "gear": self.gear,
-                "ignitionOn": True,
             },
             "battery": {
                 "socPct": round(self.soc_pct, 1),
                 "sohPct": round(self.soh_pct, 1),
                 "batteryTempC": round(self.battery_temp_c, 1),
-                "chargingState": self.charging_state,
                 "chargingPowerKw": round(self.charging_power_kw, 1),
                 "estimatedRangeKm": round(estimated_range_km, 1),
                 "voltageV": round(self.voltage_v, 2),
@@ -301,12 +290,6 @@ class VssGenerator:
                 "outsideTempC": round(self.outside_temp_c, 1),
                 "hvacMode": self.hvac_mode,
                 "fanSpeed": self.fan_speed,
-                "driverDoorOpen": False,
-                "passengerDoorOpen": False,
-                "rearLeftDoorOpen": False,
-                "rearRightDoorOpen": False,
-                "doorsLocked": True,
-                "seatbeltDriverFastened": True,
             },
             "location": {
                 "latitude": round(lat, 6),
@@ -315,15 +298,12 @@ class VssGenerator:
                 "headingDeg": round(heading_deg, 1),
                 "speedKph": round(self.speed_kph, 1),
                 "accuracyM": round(self.accuracy_m, 1),
-                "geohash": geo,
             },
             "adas": {
                 "cruiseEnabled": cruise_enabled,
                 "cruiseSetSpeedKph": round(self.cruise_set_speed_kph, 1),
                 "laneKeepAssistOn": True,
-                "parkingAssistOn": False,
                 "collisionWarningActive": collision_warning_active,
-                "autopilotMode": self.autopilot_mode,
             },
         }
 

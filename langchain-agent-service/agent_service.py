@@ -1,6 +1,6 @@
 """
 LangChain Agent Service — Unified car assistant
-Combines: car manual RAG, vehicle telemetry (via VSS MCP), navigation.
+Combines: car manual RAG, vehicle telemetry (via VSS Telemetry API), navigation.
 
 Uses a LangGraph ReAct agent (create_react_agent) with:
   - ChatOllama as the LLM
@@ -25,7 +25,7 @@ from flask import Flask, jsonify, request, stream_with_context, Response
 from flask_cors import CORS
 from langchain_ollama import ChatOllama
 from langchain_core.callbacks import BaseCallbackHandler
-from langchain_core.messages import AIMessageChunk, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessageChunk, HumanMessage, SystemMessage, ToolMessage, trim_messages
 from langchain_core.runnables import RunnableLambda, RunnableConfig
 from langchain_core.tools import StructuredTool
 from langgraph.prebuilt import create_react_agent
@@ -43,7 +43,7 @@ EMBEDDING_MODEL            = os.getenv("EMBEDDING_MODEL",            "voyageai/v
 SEARCH_SERVICE_URL         = os.getenv("SEARCH_SERVICE_URL",         "http://localhost:8080")
 MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://localhost:8085")
 NAVIGATION_SERVICE_URL     = os.getenv("NAVIGATION_SERVICE_URL",     "http://localhost:5001")
-TELEMETRY_SERVICE_URL      = os.getenv("VSS_TELEMETRY_MCP_URL",      "http://localhost:3002")
+TELEMETRY_SERVICE_URL      = os.getenv("VSS_TELEMETRY_API_URL",      "http://localhost:3002")
 
 # ── Module-level singletons (shared across all Gunicorn threads) ──────────────
 
@@ -259,26 +259,65 @@ You are a car assistant. Plain prose only, no preamble, max 3 sentences.
 
 TOOL USE IS MANDATORY:
 • "How do I", "what does X mean", procedures, repairs, warning lights, specs, owner's manual → search_car_manual. Never answer from memory.
-• "What is my current X", live sensor values → matching LIVE READING tool. Never guess values.
+• Overall status, "how is my car", or several readings at once → get_vehicle_status (ONE call). Never guess values.
+• A specific single reading (just fuel, just tires, etc.) → matching LIVE READING tool. Never guess values.
 • Navigation → navigate_to immediately.
-• Problem reported → get_vehicle_events first, then relevant domain tool.
+• Problem reported → relevant domain tool (powertrain, battery, chassis, etc.).
 • Reading + what to do → telemetry tool then search_car_manual.
 
 RULES: Summarise search_car_manual results. Never mention page numbers. After navigate_to, confirm destination and ETA only — no turn-by-turn steps. Lead with safety action for critical issues.\
 """
 
 
+# Conversation-history budget (tokens) sent to the LLM per call. num_ctx=1536 total,
+# minus ~230 (system) + ~250 (tool schemas) + 400 (num_predict output) ≈ 650 for history.
+_HISTORY_TOKEN_BUDGET = 600
+
+
+def _approx_tokens(messages: list) -> int:
+    """
+    Dependency-free ≈token estimate for trim_messages budgeting (~4 chars/token,
+    plus per-message and tool-call overhead). Avoids requiring a newer langchain-core
+    just for count_tokens_approximately; exactness isn't needed for trimming.
+    """
+    chars = 0
+    for m in messages:
+        text = m.content if isinstance(m.content, str) else str(m.content)
+        chars += len(text) + 16  # per-message role/formatting overhead
+        tool_calls = getattr(m, "tool_calls", None)
+        if tool_calls:
+            chars += len(str(tool_calls))  # AIMessage tool calls carry no .content
+    return chars // 4
+
+
 def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
     """
     Called by LangGraph before every LLM invocation.
-    Prepends the static system prompt + a one-line location hint, and trims
-    history to the last 20 messages so num_ctx is never silently overflowed.
+    Prepends the static system prompt + a one-line location hint, then token-aware
+    trims history to _HISTORY_TOKEN_BUDGET so num_ctx is never silently overflowed.
     LangGraph may pass either the raw message list or the full state dict depending
     on version — both are handled here.
     """
     messages = input_["messages"] if isinstance(input_, dict) else input_
     cfg = config.get("configurable", {})
     lat = cfg.get("lat")
+    # Mode hint: live telemetry is Atlas-only, so it is unavailable offline. Tell the
+    # LLM its current mode and to refuse (state the mode) rather than guess when the
+    # requested capability isn't available in this mode.
+    network_mode = cfg.get("network_mode", "offline")
+    if network_mode == "online":
+        mode_hint = (
+            "MODE: You are ONLINE — car manual, live vehicle telemetry, and navigation "
+            "are all available."
+        )
+    else:
+        mode_hint = (
+            "MODE: You are OFFLINE. Live vehicle telemetry (overall car status, battery, "
+            "fuel, tyres, powertrain, cabin, location readings) needs an online connection "
+            "and is NOT available now. If the user asks for any live vehicle reading, tell "
+            "them you are offline and cannot access live vehicle data right now — do not "
+            "guess values. Car-manual questions and navigation still work."
+        )
     loc_hint = (
         "The user's GPS location is known. "
         "Call navigate_to with just the destination name — coordinates are handled automatically. "
@@ -288,9 +327,31 @@ def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
         "The user's GPS location is not available. "
         "Ask them to allow location access in the browser if navigation is requested."
     )
-    trimmed = messages[-20:] if len(messages) > 20 else messages
-    trimmed = _strip_route_data(trimmed)
-    return [SystemMessage(content=_SYSTEM_PROMPT_BODY + f"\n\n{loc_hint}")] + trimmed
+    # Strip bulky [ROUTE_DATA:...] geometry first so it is neither counted nor kept,
+    # then keep the most recent turns that fit the budget. start_on="human" keeps
+    # AIMessage(tool_call)/ToolMessage pairs intact at the cut point (some models
+    # reject an orphan tool response), which a plain messages[-N:] slice could split.
+    history = _strip_route_data(messages)
+    trimmed = trim_messages(
+        history,
+        max_tokens=_HISTORY_TOKEN_BUDGET,
+        token_counter=_approx_tokens,
+        strategy="last",
+        start_on="human",
+        include_system=False,
+        allow_partial=False,
+    )
+    # trim_messages returns [] when the most recent human-anchored window alone
+    # exceeds the budget (e.g. a large tool result mid-ReAct). Never send an empty
+    # history — fall back to the current turn (last human message → end), which
+    # keeps the user's question and any in-flight tool results intact.
+    if not trimmed:
+        last_human = max(
+            (i for i, m in enumerate(history) if isinstance(m, HumanMessage)),
+            default=0,
+        )
+        trimmed = history[last_human:]
+    return [SystemMessage(content=_SYSTEM_PROMPT_BODY + f"\n\n{mode_hint}\n\n{loc_hint}")] + trimmed
 
 
 _PROMPT_RUNNABLE = RunnableLambda(_build_prompt)
@@ -400,11 +461,6 @@ class NavigateInput(BaseModel):
 class _NoInput(BaseModel):
     """Empty schema for zero-argument telemetry tools."""
 
-class VehicleEventsInput(BaseModel):
-    minutes:  int = Field(default=30, description="Minutes back to search")
-    severity: str = Field(default="all", description="'warning', 'critical', or 'all'")
-
-
 
 # ── Tool objects ──────────────────────────────────────────────────────────────
 
@@ -436,9 +492,15 @@ _NAVIGATE_TOOL = StructuredTool.from_function(
 # Descriptions are one line and carry the keyword routing hints that were removed from the system prompt.
 _TELEMETRY_TOOLS = [
     StructuredTool.from_function(
+        func=lambda: _call_telemetry("get_vehicle_status"),
+        name="get_vehicle_status",
+        description="LIVE READING: full car snapshot in ONE call — speed, fuel, battery, tires, cabin, location, ADAS. Use for general 'how is my car' / overall status questions instead of calling several tools.",
+        args_schema=_NoInput,
+    ),
+    StructuredTool.from_function(
         func=lambda: _call_telemetry("get_powertrain_status"),
         name="get_powertrain_status",
-        description="LIVE READING: current speed, RPM, coolant temp, gear, throttle, odometer.",
+        description="LIVE READING: current speed, RPM, coolant temp, gear, throttle.",
         args_schema=_NoInput,
     ),
     StructuredTool.from_function(
@@ -450,20 +512,14 @@ _TELEMETRY_TOOLS = [
     StructuredTool.from_function(
         func=lambda: _call_telemetry("get_battery_status"),
         name="get_battery_status",
-        description="LIVE READING: current battery SOC%, range, charging state, voltage, temperature.",
+        description="LIVE READING: current battery SOC%, state of health, range, charging status, voltage, temperature.",
         args_schema=_NoInput,
     ),
     StructuredTool.from_function(
         func=lambda: _call_telemetry("get_chassis_status"),
         name="get_chassis_status",
-        description="LIVE READING: current tire pressures (all four), ABS, ESC, brake fluid level.",
+        description="LIVE READING: current tire pressures (all four), ABS, traction control, brake pedal.",
         args_schema=_NoInput,
-    ),
-    StructuredTool.from_function(
-        func=lambda minutes, severity: _call_telemetry("get_vehicle_events", {"minutes": minutes, "severity": severity}),
-        name="get_vehicle_events",
-        description="LIVE READING: recent vehicle warnings, alerts, and critical events.",
-        args_schema=VehicleEventsInput,
     ),
 ]
 # get_cabin_status, get_location, get_adas_status, get_driving_history removed to reduce
@@ -586,16 +642,19 @@ def stream_agent(
     full_content = ""
     navigation = None
     _status_emitted: set[str] = set()  # track which tool-call statuses we've already sent
+    # Think-tag filter state — suppresses <think>...</think> from streamed tokens
+    # so the UI never displays raw model reasoning, only the actual answer.
+    _in_think = False
 
     # Human-readable labels shown in the UI while the tool is running
     _TOOL_STATUS = {
         "search_car_manual":   "Searching car manual…",
         "navigate_to":         "Finding route…",
+        "get_vehicle_status":  "Checking vehicle status…",
         "get_powertrain_status": "Checking powertrain…",
         "get_fuel_status":     "Checking fuel…",
         "get_battery_status":  "Checking battery…",
         "get_chassis_status":  "Checking tires & chassis…",
-        "get_vehicle_events":  "Checking vehicle events…",
     }
 
     print(f"[agent] stream start — conversation_id={conversation_id} mode={network_mode}", flush=True)
@@ -623,7 +682,29 @@ def stream_agent(
                             yield f"data: {json.dumps({'status': label})}\n\n"
                 elif chunk.content:
                     full_content += chunk.content
-                    yield f"data: {json.dumps({'token': chunk.content})}\n\n"
+                    # Filter <think>...</think> blocks so the UI never shows raw reasoning.
+                    # Tags may span chunk boundaries; _in_think carries state across iterations.
+                    token = chunk.content
+                    if _in_think:
+                        close = token.find("</think>")
+                        if close != -1:
+                            _in_think = False
+                            token = token[close + len("</think>"):].lstrip()
+                        else:
+                            token = ""
+                    else:
+                        open_ = token.find("<think>")
+                        if open_ != -1:
+                            before = token[:open_]
+                            rest = token[open_ + len("<think>"):]
+                            close = rest.find("</think>")
+                            if close != -1:
+                                token = before + rest[close + len("</think>"):].lstrip()
+                            else:
+                                _in_think = True
+                                token = before
+                    if token:
+                        yield f"data: {json.dumps({'token': token})}\n\n"
 
             elif isinstance(chunk, ToolMessage):
                 tools_used.append(_ui_tool_name(chunk.name, network_mode))

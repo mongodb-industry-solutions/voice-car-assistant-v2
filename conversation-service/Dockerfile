@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 # Copy source files including schema
-COPY conversation_service.cpp schema.obx.cpp schema.obx.hpp CMakeLists.txt objectbox-model.json ./
+COPY conversation_service.cpp schema.obx.cpp schema.obx.hpp CMakeLists.txt ./
 
 # Build
 RUN cmake -DCMAKE_BUILD_TYPE=Release . && \
@@ -34,7 +34,6 @@ WORKDIR /app
 # Copy binary and library from builder (sync library includes everything)
 COPY --from=builder /build/conversation_service /app/
 COPY --from=builder /build/_deps/objectbox-sync-download-src/lib/libobjectbox.so /usr/local/lib/
-COPY --from=builder /build/objectbox-model.json /app/
 
 # Update library cache
 RUN ldconfig

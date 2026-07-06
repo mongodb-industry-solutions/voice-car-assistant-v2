@@ -137,7 +137,6 @@ def simulator_status():
             "speedKph": last.get("powertrain", {}).get("speedKph"),
             "socPct": last.get("battery", {}).get("socPct"),
             "fuelLevelPct": last.get("powertrain", {}).get("fuelLevelPct"),
-            "events_count": len(last.get("events", [])),
         }
 
     return jsonify({

@@ -6,9 +6,7 @@ for a single simulated vehicle.
 import random
 import math
 import time
-import json
 import geohash2 as geohash
-from vss_thresholds import classify, VSS_THRESHOLDS
 
 VEHICLE_ID = "VSS-DEMO-VIN-001"
 VIN        = "WBA12345VSS00001"
@@ -61,11 +59,9 @@ class VssGenerator:
         self.cruise_set_speed_kph = 0.0
         self.autopilot_mode = "none"
 
-        # Anomaly injection state
-        self._anomaly_active = None
 
     # ------------------------------------------------------------------ #
-    #  Internal helpers                                                    #
+    #  Helpers                                                             #
     # ------------------------------------------------------------------ #
 
     def _drift(self, value: float, target: float, rate: float, noise: float = 0.0) -> float:
@@ -101,95 +97,6 @@ class VssGenerator:
             return 5
         else:
             return 6
-
-    def _inject_anomaly(self) -> list:
-        """With 15% probability, inject a random anomaly and return events."""
-        events = []
-        if random.random() > 0.15:
-            self._anomaly_active = None
-            return events
-
-        anomaly = random.choice([
-            "low_fuel",
-            "low_battery",
-            "high_coolant",
-            "tire_pressure",
-            "high_rpm",
-        ])
-        self._anomaly_active = anomaly
-
-        if anomaly == "low_fuel":
-            self.fuel_level_pct = random.uniform(5.0, 12.0)
-            severity = classify("fuelLevelPct", self.fuel_level_pct)
-            events.append({
-                "eventType": "FuelLow",
-                "severity": severity,
-                "vssPath": "Vehicle.Powertrain.FuelSystem.Level",
-                "code": "FUEL_LOW",
-                "description": f"Fuel level low: {self.fuel_level_pct:.1f}%",
-                "payloadJson": json.dumps({"fuelLevelPct": round(self.fuel_level_pct, 1)}),
-            })
-
-        elif anomaly == "low_battery":
-            self.soc_pct = random.uniform(8.0, 18.0)
-            severity = classify("socPct", self.soc_pct)
-            events.append({
-                "eventType": "BatteryLow",
-                "severity": severity,
-                "vssPath": "Vehicle.Powertrain.TractionBattery.StateOfCharge.Current",
-                "code": "SOC_LOW",
-                "description": f"Battery state of charge low: {self.soc_pct:.1f}%",
-                "payloadJson": json.dumps({"socPct": round(self.soc_pct, 1)}),
-            })
-
-        elif anomaly == "high_coolant":
-            self.coolant_temp_c = random.uniform(105.0, 118.0)
-            severity = classify("coolantTempC", self.coolant_temp_c)
-            events.append({
-                "eventType": "CoolantTempHigh",
-                "severity": severity,
-                "vssPath": "Vehicle.Powertrain.CombustionEngine.ECT",
-                "code": "COOLANT_TEMP_HIGH",
-                "description": f"Coolant temperature high: {self.coolant_temp_c:.1f}°C",
-                "payloadJson": json.dumps({"coolantTempC": round(self.coolant_temp_c, 1)}),
-            })
-
-        elif anomaly == "tire_pressure":
-            tire_key = random.choice(["FL", "FR", "RL", "RR"])
-            low_pressure = random.uniform(150.0, 195.0)
-            severity = classify("tirePressureKpa", low_pressure)
-            attr = f"tire_{tire_key.lower()}"
-            setattr(self, attr, low_pressure)
-            vss_corner = {
-                "FL": "FrontLeft", "FR": "FrontRight",
-                "RL": "RearLeft",  "RR": "RearRight",
-            }[tire_key]
-            events.append({
-                "eventType": "TirePressureLow",
-                "severity": severity,
-                "vssPath": f"Vehicle.Chassis.Axle.Row1.Wheel.{vss_corner}.Tire.Pressure",
-                "code": "TIRE_PRESSURE_LOW",
-                "description": f"Tire pressure low ({tire_key}): {low_pressure:.0f} kPa",
-                "payloadJson": json.dumps({
-                    "corner": tire_key,
-                    "pressureKpa": round(low_pressure, 1),
-                }),
-            })
-
-        elif anomaly == "high_rpm":
-            self.speed_kph = self._clamp(self.speed_kph, 80.0, 130.0)
-            rpm_anomaly = random.uniform(5400.0, 6200.0)
-            severity = classify("engineRpm", rpm_anomaly)
-            events.append({
-                "eventType": "EngineRpmHigh",
-                "severity": severity,
-                "vssPath": "Vehicle.Powertrain.CombustionEngine.Speed",
-                "code": "ENGINE_RPM_HIGH",
-                "description": f"Engine RPM elevated: {rpm_anomaly:.0f} RPM",
-                "payloadJson": json.dumps({"engineRpm": round(rpm_anomaly, 0)}),
-            })
-
-        return events
 
     # ------------------------------------------------------------------ #
     #  Main snapshot generator                                             #
@@ -353,9 +260,6 @@ class VssGenerator:
 
         collision_warning_active = random.random() < 0.01
 
-        # ---- Anomaly injection ----
-        events = self._inject_anomaly()
-
         # Build snapshot
         snapshot = {
             "vehicle_id": VEHICLE_ID,
@@ -421,7 +325,6 @@ class VssGenerator:
                 "collisionWarningActive": collision_warning_active,
                 "autopilotMode": self.autopilot_mode,
             },
-            "events": events,
         }
 
         return snapshot

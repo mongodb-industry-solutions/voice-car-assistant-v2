@@ -47,7 +47,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser \
 VOLUME ["/app/conversation-db"]
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 # Container starts as root so entrypoint.sh can fix bind-mount ownership,
 # then drops to appuser via gosu before exec-ing the service.

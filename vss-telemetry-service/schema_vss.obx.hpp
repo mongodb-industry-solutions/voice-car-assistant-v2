@@ -1,4 +1,4 @@
-// Manually generated ObjectBox VSS schema — entities 10-25
+// Manually generated ObjectBox VSS schema — sample entities + VehicleMeta + SignalDefinition
 #pragma once
 
 #include <cstdbool>
@@ -13,18 +13,12 @@
 // ── Forward declarations ──────────────────────────────────────────────────────
 struct VehicleMeta_;
 struct SignalDefinition_;
-struct PowertrainState_;
-struct BatteryState_;
-struct ChassisState_;
-struct CabinState_;
-struct LocationState_;
-struct AdasState_;
 struct PowertrainSample_;
 struct BatterySample_;
 struct LocationSample_;
 struct CabinSample_;
 struct AdasSample_;
-struct VehicleEvent_;
+struct ChassisSample_;
 
 // ── Entity 10: VehicleMeta ────────────────────────────────────────────────────
 struct VehicleMeta {
@@ -87,180 +81,6 @@ struct SignalDefinition {
 };
 struct SignalDefinition_ {
     static const obx::Property<SignalDefinition, OBXPropertyType_Long> id;
-};
-
-// ── Entity 13: PowertrainState ────────────────────────────────────────────────
-struct PowertrainState {
-    int64_t     id = 0;              // P1
-    std::string vehicleId;           // P2  indexed
-    int64_t     updatedAt = 0;       // P3
-    float       speedKph = 0.f;      // P4
-    float       engineRpm = 0.f;     // P5
-    float       odometerKm = 0.f;    // P6
-    float       fuelLevelPct = 0.f;  // P7
-    float       fuelRateLph = 0.f;   // P8
-    float       coolantTempC = 0.f;  // P9
-    float       throttlePct = 0.f;   // P10
-    int32_t     gear = 0;            // P11
-    bool        ignitionOn = false;  // P12
-    std::string tripId;              // P13
-    int64_t     syncClock = 0;       // P14
-
-    struct _OBX_MetaInfo {
-        static constexpr obx_schema_id entityId() { return 13; }
-        static void setObjectId(PowertrainState& o, obx_id v) { o.id = v; }
-        static void toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const PowertrainState& o);
-        static PowertrainState fromFlatBuffer(const void* data, size_t size);
-        static std::unique_ptr<PowertrainState> newFromFlatBuffer(const void* data, size_t size);
-        static void fromFlatBuffer(const void* data, size_t size, PowertrainState& out);
-    };
-};
-struct PowertrainState_ {
-    static const obx::Property<PowertrainState, OBXPropertyType_Long>   id;
-    static const obx::Property<PowertrainState, OBXPropertyType_String> vehicleId;
-};
-
-// ── Entity 14: BatteryState ───────────────────────────────────────────────────
-struct BatteryState {
-    int64_t     id = 0;                    // P1
-    std::string vehicleId;                 // P2  indexed
-    int64_t     updatedAt = 0;             // P3
-    float       socPct = 0.f;             // P4
-    float       sohPct = 0.f;             // P5
-    float       batteryTempC = 0.f;       // P6
-    std::string chargingState;            // P7
-    float       chargingPowerKw = 0.f;    // P8
-    float       estimatedRangeKm = 0.f;   // P9
-    float       voltageV = 0.f;           // P10
-    float       currentA = 0.f;           // P11
-    int64_t     syncClock = 0;            // P12
-
-    struct _OBX_MetaInfo {
-        static constexpr obx_schema_id entityId() { return 14; }
-        static void setObjectId(BatteryState& o, obx_id v) { o.id = v; }
-        static void toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const BatteryState& o);
-        static BatteryState fromFlatBuffer(const void* data, size_t size);
-        static std::unique_ptr<BatteryState> newFromFlatBuffer(const void* data, size_t size);
-        static void fromFlatBuffer(const void* data, size_t size, BatteryState& out);
-    };
-};
-struct BatteryState_ {
-    static const obx::Property<BatteryState, OBXPropertyType_Long>   id;
-    static const obx::Property<BatteryState, OBXPropertyType_String> vehicleId;
-};
-
-// ── Entity 15: ChassisState ───────────────────────────────────────────────────
-struct ChassisState {
-    int64_t id = 0;                         // P1
-    std::string vehicleId;                  // P2  indexed
-    int64_t     updatedAt = 0;              // P3
-    float       steeringAngleDeg = 0.f;    // P4
-    float       brakePedalPct = 0.f;       // P5
-    float       tirePressureFlKpa = 0.f;   // P6
-    float       tirePressureFrKpa = 0.f;   // P7
-    float       tirePressureRlKpa = 0.f;   // P8
-    float       tirePressureRrKpa = 0.f;   // P9
-    bool        absActive = false;          // P10
-    bool        tractionControlActive = false; // P11
-    int64_t     syncClock = 0;             // P12
-
-    struct _OBX_MetaInfo {
-        static constexpr obx_schema_id entityId() { return 15; }
-        static void setObjectId(ChassisState& o, obx_id v) { o.id = v; }
-        static void toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const ChassisState& o);
-        static ChassisState fromFlatBuffer(const void* data, size_t size);
-        static std::unique_ptr<ChassisState> newFromFlatBuffer(const void* data, size_t size);
-        static void fromFlatBuffer(const void* data, size_t size, ChassisState& out);
-    };
-};
-struct ChassisState_ {
-    static const obx::Property<ChassisState, OBXPropertyType_Long>   id;
-    static const obx::Property<ChassisState, OBXPropertyType_String> vehicleId;
-};
-
-// ── Entity 16: CabinState ─────────────────────────────────────────────────────
-struct CabinState {
-    int64_t     id = 0;                       // P1
-    std::string vehicleId;                    // P2  indexed
-    int64_t     updatedAt = 0;                // P3
-    float       insideTempC = 0.f;           // P4
-    float       outsideTempC = 0.f;          // P5
-    std::string hvacMode;                    // P6
-    int32_t     fanSpeed = 0;                // P7
-    bool        driverDoorOpen = false;      // P8
-    bool        passengerDoorOpen = false;   // P9
-    bool        rearLeftDoorOpen = false;    // P10
-    bool        rearRightDoorOpen = false;   // P11
-    bool        doorsLocked = true;          // P12
-    bool        seatbeltDriverFastened = false; // P13
-    int64_t     syncClock = 0;               // P14
-
-    struct _OBX_MetaInfo {
-        static constexpr obx_schema_id entityId() { return 16; }
-        static void setObjectId(CabinState& o, obx_id v) { o.id = v; }
-        static void toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const CabinState& o);
-        static CabinState fromFlatBuffer(const void* data, size_t size);
-        static std::unique_ptr<CabinState> newFromFlatBuffer(const void* data, size_t size);
-        static void fromFlatBuffer(const void* data, size_t size, CabinState& out);
-    };
-};
-struct CabinState_ {
-    static const obx::Property<CabinState, OBXPropertyType_Long>   id;
-    static const obx::Property<CabinState, OBXPropertyType_String> vehicleId;
-};
-
-// ── Entity 17: LocationState ──────────────────────────────────────────────────
-struct LocationState {
-    int64_t     id = 0;             // P1
-    std::string vehicleId;          // P2  indexed
-    int64_t     updatedAt = 0;      // P3
-    float       altitudeM = 0.f;   // P6
-    float       headingDeg = 0.f;  // P7
-    float       speedKph = 0.f;    // P8
-    float       accuracyM = 0.f;   // P9
-    std::string geohash;            // P10
-    int64_t     syncClock = 0;      // P11
-    std::string locationGeoJson;    // P12
-
-    struct _OBX_MetaInfo {
-        static constexpr obx_schema_id entityId() { return 17; }
-        static void setObjectId(LocationState& o, obx_id v) { o.id = v; }
-        static void toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const LocationState& o);
-        static LocationState fromFlatBuffer(const void* data, size_t size);
-        static std::unique_ptr<LocationState> newFromFlatBuffer(const void* data, size_t size);
-        static void fromFlatBuffer(const void* data, size_t size, LocationState& out);
-    };
-};
-struct LocationState_ {
-    static const obx::Property<LocationState, OBXPropertyType_Long>   id;
-    static const obx::Property<LocationState, OBXPropertyType_String> vehicleId;
-};
-
-// ── Entity 18: AdasState ─────────────────────────────────────────────────────
-struct AdasState {
-    int64_t     id = 0;                         // P1
-    std::string vehicleId;                      // P2  indexed
-    int64_t     updatedAt = 0;                  // P3
-    bool        cruiseEnabled = false;          // P4
-    float       cruiseSetSpeedKph = 0.f;       // P5
-    bool        laneKeepAssistOn = false;       // P6
-    bool        parkingAssistOn = false;        // P7
-    bool        collisionWarningActive = false; // P8
-    std::string autopilotMode;                  // P9
-    int64_t     syncClock = 0;                  // P10
-
-    struct _OBX_MetaInfo {
-        static constexpr obx_schema_id entityId() { return 18; }
-        static void setObjectId(AdasState& o, obx_id v) { o.id = v; }
-        static void toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const AdasState& o);
-        static AdasState fromFlatBuffer(const void* data, size_t size);
-        static std::unique_ptr<AdasState> newFromFlatBuffer(const void* data, size_t size);
-        static void fromFlatBuffer(const void* data, size_t size, AdasState& out);
-    };
-};
-struct AdasState_ {
-    static const obx::Property<AdasState, OBXPropertyType_Long>   id;
-    static const obx::Property<AdasState, OBXPropertyType_String> vehicleId;
 };
 
 // ── Entity 19: PowertrainSample ───────────────────────────────────────────────
@@ -405,33 +225,33 @@ struct AdasSample_ {
     static const obx::Property<AdasSample, OBXPropertyType_Long>   ts;
 };
 
-// ── Entity 24: VehicleEvent ───────────────────────────────────────────────────
-struct VehicleEvent {
-    int64_t     id = 0;           // P1
-    std::string vehicleId;        // P2  indexed
-    int64_t     ts = 0;           // P3  indexed
-    std::string tripId;           // P4
-    std::string eventType;        // P5
-    std::string severity;         // P6
-    std::string vssPath;          // P7
-    std::string code;             // P8
-    std::string description;      // P9
-    std::string payloadJson;      // P10
-    int64_t     syncClock = 0;    // P11
+// ── Entity 24: ChassisSample ──────────────────────────────────────────────────
+struct ChassisSample {
+    int64_t     id = 0;                          // P1
+    std::string vehicleId;                       // P2  indexed
+    int64_t     ts = 0;                          // P3  indexed
+    std::string tripId;                          // P4
+    float       steeringAngleDeg = 0.f;         // P5
+    float       brakePedalPct = 0.f;            // P6
+    float       tirePressureFlKpa = 0.f;        // P7
+    float       tirePressureFrKpa = 0.f;        // P8
+    float       tirePressureRlKpa = 0.f;        // P9
+    float       tirePressureRrKpa = 0.f;        // P10
+    bool        absActive = false;               // P11
+    bool        tractionControlActive = false;   // P12
+    int64_t     syncClock = 0;                   // P13
 
     struct _OBX_MetaInfo {
         static constexpr obx_schema_id entityId() { return 24; }
-        static void setObjectId(VehicleEvent& o, obx_id v) { o.id = v; }
-        static void toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const VehicleEvent& o);
-        static VehicleEvent fromFlatBuffer(const void* data, size_t size);
-        static std::unique_ptr<VehicleEvent> newFromFlatBuffer(const void* data, size_t size);
-        static void fromFlatBuffer(const void* data, size_t size, VehicleEvent& out);
+        static void setObjectId(ChassisSample& o, obx_id v) { o.id = v; }
+        static void toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const ChassisSample& o);
+        static ChassisSample fromFlatBuffer(const void* data, size_t size);
+        static std::unique_ptr<ChassisSample> newFromFlatBuffer(const void* data, size_t size);
+        static void fromFlatBuffer(const void* data, size_t size, ChassisSample& out);
     };
 };
-struct VehicleEvent_ {
-    static const obx::Property<VehicleEvent, OBXPropertyType_Long>   id;
-    static const obx::Property<VehicleEvent, OBXPropertyType_String> vehicleId;
-    static const obx::Property<VehicleEvent, OBXPropertyType_Long>   ts;
-    static const obx::Property<VehicleEvent, OBXPropertyType_String> severity;
+struct ChassisSample_ {
+    static const obx::Property<ChassisSample, OBXPropertyType_Long>   id;
+    static const obx::Property<ChassisSample, OBXPropertyType_String> vehicleId;
+    static const obx::Property<ChassisSample, OBXPropertyType_Long>   ts;
 };
-

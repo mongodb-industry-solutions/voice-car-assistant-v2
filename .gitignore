@@ -42,7 +42,7 @@ documents/*
 # Sync server secrets and credentials
 sync-server-setup/objectbox
 sync-server-setup/conversation-data
-sync-server-setup/telemetry-data
+sync-server-setup/vss-telemetry-data
 sync-server-setup/.env
 .env
 *.env
@@ -55,3 +55,4 @@ mongodb-loader/.env
 objectbox_mongodb_connector.txt
 
 telemetry-mcp-server/node_modules/
+/atlas-app/node_modules/

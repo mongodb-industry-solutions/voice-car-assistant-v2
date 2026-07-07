@@ -221,6 +221,42 @@ body {
     font-size: 0.72rem;
 }
 
+.sim-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    background: transparent;
+    border: 1px solid rgba(42, 63, 95, 0.6);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-left: 0.5rem;
+    transition: border-color 0.2s, color 0.2s;
+}
+.sim-toggle:hover {
+    border-color: var(--touchscreen-border);
+    color: var(--text-primary);
+}
+.sim-toggle.running {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 6px var(--accent-glow);
+}
+.sim-toggle:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+.sim-toggle-icon {
+    font-size: 0.85rem;
+}
+.sim-toggle-label {
+    font-size: 0.72rem;
+}
+
 /* Chat Container */
 .chat-container {
     flex: 1;

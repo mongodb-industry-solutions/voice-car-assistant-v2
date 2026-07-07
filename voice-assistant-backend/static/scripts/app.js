@@ -443,15 +443,6 @@ function updateDashboard(data) {
         applyColor('rpm-arc', '#00ED64');
     }
 
-    // Engine ON/OFF badge — field: ignitionOn
-    if (pt.ignitionOn != null) {
-        const el = document.getElementById('engine-on-badge');
-        if (el) {
-            el.textContent = pt.ignitionOn ? 'ENGINE ON' : 'ENGINE OFF';
-            el.style.color = pt.ignitionOn ? '#00ED64' : '#888';
-        }
-    }
-
     // Coolant
     if (pt.coolantTempC != null) {
         const st = coolantStatus(pt.coolantTempC);
@@ -463,12 +454,6 @@ function updateDashboard(data) {
     if (pt.throttlePct != null) {
         const valEl = document.getElementById('throttle-val');
         if (valEl) valEl.textContent = `${pt.throttlePct.toFixed(0)}%`;
-    }
-
-    // Odometer
-    if (pt.odometerKm != null) {
-        const el = document.getElementById('odometer-val');
-        if (el) el.textContent = `${Math.round(pt.odometerKm).toLocaleString()} km`;
     }
 
     // Battery SoC
@@ -490,16 +475,6 @@ function updateDashboard(data) {
         const el = document.getElementById('batt-range');
         if (el) el.textContent = `${Math.round(bat.estimatedRangeKm)} km`;
     }
-    // chargingState is a string: "charging" | "not_charging" | etc.
-    if (bat.chargingState != null) {
-        const el = document.getElementById('batt-charging');
-        if (el) {
-            const charging = bat.chargingState === 'charging';
-            el.textContent = charging ? 'YES' : 'NO';
-            el.style.color = charging ? '#00ED64' : '#888';
-        }
-    }
-
     // Fuel gauge
     if (pt.fuelLevelPct != null) {
         updateArc('fuel-arc', pt.fuelLevelPct, 100, ARC_C_MAIN);
@@ -580,14 +555,58 @@ function updateDashboard(data) {
     }
 }
 
+// Value elements that should always carry live data — set to "N/A" when the
+// telemetry service is unreachable so the dashboard never shows stale readings.
+const TELEM_VALUE_IDS = [
+    'rpm-num', 'coolant-val', 'throttle-val',
+    'batt-pct', 'batt-v', 'batt-health', 'batt-range',
+    'fuel-num', 'current-gear', 'speed-val',
+    'tire-fl-val', 'tire-fr-val', 'tire-rl-val', 'tire-rr-val',
+    'brake-pedal-val', 'abs-val', 'esc-val',
+    'adas-cruise', 'adas-lka', 'adas-collision', 'collision-badge',
+];
+
+let _telemUnavailable = false;
+
+function markTelemetryUnavailable() {
+    _telemUnavailable = true;
+    TELEM_VALUE_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.textContent = 'N/A'; el.title = 'Data not available'; el.style.color = '#888'; el.style.fill = '#888'; }
+    });
+    updateArc('rpm-arc', 0, 7000, ARC_C_MAIN);
+    updateArc('fuel-arc', 0, 100, ARC_C_MAIN);
+    ['fl', 'fr', 'rl', 'rr'].forEach(a => {
+        const rect = document.getElementById(`tire-${a}-rect`);
+        if (rect) rect.style.stroke = '#888';
+    });
+}
+
+// Clear the "unavailable" styling so updateDashboard can re-apply live colors
+// (it only re-colors some fields, so grey would otherwise leak after recovery).
+function clearTelemetryUnavailable() {
+    TELEM_VALUE_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.style.color = ''; el.style.fill = ''; el.removeAttribute('title'); }
+    });
+    ['fl', 'fr', 'rl', 'rr'].forEach(a => {
+        const rect = document.getElementById(`tire-${a}-rect`);
+        if (rect) rect.style.stroke = '';
+    });
+    _telemUnavailable = false;
+}
+
 async function fetchTelemetry() {
     try {
         const resp = await fetch(`/api/vss/latest?t=${Date.now()}`);
-        if (!resp.ok) return;
+        if (!resp.ok) { markTelemetryUnavailable(); return; }
         const data = await resp.json();
-        if (data.error) return;
+        if (data.error) { markTelemetryUnavailable(); return; }
+        if (_telemUnavailable) clearTelemetryUnavailable();
         updateDashboard(data);
-    } catch (_) {}
+    } catch (_) {
+        markTelemetryUnavailable();
+    }
 }
 
 fetchTelemetry();
@@ -618,3 +637,44 @@ networkToggle.addEventListener('click', () => {
 socket.on('network_mode_changed', (data) => {
     setNetworkMode(data.mode);
 });
+
+// ── Simulator start/stop toggle ─────────────────────────────────────────────────
+
+const simToggle      = document.getElementById('simToggle');
+const simToggleIcon  = document.getElementById('simToggleIcon');
+const simToggleLabel = document.getElementById('simToggleLabel');
+let simRunning = false;
+
+function renderSimState(running) {
+    simRunning = running;
+    simToggle.classList.toggle('running', running);
+    simToggleIcon.textContent  = running ? '⏹' : '▶';
+    simToggleLabel.textContent = running ? 'STOP SIM' : 'START SIM';
+}
+
+async function refreshSimStatus() {
+    try {
+        const resp = await fetch('/api/vss/simulator/status');
+        const data = await resp.json().catch(() => ({}));
+        renderSimState(!!data.running);
+    } catch (_) {
+        renderSimState(false);
+    }
+}
+
+simToggle.addEventListener('click', async () => {
+    const action = simRunning ? 'stop' : 'start';
+    simToggle.disabled = true;
+    try {
+        await fetch(`/api/vss/simulator/${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+        });
+    } catch (_) {}
+    await refreshSimStatus();
+    simToggle.disabled = false;
+});
+
+refreshSimStatus();
+setInterval(refreshSimStatus, 5000);

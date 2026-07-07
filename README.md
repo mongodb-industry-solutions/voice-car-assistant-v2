@@ -21,13 +21,13 @@ A multi-service, fully Dockerised in-vehicle assistant that combines live VSS te
 │  Ollama (qwen2.5:3b)                           │
 │  Two pre-compiled graphs (offline / online)    │
 │  Tools: car-manual search · navigation ·       │
-│         4 VSS telemetry tools (online mode)    │
+│         5 VSS telemetry tools (online mode)    │
 │  Streaming: POST /agent/chat/stream (SSE)      │
 └──┬──────────────┬─────────────────┬────────────┘
    │              │                 │
    │    ┌─────────▼──────┐  ┌───────▼──────────────────────────┐
-   │    │ search-service │  │  vss-telemetry-mcp-server         │
-   │    │ :8080          │  │  :3002  (Node.js MCP)             │
+   │    │ search-service │  │  vss-telemetry-api         │
+   │    │ :8080          │  │  :3002  (Node.js REST API)        │
    │    │ ObjectBox HNSW │  │  reads telemetry-status (unified) │
    │    │ vector search  │  └───────────────────────────────────┘
    │    └────────────────┘             ▲
@@ -46,7 +46,7 @@ A multi-service, fully Dockerised in-vehicle assistant that combines live VSS te
    │                                   │
    │                        ┌──────────▼──────────────────┐
    │                        │  vss-telemetry-service :8086 │
-   │                        │  C++ ObjectBox, 13 entities  │
+   │                        │  C++ ObjectBox, 8 entities   │
    │                        └──────────┬──────────────────┘
    │                                   │ POST /vss/snapshot every 2 s
    │                        ┌──────────▼──────────────────┐
@@ -74,9 +74,9 @@ All services are defined in [`sync-server-setup/docker-compose.yml`](sync-server
 | `mongodb-search-service` | 8085 | MongoDB Atlas vector search (voyage-4-nano) |
 | `conversation-service` | 8081 | ObjectBox conversation history |
 | `sync-server` | 9980 / 9999 | ObjectBox Sync Server — replicates to MongoDB Atlas |
-| `vss-telemetry-service` | 8086 | C++ ObjectBox service — 13 typed VSS entities |
-| `vss-telemetry-simulator` | 8087 | Python VSS data generator — auto-starts on launch |
-| `vss-telemetry-mcp-server` | 3002 | Node.js MCP server — 8 tools, reads unified Atlas collections |
+| `vss-telemetry-service` | 8086 | C++ ObjectBox service — 8 typed VSS entities |
+| `vss-telemetry-simulator` | 8087 | Python VSS data generator — start/stop from the dashboard |
+| `vss-telemetry-api` | 3002 | Node.js REST API — 8 tools, reads unified Atlas collections |
 
 ## Agent Service
 
@@ -86,9 +86,10 @@ The `langchain-agent-service` uses LangGraph `create_react_agent` and is optimis
 
 - **Two pre-compiled agents** (`_OFFLINE_AGENT`, `_ONLINE_AGENT`) compiled once at startup — zero compilation cost per request. The agent is selected by `network_mode` only; `lat`/`lon` are injected via `RunnableConfig` and never affect graph structure.
 - **Streaming responses** — `/agent/chat/stream` returns a `text/event-stream` SSE response. Tokens stream as they are generated; a `status` event is emitted immediately when the model commits to a tool call so the UI shows progress during the prefill phase. The blocking `/agent/chat` endpoint is kept for the voice loop (TTS needs the full answer before speaking).
-- **Shared conversation memory** — `MemorySaver` keyed by `conversation_id`; history trimmed to last 20 messages before each LLM call.
+- **Shared conversation memory** — `MemorySaver` keyed by `conversation_id`; history is token-aware trimmed to a ~600-token budget before each LLM call (`trim_messages`, `start_on="human"` so tool-call/response pairs stay intact).
 - **Embedding cache** — query embeddings are LRU-cached (256 entries); repeated queries skip the encode step.
-- **Context budget** — system prompt (~80 tokens) + tool schemas (~200 tokens) + capped tool results (600 chars max) stay well within `num_ctx=1536`, keeping per-token generation fast.
+- **Context budget** — system prompt + mode hint (~250 tokens) + tool schemas + capped tool results (600 chars max) + token-trimmed history stay within `num_ctx=1536`, keeping per-token generation fast.
+- **Mode-aware** — the offline agent has no telemetry tools and is instructed to tell the user it is offline rather than guess live values.
 
 ### Model config
 
@@ -110,7 +111,7 @@ Tools are labelled explicitly to prevent routing errors with a small model:
 | Agent | Tools |
 |---|---|
 | Offline | `search_car_manual` (ObjectBox), `navigate_to` |
-| Online | `search_car_manual` (MongoDB Atlas), `navigate_to`, `get_powertrain_status`, `get_fuel_status`, `get_battery_status`, `get_chassis_status` |
+| Online | `search_car_manual` (MongoDB Atlas), `navigate_to`, `get_vehicle_status`, `get_powertrain_status`, `get_fuel_status`, `get_battery_status`, `get_chassis_status` |
 
 ### Navigation
 
@@ -185,24 +186,16 @@ MONGODB_DATABASE=your_database_name
 
 ### 2. Set up Atlas unified collections (one-time)
 
-The MCP server reads from two unified Atlas collections assembled by an Atlas App Services trigger. Create them before starting the stack:
+The telemetry API reads from two unified Atlas collections assembled by an Atlas App Services trigger. Create the collections and set up the trigger before starting the stack:
 
 ```bash
 cd atlas-app
-cp .env.example .env
-# Fill in MONGODB_USER, MONGODB_PASS, MONGODB_CLUSTER, MONGODB_CLUSTER_NAME,
-# MONGODB_DATABASE, ATLAS_PROJECT_ID in atlas-app/.env
-
+# create atlas-app/.env with MONGODB_USER, MONGODB_PASS, MONGODB_CLUSTER, MONGODB_DATABASE
 npm install
 node setup_collections.js   # creates telemetry-data (time-series) + telemetry-status
 ```
 
-Then deploy the trigger (requires [Atlas CLI](https://www.mongodb.com/docs/atlas/cli/stable/install-atlas-cli/) installed and authenticated):
-
-```bash
-bash deploy.sh
-# On first run, copy the printed App ID into .env as ATLAS_APP_ID
-```
+Then create the `assembleTelemetry` function and a database trigger on `PowertrainSample` inserts in the Atlas App Services UI. Full step-by-step (function body, trigger config) is in [`atlas-app/README.md`](atlas-app/README.md).
 
 ### 3. Start all services
 
@@ -215,17 +208,16 @@ Open the **ObjectBox Sync Server admin UI** at [http://localhost:9980](http://lo
 
 ### 4. Load the car manual into the search-service (once)
 
-Run this **after** the stack is up, when `search-service` is healthy:
+Run this **after** the stack is up, when `search-service` is healthy (from the repo root):
 
 ```bash
-cd ..                     # back to repo root
-pip install -r requirements.txt
-python load_documents.py
+pip install -r mongodb-loader/requirements.txt
+python mongodb-loader/load_documents.py
 ```
 
 What happens:
 
-1. `load_documents.py` chunks [`documents/mongodb_leafy_car_manual.txt`](documents/mongodb_leafy_car_manual.txt)
+1. `load_documents.py` chunks [`mongodb-loader/documents/mongodb_leafy_car_manual.txt`](mongodb-loader/documents/mongodb_leafy_car_manual.txt)
    on heading boundaries (~379 chunks) and embeds each chunk with
    `voyageai/voyage-4-nano` (1024-d, `trust_remote_code=True`, the model's `document` prompt).
 2. It POSTs the chunks to the search-service via `POST /chunks` in batches.
@@ -256,7 +248,7 @@ cd sync-server-setup
 docker compose down
 Remove-Item -Force .\search-service-data\*.mdb   # PowerShell; or rm on Linux/macOS
 docker compose up -d --build search-service
-# wait until healthy, then re-run python load_documents.py from the repo root
+# wait until healthy, then re-run: python mongodb-loader/load_documents.py
 ```
 
 Once all containers are healthy, open the voice assistant at **[http://localhost:5000](http://localhost:5000)**.
@@ -265,7 +257,7 @@ Once all containers are healthy, open the voice assistant at **[http://localhost
 
 The web UI is a single-page dashboard with:
 
-- **Left panel** — RPM arc gauge, engine telemetry (coolant, throttle, odometer), battery (SoC, voltage, health, range)
+- **Left panel** — RPM arc gauge, engine telemetry (coolant, throttle), battery (SoC, voltage, health, range)
 - **Center** — Chat interface with real-time streaming responses, tool progress indicator, navigation map, mic button, online/offline mode toggle
 - **Right panel** — Fuel arc gauge with gear/speed, 4-tyre pressure diagram, chassis (ABS, traction control, brake)
 
@@ -286,7 +278,7 @@ All telemetry widgets poll `/api/vss/latest` every 3 seconds from the C++ servic
 
 ## VSS Telemetry Schema
 
-The C++ service stores 13 typed entities (IDs 10–23), all sync-enabled to MongoDB Atlas.
+The C++ service defines 8 typed entities (IDs 10, 11, 19–24), all sync-enabled to MongoDB Atlas.
 
 ### Metadata
 | Entity | ID | Description |
@@ -294,29 +286,28 @@ The C++ service stores 13 typed entities (IDs 10–23), all sync-enabled to Mong
 | `VehicleMeta` | 10 | VIN, OEM, model, platform, software version, powertrain type, drivetrain type, fuel tank capacity, battery capacity, wheelbase, curb weight |
 | `SignalDefinition` | 11 | VSS signal registry (not populated at runtime) |
 
-### State entities — one row per vehicle, upserted on every snapshot
+### Sample entities — append-only history, pruned after 24 h
 | Entity | ID | Key fields |
 |---|---|---|
-| `PowertrainState` | 13 | speed, RPM, fuel level %, fuel rate, coolant temp, throttle, gear, ignition, odometer |
-| `BatteryState` | 14 | SoC%, SoH%, voltage, current, charging state, charging power, estimated range, battery temp |
-| `ChassisState` | 15 | 4-tyre pressures (kPa), steering angle, brake pedal, ABS active, traction control active |
-| `CabinState` | 16 | inside/outside temp, HVAC mode, fan speed, door states, locks, seatbelt |
-| `LocationState` | 17 | GeoJSON Point (`locationGeoJson`), altitude, heading, GPS speed, geohash |
-| `AdasState` | 18 | cruise enabled/set speed, lane keep assist, parking assist, collision warning, autopilot mode |
+| `PowertrainSample` | 19 | speed, RPM, fuel level %, fuel rate, coolant temp, throttle, gear |
+| `BatterySample` | 20 | SoC%, SoH%, battery temp, charging power, estimated range, voltage, current |
+| `LocationSample` | 21 | GeoJSON Point (`locationGeoJson`), altitude, heading, GPS speed, accuracy |
+| `CabinSample` | 22 | inside/outside temp, HVAC mode, fan speed |
+| `AdasSample` | 23 | cruise enabled/set speed, lane keep assist, collision warning |
+| `ChassisSample` | 24 | 4-tyre pressures (kPa), steering angle, brake pedal, ABS active, traction control active |
 
-### Sample entities — append-only history, pruned after 24 h
-`PowertrainSample` (19), `BatterySample` (20), `LocationSample` (21), `CabinSample` (22), `AdasSample` (23)
+Current status is derived by reading the newest sample of each domain — there are no "latest value" state entities.
 
 Full field-level documentation: [`vss-data.md`](vss-data.md)
 
 ### Unified Atlas collections (produced by Atlas Trigger)
 
-The Atlas App Services trigger (`atlas-app/`) fires on every `PowertrainState` write and assembles all entity data into two unified collections:
+The Atlas App Services trigger (`atlas-app/`) fires on every `PowertrainSample` insert and assembles the latest of each entity into two unified collections:
 
 | Collection | Type | Write cadence | Purpose |
 |---|---|---|---|
 | `telemetry-data` | Native time-series (`timeField: timestamp`, `metaField: vehicleId`) | Every ~2 s | Historical telemetry |
-| `telemetry-status` | Standard, unique index on `vehicleId` | Every ~10 s (debounced) | Current state — MCP server reads from here |
+| `telemetry-status` | Standard, unique index on `vehicleId` | Every ~10 s (debounced) | Current state — telemetry API reads from here |
 
 ### Location format
 
@@ -341,30 +332,32 @@ GET    /health   — status + chunk_count
 ## VSS Telemetry Service API
 
 ```
-POST /vss/snapshot              — upsert all State entities + append all Samples
+POST /vss/snapshot              — append samples for all domains
 POST /vss/meta                  — upsert VehicleMeta (seeded once at startup)
-GET  /vss/latest                — full current state (all domains)
+GET  /vss/latest                — unified latest snapshot (all domains + meta)
 GET  /vss/powertrain/history?minutes=N
 GET  /vss/battery/history?minutes=N
 GET  /vss/location/history?minutes=N
 GET  /vss/cabin/history?minutes=N
 GET  /vss/adas/history?minutes=N
+GET  /vss/chassis/history?minutes=N
 DELETE /vss/prune?older_than_hours=N
 GET  /health
 ```
 
-## MCP Tools (vss-telemetry-mcp-server)
+## Telemetry Tools (vss-telemetry-api)
 
-The MCP server reads exclusively from `telemetry-status` (one `findOne` per tool call) and exposes all tools via `POST /tools/<name>`. The LangChain agent uses the following subset in online mode:
+The telemetry API reads exclusively from `telemetry-status` (one `findOne` per tool call) and exposes all tools via `POST /tools/<name>`. The LangChain agent uses the following subset in online mode:
 
 | Tool | Description |
 |---|---|
-| `get_powertrain_status` | Speed, RPM, coolant temp, gear, throttle, odometer (from `data.powertrain`) |
-| `get_fuel_status` | Fuel level %, litres remaining, consumption rate (from `data.powertrain` + `meta`) |
-| `get_battery_status` | SoC%, SoH%, charging state, estimated electric range (from `data.battery`) |
-| `get_chassis_status` | Tyre pressures (all four), ABS, traction control (from `data.chassis`) |
+| `get_vehicle_status` | Full snapshot — all domains + meta in one call |
+| `get_powertrain_status` | Speed, RPM, coolant temp, gear, throttle |
+| `get_fuel_status` | Fuel level %, litres remaining, consumption rate (+ tank capacity from `meta`) |
+| `get_battery_status` | SoC%, SoH%, charging (inferred from charging power), range, voltage, current, temp |
+| `get_chassis_status` | Tyre pressures (all four), ABS, traction control, brake pedal |
 
-Additional tools on the server but not wired to the agent: `get_vehicle_status`, `get_cabin_status`, `get_location`, `get_adas_status`. Each adds ~30 tokens to every LLM call prefill — re-add to `_TELEMETRY_TOOLS` in `agent_service.py` if needed.
+Additional tools on the server but not wired to the agent: `get_cabin_status`, `get_location`, `get_adas_status`. Each adds ~30 tokens to every LLM call prefill — re-add to `_TELEMETRY_TOOLS` in `agent_service.py` if needed.
 
 ## Data Flow
 
@@ -374,13 +367,13 @@ vss-telemetry-simulator (8087)
     → vss-telemetry-service (8086, ObjectBox C++)   ← UI polls /vss/latest
       → ObjectBox Sync Server (9999)
         → MongoDB Atlas (individual entity collections)
-          → Atlas Trigger on PowertrainState (assembleTelemetry)
+          → Atlas Trigger on PowertrainSample insert (assembleTelemetry)
               ├── INSERT telemetry-data (time-series, every ~2 s)
               └── UPSERT telemetry-status (every ~10 s)
-                    → vss-telemetry-mcp-server (3002)   ← LangChain agent (online mode)
+                    → vss-telemetry-api (3002)   ← LangChain agent (online mode)
 ```
 
-State writes always read the existing entity first to preserve `syncClock`, so the Sync Server accepts updates rather than reverting them.
+Sample entities are inserted with `id = 0` (append-only), so each snapshot creates new rows that replicate to Atlas; there is no read-modify-write.
 
 ## Resetting the VSS Database
 
@@ -409,7 +402,7 @@ Remove-Item -Recurse -Force sync-server-setup\search-service-data   # search-ser
 Remove-Item -Recurse -Force sync-server-setup\vss-telemetry-data     # vss-telemetry-service
 Remove-Item -Recurse -Force sync-server-setup\conversation-data      # conversation-service
 ```
-After restart, re-run `python load_documents.py` to reload manual chunks into the search-service.
+After restart, re-run `python mongodb-loader/load_documents.py` to reload manual chunks into the search-service.
 
 **C++ service: "Permission denied" (code 13) on startup**
 The host bind-mount directory is owned by root; the container process runs as `appuser` and cannot write to it. The `conversation-service` Dockerfile includes an `entrypoint.sh` that fixes ownership at startup via `gosu`. If other C++ services show the same error, apply the same entrypoint pattern to their Dockerfiles.

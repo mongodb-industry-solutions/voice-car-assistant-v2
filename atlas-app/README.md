@@ -1,13 +1,13 @@
 # Atlas App Services — VSS Telemetry Triggers
 
-Transforms individual ObjectBox-synced entity collections into two unified collections used by the MCP server.
+Transforms individual ObjectBox-synced entity collections into two unified collections used by the telemetry API.
 
 ## How it works
 
 The trigger fires on every `PowertrainState` write (the simulator's heartbeat — always present in every snapshot). When it fires, `assembleTelemetry` reads all six state collections in parallel and writes two unified documents:
 
 - **`telemetry-data`** — inserts a new record on every trigger fire (~every 2 s). Append-only time-series history.
-- **`telemetry-status`** — upserts the current state at most once every 10 s. This is what the MCP server reads.
+- **`telemetry-status`** — upserts the current state at most once every 10 s. This is what the telemetry API reads.
 
 ```
 ObjectBox Sync Server

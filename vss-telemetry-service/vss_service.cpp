@@ -4,6 +4,7 @@
  * Endpoints:
  *   POST /vss/snapshot           — append samples for all domains
  *   POST /vss/meta               — upsert VehicleMeta
+ *   GET  /vss/latest             — unified latest snapshot (all domains + meta), offline-capable
  *   GET  /vss/powertrain/history?minutes=N
  *   GET  /vss/battery/history?minutes=N
  *   GET  /vss/location/history?minutes=N
@@ -629,6 +630,85 @@ int main(int argc, char* argv[]) {
         } catch (const std::exception& e) {
             res.status = 500;
             res.set_content(json{{"error",e.what()}}.dump(), "application/json");
+        }
+    });
+
+    // ── GET /vss/latest ───────────────────────────────────────────────────────
+    // Unified latest snapshot assembled from the newest sample of each domain +
+    // VehicleMeta. Served straight from local ObjectBox, so it works offline
+    // (unlike the Atlas-derived telemetry-status). Flat shape consumed by the UI.
+    svr.Get("/vss/latest", [&](const Request&, Response& res) {
+        try {
+            json out;
+            out["vehicle_id"] = VEHICLE_ID;
+
+            if (auto r = pts_box.query(PowertrainSample_::vehicleId.equals(VEHICLE_ID))
+                    .order(PowertrainSample_::ts, OBXOrderFlags_DESCENDING).build().findFirst()) {
+                out["powertrain"] = {
+                    {"ts", r->ts}, {"speedKph", r->speedKph}, {"engineRpm", r->engineRpm},
+                    {"fuelLevelPct", r->fuelLevelPct}, {"fuelRateLph", r->fuelRateLph},
+                    {"coolantTempC", r->coolantTempC}, {"throttlePct", r->throttlePct}, {"gear", r->gear}
+                };
+            }
+            if (auto r = bats_box.query(BatterySample_::vehicleId.equals(VEHICLE_ID))
+                    .order(BatterySample_::ts, OBXOrderFlags_DESCENDING).build().findFirst()) {
+                out["battery"] = {
+                    {"ts", r->ts}, {"socPct", r->socPct}, {"sohPct", r->sohPct},
+                    {"batteryTempC", r->batteryTempC}, {"chargingPowerKw", r->chargingPowerKw},
+                    {"estimatedRangeKm", r->estimatedRangeKm}, {"voltageV", r->voltageV}, {"currentA", r->currentA}
+                };
+            }
+            if (auto r = chs_s_box.query(ChassisSample_::vehicleId.equals(VEHICLE_ID))
+                    .order(ChassisSample_::ts, OBXOrderFlags_DESCENDING).build().findFirst()) {
+                out["chassis"] = {
+                    {"ts", r->ts}, {"steeringAngleDeg", r->steeringAngleDeg}, {"brakePedalPct", r->brakePedalPct},
+                    {"tirePressureFlKpa", r->tirePressureFlKpa}, {"tirePressureFrKpa", r->tirePressureFrKpa},
+                    {"tirePressureRlKpa", r->tirePressureRlKpa}, {"tirePressureRrKpa", r->tirePressureRrKpa},
+                    {"absActive", r->absActive}, {"tractionControlActive", r->tractionControlActive}
+                };
+            }
+            if (auto r = cabs_box.query(CabinSample_::vehicleId.equals(VEHICLE_ID))
+                    .order(CabinSample_::ts, OBXOrderFlags_DESCENDING).build().findFirst()) {
+                out["cabin"] = {
+                    {"ts", r->ts}, {"insideTempC", r->insideTempC}, {"outsideTempC", r->outsideTempC},
+                    {"hvacMode", r->hvacMode}, {"fanSpeed", r->fanSpeed}
+                };
+            }
+            if (auto r = locs_box.query(LocationSample_::vehicleId.equals(VEHICLE_ID))
+                    .order(LocationSample_::ts, OBXOrderFlags_DESCENDING).build().findFirst()) {
+                json loc = {
+                    {"ts", r->ts}, {"altitudeM", r->altitudeM}, {"headingDeg", r->headingDeg},
+                    {"speedKph", r->speedKph}, {"accuracyM", r->accuracyM}
+                };
+                if (!r->locationGeoJson.empty()) {
+                    try { loc["locationGeoJson"] = json::parse(r->locationGeoJson); }
+                    catch (...) { loc["locationGeoJson"] = r->locationGeoJson; }
+                }
+                out["location"] = loc;
+            }
+            if (auto r = adas_s_box.query(AdasSample_::vehicleId.equals(VEHICLE_ID))
+                    .order(AdasSample_::ts, OBXOrderFlags_DESCENDING).build().findFirst()) {
+                out["adas"] = {
+                    {"ts", r->ts}, {"cruiseEnabled", r->cruiseEnabled}, {"cruiseSetSpeedKph", r->cruiseSetSpeedKph},
+                    {"laneKeepAssistOn", r->laneKeepAssistOn}, {"collisionWarningActive", r->collisionWarningActive}
+                };
+            }
+            {
+                auto metas = vm_box.query(VehicleMeta_::vehicleId.equals(VEHICLE_ID)).build().find();
+                if (!metas.empty()) {
+                    auto& m = metas[0];
+                    out["meta"] = {
+                        {"vehicleId", m.vehicleId}, {"vin", m.vin}, {"oem", m.oem}, {"model", m.modelName},
+                        {"powertrainType", m.powertrainType}, {"drivetrainType", m.drivetrainType},
+                        {"fuelTankCapacityL", m.fuelTankCapacityL}, {"batteryCapacityKwh", m.batteryCapacityKwh},
+                        {"wheelbaseMm", m.wheelbaseMm}, {"curbWeightKg", m.curbWeightKg}
+                    };
+                }
+            }
+            res.set_content(out.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json{{"error", e.what()}}.dump(), "application/json");
         }
     });
 

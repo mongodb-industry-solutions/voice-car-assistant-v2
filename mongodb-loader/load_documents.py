@@ -14,10 +14,10 @@ Why HTTP instead of writing ObjectBox directly:
     so writing the store directly (the old approach) only ever produced
     local-only rows that never reached the Sync Server.
 
-Run ONCE, AFTER the stack is up and search-service is healthy:
-    pip install -r requirements.txt
+Run ONCE, AFTER the stack is up and search-service is healthy (from the repo root):
+    pip install -r mongodb-loader/requirements.txt
     docker compose -f sync-server-setup/docker-compose.yml up   # in another shell
-    python load_documents.py
+    python mongodb-loader/load_documents.py
 """
 
 import os
@@ -30,7 +30,8 @@ from typing import List
 import requests
 from sentence_transformers import SentenceTransformer
 
-MANUAL_FILE        = "documents/mongodb_leafy_car_manual.txt"
+# Resolve the manual relative to this script so it runs from any working directory.
+MANUAL_FILE        = Path(__file__).resolve().parent / "documents" / "mongodb_leafy_car_manual.txt"
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://localhost:8080")
 EMBEDDING_MODEL    = os.getenv("EMBEDDING_MODEL", "voyageai/voyage-4-nano")
 EMBED_DIM          = 1024

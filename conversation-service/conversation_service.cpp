@@ -89,8 +89,11 @@ OBX_model* create_obx_model() {
     obx_model_property(model, "role", OBXPropertyType_String, 5, 5555666677778888999ULL);
     obx_model_property(model, "message", OBXPropertyType_String, 6, 6666777788889999111ULL);
     obx_model_property(model, "sources", OBXPropertyType_String, 7, 7777888899991111222ULL);
+    obx_model_property_external_type(model, OBXExternalPropertyType_JsonToNative);  // JSON array → native array in Atlas
     obx_model_property(model, "syncClock", OBXPropertyType_Long, 8, 8888999911112222333ULL);
-    obx_model_entity_last_property_id(model, 8, 8888999911112222333ULL);
+    obx_model_property(model, "tools_used", OBXPropertyType_String, 9, 9099888877776666555ULL);
+    obx_model_property_external_type(model, OBXExternalPropertyType_JsonToNative);  // JSON array → native array in Atlas
+    obx_model_entity_last_property_id(model, 9, 9099888877776666555ULL);
 
     // Entity 4: telemetry_snapshots
     obx_model_entity(model, "telemetry_snapshots", 4, 2222333344445555777ULL);
@@ -264,7 +267,12 @@ int main(int argc, char* argv[]) {
             conv.timestamp = current_timestamp_ms();
             conv.role = body["role"].get<std::string>();
             conv.message = body["message"].get<std::string>();
+            // sources is JsonToNative → must be valid JSON; default/empty becomes an empty array.
             conv.sources = body.value("sources", "");
+            if (conv.sources.empty()) conv.sources = "[]";
+            // tools_used is JsonToNative → must be valid JSON; default/empty becomes an empty array.
+            conv.tools_used = body.value("tools_used", "");  // JSON array of tool names (assistant turns)
+            if (conv.tools_used.empty()) conv.tools_used = "[]";
             conv.syncClock = 0;  // Managed by sync
 
             obx_id id = box.put(conv);
@@ -301,6 +309,7 @@ int main(int argc, char* argv[]) {
                     {"role", conv.role},
                     {"message", conv.message},
                     {"sources", conv.sources},
+                    {"tools_used", conv.tools_used},
                     {"timestamp", conv.timestamp}
                 });
             }
@@ -336,6 +345,7 @@ int main(int argc, char* argv[]) {
                     {"conversation_id", conv.conversation_id},
                     {"role", conv.role},
                     {"message", conv.message},
+                    {"tools_used", conv.tools_used},
                     {"timestamp", conv.timestamp}
                 });
             }

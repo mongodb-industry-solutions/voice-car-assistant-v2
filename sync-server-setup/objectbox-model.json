@@ -93,7 +93,7 @@
       "id": "3:1111222233334444555",
       "name": "conversations",
       "flags": 2,
-      "lastPropertyId": "8:8888999911112222333",
+      "lastPropertyId": "9:9099888877776666555",
       "properties": [
         {
           "id": "1:1111222233334444556",
@@ -135,12 +135,19 @@
         {
           "id": "7:7777888899991111222",
           "name": "sources",
-          "type": 9
+          "type": 9,
+          "externalType": 112
         },
         {
           "id": "8:8888999911112222333",
           "name": "syncClock",
           "type": 6
+        },
+        {
+          "id": "9:9099888877776666555",
+          "name": "tools_used",
+          "type": 9,
+          "externalType": 112
         }
       ]
     },

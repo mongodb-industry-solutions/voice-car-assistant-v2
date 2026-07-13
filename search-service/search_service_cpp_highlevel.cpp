@@ -94,8 +94,11 @@ OBX_model* create_obx_model() {
     obx_model_property(model, "role", OBXPropertyType_String, 5, 5555666677778888999ULL);
     obx_model_property(model, "message", OBXPropertyType_String, 6, 6666777788889999111ULL);
     obx_model_property(model, "sources", OBXPropertyType_String, 7, 7777888899991111222ULL);
+    obx_model_property_external_type(model, OBXExternalPropertyType_JsonToNative);  // JSON array → native array in Atlas
     obx_model_property(model, "syncClock", OBXPropertyType_Long, 8, 8888999911112222333ULL);
-    obx_model_entity_last_property_id(model, 8, 8888999911112222333ULL);
+    obx_model_property(model, "tools_used", OBXPropertyType_String, 9, 9099888877776666555ULL);
+    obx_model_property_external_type(model, OBXExternalPropertyType_JsonToNative);  // JSON array → native array in Atlas
+    obx_model_entity_last_property_id(model, 9, 9099888877776666555ULL);
 
     // Entity 4: telemetry_snapshots
     obx_model_entity(model, "telemetry_snapshots", 4, 2222333344445555777ULL);

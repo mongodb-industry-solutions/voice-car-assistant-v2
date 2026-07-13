@@ -104,7 +104,7 @@ function addAssistantMessage(text, sources = null, toolsUsed = []) {
             sourcesHtml += `
                 <div class="source-chip">
                     <div class="source-chip-header">
-                        <span>📄 ${escapeHtml(source.source || 'Unknown')}</span>
+                        <span>📄 Car manual</span>
                         <span>Match: ${score}</span>
                     </div>
                     <div>${escapeHtml(sourceText)}</div>

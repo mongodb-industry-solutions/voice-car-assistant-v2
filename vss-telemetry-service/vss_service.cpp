@@ -97,8 +97,11 @@ OBX_model* create_obx_model() {
     PROP_S("role",             5, 5555666677778888999ULL);
     PROP_S("message",          6, 6666777788889999111ULL);
     PROP_S("sources",          7, 7777888899991111222ULL);
+    obx_model_property_external_type(m, OBXExternalPropertyType_JsonToNative);  // JSON array → native array in Atlas
     PROP_L("syncClock",        8, 8888999911112222333ULL);
-    LAST_PROP(8, 8888999911112222333ULL);
+    PROP_S("tools_used",       9, 9099888877776666555ULL);
+    obx_model_property_external_type(m, OBXExternalPropertyType_JsonToNative);  // JSON array → native array in Atlas
+    LAST_PROP(9, 9099888877776666555ULL);
 
     // Entity 4: telemetry_snapshots (legacy, kept for shared-model compatibility)
     DEF_ENTITY("telemetry_snapshots", 4, 2222333344445555777ULL);

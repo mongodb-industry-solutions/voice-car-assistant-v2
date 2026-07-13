@@ -82,6 +82,9 @@ _http.mount("https://", HTTPAdapter(max_retries=0))
 # Regex to extract structured navigation data embedded in navigate_to tool output
 _NAV_DATA_RE = re.compile(r"\[ROUTE_DATA:(.*?)\]$", re.DOTALL)
 
+# Regex to extract structured source chunks embedded in search_car_manual tool output
+_SOURCES_RE = re.compile(r"\[SOURCES:(.*?)\]$", re.DOTALL)
+
 # Max characters returned by search tools — caps LLM context bloat from large manual chunks
 # ~2 400 chars ≈ 600 tokens; a typical manual section fits; the LLM uses ~10 % of it anyway
 MAX_SEARCH_CHARS = 2400
@@ -199,18 +202,19 @@ def _ui_tool_name(name: str, network_mode: str) -> str:
     return name
 
 
-def _strip_route_data(messages: list) -> list:
+def _strip_tool_markers(messages: list) -> list:
     """
-    Strip [ROUTE_DATA:...] blocks from ToolMessages before they reach the LLM.
-    The geometry JSON can be hundreds of tokens (coordinate arrays) that the LLM
-    has no use for — the frontend handles map rendering from the extracted navigation dict.
-    Extraction of the navigation data happens in run_agent/stream_agent from the raw
-    graph state before this stripping, so nothing is lost for the caller.
+    Strip [ROUTE_DATA:...] and [SOURCES:...] blocks from ToolMessages before they
+    reach the LLM. Both carry structured data — route geometry (coordinate arrays)
+    and manual source chunks — that the LLM has no use for and that would waste
+    context. Extraction happens in run_agent/stream_agent from the raw graph state
+    before this stripping, so nothing is lost for the caller.
     """
     out = []
     for msg in messages:
-        if isinstance(msg, ToolMessage) and _NAV_DATA_RE.search(msg.content or ""):
-            cleaned = _NAV_DATA_RE.sub("", msg.content).rstrip()
+        content = msg.content if isinstance(msg, ToolMessage) else None
+        if content and (_NAV_DATA_RE.search(content) or _SOURCES_RE.search(content)):
+            cleaned = _SOURCES_RE.sub("", _NAV_DATA_RE.sub("", content)).rstrip()
             out.append(ToolMessage(content=cleaned, tool_call_id=msg.tool_call_id, name=msg.name))
         else:
             out.append(msg)
@@ -333,7 +337,7 @@ def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
     # then keep the most recent turns that fit the budget. start_on="human" keeps
     # AIMessage(tool_call)/ToolMessage pairs intact at the cut point (some models
     # reject an orphan tool response), which a plain messages[-N:] slice could split.
-    history = _strip_route_data(messages)
+    history = _strip_tool_markers(messages)
     trimmed = trim_messages(
         history,
         max_tokens=_HISTORY_TOKEN_BUDGET,
@@ -385,7 +389,18 @@ def _search_manual_impl(query: str, search_url: str) -> str:
         if len(joined) > MAX_SEARCH_CHARS:
             print(f"[search] truncating result {len(joined)} → {MAX_SEARCH_CHARS} chars", flush=True)
             joined = joined[:MAX_SEARCH_CHARS]
-        return joined
+        # Preserve the per-chunk source metadata (which is dropped from the LLM-facing
+        # text) after a marker. run_agent/stream_agent extract it for the caller, and
+        # _strip_tool_markers removes it from the ToolMessage before any LLM call.
+        # Only score + text are kept — the source is always the car manual.
+        sources = [
+            {
+                "score": r.get("score"),
+                "text":  (r.get("text") or "")[:200],
+            }
+            for r in results
+        ]
+        return joined + f"\n[SOURCES:{json.dumps(sources)}]"
     except Exception as e:
         print(f"[search] exception: {e}", flush=True)
         return f"Manual search error: {e}"
@@ -612,10 +627,25 @@ def run_agent(
             except json.JSONDecodeError:
                 pass
 
+    # Extract structured manual sources from the search_car_manual ToolMessage.
+    sources: list = []
+    src_msg = next(
+        (m for m in turn_msgs if isinstance(m, ToolMessage) and m.name == "search_car_manual"),
+        None,
+    )
+    if src_msg:
+        match = _SOURCES_RE.search(src_msg.content or "")
+        if match:
+            try:
+                sources = json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+
     return {
         "answer": answer,
         "tools_used": tools_used,
         "navigation": navigation,
+        "sources": sources,
         "conversation_id": conversation_id,
     }
 
@@ -649,6 +679,7 @@ def stream_agent(
     tools_used: list[str] = []
     full_content = ""
     navigation = None
+    sources: list = []
     _status_emitted: set[str] = set()  # track which tool-call statuses we've already sent
     # Think-tag filter state — suppresses <think>...</think> from streamed tokens
     # so the UI never displays raw model reasoning, only the actual answer.
@@ -726,6 +757,13 @@ def stream_agent(
                             navigation = json.loads(match.group(1))
                         except json.JSONDecodeError:
                             pass
+                elif chunk.name == "search_car_manual":
+                    match = _SOURCES_RE.search(chunk.content or "")
+                    if match:
+                        try:
+                            sources = json.loads(match.group(1))
+                        except json.JSONDecodeError:
+                            pass
 
     except Exception as e:
         print(f"[agent] stream error: {e}", flush=True)
@@ -734,7 +772,7 @@ def stream_agent(
 
     print(f"[timing] agent stream total: {time.time() - t0:.2f}s", flush=True)
     clean_answer = _strip_think_tags(full_content) or "I couldn't generate a response."
-    yield f"data: {json.dumps({'done': True, 'answer': clean_answer, 'tools_used': tools_used, 'navigation': navigation, 'conversation_id': conversation_id})}\n\n"
+    yield f"data: {json.dumps({'done': True, 'answer': clean_answer, 'tools_used': tools_used, 'navigation': navigation, 'sources': sources, 'conversation_id': conversation_id})}\n\n"
 
 
 # ── Flask endpoints ───────────────────────────────────────────────────────────

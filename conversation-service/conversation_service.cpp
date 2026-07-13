@@ -40,9 +40,8 @@ OBX_model* create_obx_model() {
     if (!model) return nullptr;
 
     // Model generated from sync-server-setup/objectbox-model.json (authoritative).
-    // ALL sync clients must present this identical model or the Sync Server rejects
-    // them with UNSUPPORTED_DATA_MODEL (57). Entities this service does not use are
-    // still declared for schema compatibility. Regenerate if the shared model changes.
+    // ALL sync clients must present this identical model or the Sync Server rejects them.
+    // Regenerate whenever the shared model changes.
 
     // Entity 1: manual_chunks
     obx_model_entity(model, "manual_chunks", 1, 2807783899453578393ULL);
@@ -113,28 +112,6 @@ OBX_model* create_obx_model() {
     obx_model_property(model, "syncClock", OBXPropertyType_Long, 12, 4444555566668888111ULL);
     obx_model_entity_last_property_id(model, 12, 4444555566668888111ULL);
 
-    // Entity 10: VehicleMeta
-    obx_model_entity(model, "VehicleMeta", 10, 6010000000000000ULL);
-    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 6010000000000001ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "vehicleId", OBXPropertyType_String, 2, 6010000000000002ULL);
-    obx_model_property(model, "vin", OBXPropertyType_String, 3, 6010000000000003ULL);
-    obx_model_property(model, "oem", OBXPropertyType_String, 4, 6010000000000004ULL);
-    obx_model_property(model, "model", OBXPropertyType_String, 5, 6010000000000005ULL);
-    obx_model_property(model, "platform", OBXPropertyType_String, 6, 6010000000000006ULL);
-    obx_model_property(model, "softwareVersion", OBXPropertyType_String, 7, 6010000000000007ULL);
-    obx_model_property(model, "createdAt", OBXPropertyType_Long, 8, 6010000000000008ULL);
-    obx_model_property(model, "updatedAt", OBXPropertyType_Long, 9, 6010000000000009ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 10, 6010000000000010ULL);
-    obx_model_property(model, "fuelTankCapacityL", OBXPropertyType_Float, 11, 6010000000000011ULL);
-    obx_model_property(model, "batteryCapacityKwh", OBXPropertyType_Float, 12, 6010000000000012ULL);
-    obx_model_property(model, "wheelbaseMm", OBXPropertyType_Int, 13, 6010000000000013ULL);
-    obx_model_property(model, "curbWeightKg", OBXPropertyType_Int, 14, 6010000000000014ULL);
-    obx_model_property(model, "powertrainType", OBXPropertyType_String, 15, 6010000000000015ULL);
-    obx_model_property(model, "drivetrainType", OBXPropertyType_String, 16, 6010000000000016ULL);
-    obx_model_entity_last_property_id(model, 16, 6010000000000016ULL);
-
     // Entity 11: SignalDefinition
     obx_model_entity(model, "SignalDefinition", 11, 6011000000000000ULL);
     obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
@@ -155,133 +132,26 @@ OBX_model* create_obx_model() {
     obx_model_property(model, "syncClock", OBXPropertyType_Long, 14, 6011000000000014ULL);
     obx_model_entity_last_property_id(model, 14, 6011000000000014ULL);
 
-    // Entity 19: PowertrainSample
-    obx_model_entity(model, "PowertrainSample", 19, 6019000000000000ULL);
+    // Entity 26: objectbox_telemetry
+    obx_model_entity(model, "objectbox_telemetry", 26, 6030000000000000ULL);
     obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 6019000000000001ULL);
+    obx_model_property(model, "id", OBXPropertyType_Long, 1, 6030000000000001ULL);
     obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "vehicleId", OBXPropertyType_String, 2, 6019000000000002ULL);
+    obx_model_property(model, "vehicleId", OBXPropertyType_String, 2, 6030000000000002ULL);
     obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 13, 6019000000000100ULL);
-    obx_model_property(model, "ts", OBXPropertyType_Long, 3, 6019000000000003ULL);
+    obx_model_property_index_id(model, 25, 6030000000000100ULL);
+    obx_model_property(model, "ts", OBXPropertyType_Long, 3, 6030000000000003ULL);
     obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 14, 6019000000000200ULL);
-    obx_model_property(model, "tripId", OBXPropertyType_String, 4, 6019000000000004ULL);
-    obx_model_property(model, "speedKph", OBXPropertyType_Float, 5, 6019000000000005ULL);
-    obx_model_property(model, "engineRpm", OBXPropertyType_Float, 6, 6019000000000006ULL);
-    obx_model_property(model, "fuelLevelPct", OBXPropertyType_Float, 7, 6019000000000007ULL);
-    obx_model_property(model, "fuelRateLph", OBXPropertyType_Float, 8, 6019000000000008ULL);
-    obx_model_property(model, "coolantTempC", OBXPropertyType_Float, 9, 6019000000000009ULL);
-    obx_model_property(model, "throttlePct", OBXPropertyType_Float, 10, 6019000000000010ULL);
-    obx_model_property(model, "gear", OBXPropertyType_Int, 11, 6019000000000011ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 12, 6019000000000012ULL);
-    obx_model_entity_last_property_id(model, 12, 6019000000000012ULL);
+    obx_model_property_index_id(model, 26, 6030000000000200ULL);
+    obx_model_property(model, "data", OBXPropertyType_String, 4, 6030000000000004ULL);
+    obx_model_property_external_type(model, OBXExternalPropertyType_JsonToNative);
+    obx_model_property(model, "syncClock", OBXPropertyType_Long, 5, 6030000000000005ULL);
+    obx_model_property(model, "meta", OBXPropertyType_String, 6, 6030000000000006ULL);
+    obx_model_property_external_type(model, OBXExternalPropertyType_JsonToNative);
+    obx_model_entity_last_property_id(model, 6, 6030000000000006ULL);
 
-    // Entity 20: BatterySample
-    obx_model_entity(model, "BatterySample", 20, 6020000000000000ULL);
-    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 6020000000000001ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "vehicleId", OBXPropertyType_String, 2, 6020000000000002ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 15, 6020000000000100ULL);
-    obx_model_property(model, "ts", OBXPropertyType_Long, 3, 6020000000000003ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 16, 6020000000000200ULL);
-    obx_model_property(model, "tripId", OBXPropertyType_String, 4, 6020000000000004ULL);
-    obx_model_property(model, "socPct", OBXPropertyType_Float, 5, 6020000000000005ULL);
-    obx_model_property(model, "sohPct", OBXPropertyType_Float, 6, 6020000000000006ULL);
-    obx_model_property(model, "batteryTempC", OBXPropertyType_Float, 7, 6020000000000007ULL);
-    obx_model_property(model, "chargingPowerKw", OBXPropertyType_Float, 8, 6020000000000008ULL);
-    obx_model_property(model, "estimatedRangeKm", OBXPropertyType_Float, 9, 6020000000000009ULL);
-    obx_model_property(model, "voltageV", OBXPropertyType_Float, 10, 6020000000000010ULL);
-    obx_model_property(model, "currentA", OBXPropertyType_Float, 11, 6020000000000011ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 12, 6020000000000012ULL);
-    obx_model_entity_last_property_id(model, 12, 6020000000000012ULL);
-
-    // Entity 21: LocationSample
-    obx_model_entity(model, "LocationSample", 21, 6021000000000000ULL);
-    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 6021000000000001ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "vehicleId", OBXPropertyType_String, 2, 6021000000000002ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 17, 6021000000000100ULL);
-    obx_model_property(model, "ts", OBXPropertyType_Long, 3, 6021000000000003ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 18, 6021000000000200ULL);
-    obx_model_property(model, "tripId", OBXPropertyType_String, 4, 6021000000000004ULL);
-    obx_model_property(model, "altitudeM", OBXPropertyType_Float, 7, 6021000000000007ULL);
-    obx_model_property(model, "headingDeg", OBXPropertyType_Float, 8, 6021000000000008ULL);
-    obx_model_property(model, "speedKph", OBXPropertyType_Float, 9, 6021000000000009ULL);
-    obx_model_property(model, "accuracyM", OBXPropertyType_Float, 10, 6021000000000010ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 11, 6021000000000011ULL);
-    obx_model_property(model, "locationGeoJson", OBXPropertyType_String, 12, 6021000000000012ULL);
-    obx_model_entity_last_property_id(model, 12, 6021000000000012ULL);
-
-    // Entity 22: CabinSample
-    obx_model_entity(model, "CabinSample", 22, 6022000000000000ULL);
-    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 6022000000000001ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "vehicleId", OBXPropertyType_String, 2, 6022000000000002ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 19, 6022000000000100ULL);
-    obx_model_property(model, "ts", OBXPropertyType_Long, 3, 6022000000000003ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 20, 6022000000000200ULL);
-    obx_model_property(model, "tripId", OBXPropertyType_String, 4, 6022000000000004ULL);
-    obx_model_property(model, "insideTempC", OBXPropertyType_Float, 5, 6022000000000005ULL);
-    obx_model_property(model, "outsideTempC", OBXPropertyType_Float, 6, 6022000000000006ULL);
-    obx_model_property(model, "hvacMode", OBXPropertyType_String, 7, 6022000000000007ULL);
-    obx_model_property(model, "fanSpeed", OBXPropertyType_Int, 8, 6022000000000008ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 9, 6022000000000009ULL);
-    obx_model_entity_last_property_id(model, 9, 6022000000000009ULL);
-
-    // Entity 23: AdasSample
-    obx_model_entity(model, "AdasSample", 23, 6023000000000000ULL);
-    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 6023000000000001ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "vehicleId", OBXPropertyType_String, 2, 6023000000000002ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 21, 6023000000000100ULL);
-    obx_model_property(model, "ts", OBXPropertyType_Long, 3, 6023000000000003ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 22, 6023000000000200ULL);
-    obx_model_property(model, "tripId", OBXPropertyType_String, 4, 6023000000000004ULL);
-    obx_model_property(model, "cruiseEnabled", OBXPropertyType_Bool, 5, 6023000000000005ULL);
-    obx_model_property(model, "cruiseSetSpeedKph", OBXPropertyType_Float, 6, 6023000000000006ULL);
-    obx_model_property(model, "laneKeepAssistOn", OBXPropertyType_Bool, 7, 6023000000000007ULL);
-    obx_model_property(model, "collisionWarningActive", OBXPropertyType_Bool, 8, 6023000000000008ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 9, 6023000000000009ULL);
-    obx_model_entity_last_property_id(model, 9, 6023000000000009ULL);
-
-    // Entity 24: ChassisSample
-    obx_model_entity(model, "ChassisSample", 24, 6026000000000000ULL);
-    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 6026000000000001ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "vehicleId", OBXPropertyType_String, 2, 6026000000000002ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 23, 6026000000000100ULL);
-    obx_model_property(model, "ts", OBXPropertyType_Long, 3, 6026000000000003ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 24, 6026000000000200ULL);
-    obx_model_property(model, "tripId", OBXPropertyType_String, 4, 6026000000000004ULL);
-    obx_model_property(model, "steeringAngleDeg", OBXPropertyType_Float, 5, 6026000000000005ULL);
-    obx_model_property(model, "brakePedalPct", OBXPropertyType_Float, 6, 6026000000000006ULL);
-    obx_model_property(model, "tirePressureFlKpa", OBXPropertyType_Float, 7, 6026000000000007ULL);
-    obx_model_property(model, "tirePressureFrKpa", OBXPropertyType_Float, 8, 6026000000000008ULL);
-    obx_model_property(model, "tirePressureRlKpa", OBXPropertyType_Float, 9, 6026000000000009ULL);
-    obx_model_property(model, "tirePressureRrKpa", OBXPropertyType_Float, 10, 6026000000000010ULL);
-    obx_model_property(model, "absActive", OBXPropertyType_Bool, 11, 6026000000000011ULL);
-    obx_model_property(model, "tractionControlActive", OBXPropertyType_Bool, 12, 6026000000000012ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 13, 6026000000000013ULL);
-    obx_model_entity_last_property_id(model, 13, 6026000000000013ULL);
-
-    obx_model_last_entity_id(model, 24, 6026000000000000ULL);
-    obx_model_last_index_id(model, 24, 6026000000000200ULL);
+    obx_model_last_entity_id(model, 26, 6030000000000000ULL);
+    obx_model_last_index_id(model, 26, 6030000000000200ULL);
 
     return model;
 }

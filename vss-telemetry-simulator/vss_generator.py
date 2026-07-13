@@ -14,8 +14,70 @@ VEHICLE_ID = "VSS-DEMO-VIN-001"
 VIN        = "WBA12345VSS00001"
 TRIP_ID    = "trip-001"
 
+# Static vehicle metadata — sent inside every snapshot (sibling of the domain blocks),
+# so it rides through as objectbox_telemetry.meta instead of a separate collection.
+META = {
+    "vin":                VIN,
+    "oem":                "MongoDB",
+    "model":              "Leafy 1.0",
+    "platform":           "VSS-v4",
+    "softwareVersion":    "1.0.0",
+    "fuelTankCapacityL":  60.0,
+    "batteryCapacityKwh": 75.0,
+    "wheelbaseMm":        2875,
+    "curbWeightKg":       1800,
+    "powertrainType":     "HEV",
+    "drivetrainType":     "AWD",
+}
+
 # Starting GPS position (Paris outskirts)
 BASE_LAT, BASE_LON = 48.8566, 2.3522
+
+# ---------------------------------------------------------------------------- #
+#  Diagnostics (OBD-II DTCs)                                                    #
+# ---------------------------------------------------------------------------- #
+# Diagnostics ride inside the snapshot `data` block (sibling of powertrain/etc.)
+# as { "DTCCount": int, "DTCList": [str, ...] } — no schema change needed since
+# `data` is stored as an opaque JsonToNative JSON blob.
+#
+# Codes are OBD-II: [P|C|B|U][0-3][0-9A-F][0-9A-F][0-9A-F]
+#   P Powertrain · C Chassis · B Body · U Network/communication
+# Descriptions mirror values-vss-data.md (kept in sync with the vss-telemetry-api
+# get_diagnostics_status lookup).
+DTC_CATALOG = {
+    # Powertrain
+    "P0128": "Coolant thermostat below regulating temperature",
+    "P0171": "System too lean (Bank 1)",
+    "P0172": "System too rich (Bank 1)",
+    "P0300": "Random / multiple cylinder misfire detected",
+    "P0301": "Cylinder 1 misfire detected",
+    "P0302": "Cylinder 2 misfire detected",
+    "P0303": "Cylinder 3 misfire detected",
+    "P0304": "Cylinder 4 misfire detected",
+    "P0420": "Catalyst system efficiency below threshold (Bank 1)",
+    "P0442": "Evaporative emission system leak detected (small leak)",
+    "P0455": "Evaporative emission system leak detected (gross leak)",
+    "P0500": "Vehicle speed sensor malfunction",
+    "P0700": "Transmission control system malfunction",
+    # Chassis
+    "C0021": "Wheel speed sensor front left circuit",
+    "C0035": "Left front wheel speed sensor circuit",
+    "C0040": "Right front wheel speed sensor circuit",
+    # Body
+    "B0001": "Driver frontal stage 1 deployment control",
+    "B0020": "Left side airbag deployment control",
+    # Network / communication
+    "U0001": "High speed CAN communication bus",
+    "U0002": "High speed CAN communication bus performance",
+    "U0006": "Medium speed CAN communication bus",
+}
+
+# Dwell window (ticks) a fired code stays active before it self-clears.
+# At the nominal 2 s/tick this is ~30–90 s.
+DTC_DWELL_MIN_TICKS = 15
+DTC_DWELL_MAX_TICKS = 45
+# Never surface more than this many simultaneously (keeps the cockpit readable).
+DTC_MAX_ACTIVE = 4
 
 
 class VssGenerator:
@@ -59,6 +121,9 @@ class VssGenerator:
         # ADAS state
         self.cruise_set_speed_kph = 0.0
 
+        # Diagnostics state — maps an active DTC code to the tick it expires on.
+        self.active_dtcs: dict[str, int] = {}
+
 
     # ------------------------------------------------------------------ #
     #  Helpers                                                             #
@@ -97,6 +162,67 @@ class VssGenerator:
             return 5
         else:
             return 6
+
+    # ------------------------------------------------------------------ #
+    #  Diagnostics                                                         #
+    # ------------------------------------------------------------------ #
+
+    def _fire_dtc(self, code: str) -> None:
+        """Activate (or refresh) a DTC with a fresh random dwell window."""
+        if code not in DTC_CATALOG:
+            return
+        if code not in self.active_dtcs and len(self.active_dtcs) >= DTC_MAX_ACTIVE:
+            return
+        self.active_dtcs[code] = self.tick + random.randint(
+            DTC_DWELL_MIN_TICKS, DTC_DWELL_MAX_TICKS
+        )
+
+    def _update_diagnostics(
+        self,
+        coolant_temp_c: float,
+        throttle_pct: float,
+        engine_rpm: float,
+        soc_pct: float,
+        brake_pedal_pct: float,
+        abs_active: bool,
+    ) -> dict:
+        """
+        Update the active-DTC set and return the diagnostics block.
+
+        Faults are mostly telemetry-correlated: a code fires (with a small
+        per-tick probability) only while a related signal is out of range, then
+        stays active for a dwell window before self-clearing. A low baseline rate
+        also fires emission-type codes so the demo occasionally shows a fault
+        during normal cruising.
+        """
+        # Expire codes whose dwell has elapsed.
+        self.active_dtcs = {
+            c: exp for c, exp in self.active_dtcs.items() if exp > self.tick
+        }
+
+        # Correlated triggers — thresholds tuned to values this generator actually
+        # reaches (coolant sits ~90 °C, throttle peaks ~70 %, RPM ~2500), so the
+        # conditions genuinely fire and the matching tell-tale/gauge lights up too.
+        if coolant_temp_c > 93.0 and random.random() < 0.20:
+            self._fire_dtc("P0128")
+        if throttle_pct > 55.0 and engine_rpm > 1600.0 and random.random() < 0.03:
+            self._fire_dtc(random.choice(["P0300", "P0301", "P0302", "P0303", "P0304"]))
+        if soc_pct < 20.0 and random.random() < 0.15:  # low battery → electrical faults (BATT light also on)
+            self._fire_dtc(random.choice(["U0001", "U0002", "U0006"]))
+        if abs_active and random.random() < 0.25:       # hard braking → wheel-speed faults (ABS light also on)
+            self._fire_dtc(random.choice(["C0021", "C0035", "C0040"]))
+
+        # Baseline faults across all categories (P→CHK, C→ABS, B→SRS, U→ELEC) so the
+        # demo reliably shows a non-zero DTC count and exercises every tell-tale.
+        # ~0.03/tick with a 15–45-tick dwell ⇒ typically 1–3 codes active, sometimes 0.
+        if random.random() < 0.03:
+            self._fire_dtc(random.choice([
+                "P0420", "P0171", "P0172", "P0442", "P0455", "P0500", "P0700",
+                "C0035", "C0040", "B0001", "B0020", "U0001", "U0006",
+            ]))
+
+        codes = sorted(self.active_dtcs.keys())
+        return {"DTCCount": len(codes), "DTCList": codes}
 
     # ------------------------------------------------------------------ #
     #  Main snapshot generator                                             #
@@ -252,11 +378,22 @@ class VssGenerator:
 
         collision_warning_active = random.random() < 0.01
 
+        # ---- Diagnostics ----
+        diagnostics = self._update_diagnostics(
+            coolant_temp_c=self.coolant_temp_c,
+            throttle_pct=self.throttle_pct,
+            engine_rpm=engine_rpm,
+            soc_pct=self.soc_pct,
+            brake_pedal_pct=self.brake_pedal_pct,
+            abs_active=abs_active,
+        )
+
         # Build snapshot — only fields persisted by the vss-telemetry-service schema
         snapshot = {
             "vehicle_id": VEHICLE_ID,
             "ts": int(time.time() * 1000),
             "trip_id": TRIP_ID,
+            "meta": META,
             "powertrain": {
                 "speedKph": round(self.speed_kph, 1),
                 "engineRpm": round(engine_rpm, 0),
@@ -305,6 +442,7 @@ class VssGenerator:
                 "laneKeepAssistOn": True,
                 "collisionWarningActive": collision_warning_active,
             },
+            "diagnostics": diagnostics,
         }
 
         return snapshot

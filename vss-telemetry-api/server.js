@@ -73,6 +73,45 @@ async function getStatus() {
   );
 }
 
+// OBD-II DTC descriptions (mirrors the simulator DTC_CATALOG). Unknown codes fall
+// back to a category derived from the first character.
+const DTC_DESCRIPTIONS = {
+  P0128: "Coolant thermostat below regulating temperature",
+  P0171: "System too lean (Bank 1)",
+  P0172: "System too rich (Bank 1)",
+  P0300: "Random / multiple cylinder misfire detected",
+  P0301: "Cylinder 1 misfire detected",
+  P0302: "Cylinder 2 misfire detected",
+  P0303: "Cylinder 3 misfire detected",
+  P0304: "Cylinder 4 misfire detected",
+  P0420: "Catalyst system efficiency below threshold (Bank 1)",
+  P0442: "Evaporative emission system leak detected (small leak)",
+  P0455: "Evaporative emission system leak detected (gross leak)",
+  P0500: "Vehicle speed sensor malfunction",
+  P0700: "Transmission control system malfunction",
+  C0021: "Wheel speed sensor front left circuit",
+  C0035: "Left front wheel speed sensor circuit",
+  C0040: "Right front wheel speed sensor circuit",
+  B0001: "Driver frontal stage 1 deployment control",
+  B0020: "Left side airbag deployment control",
+  U0001: "High speed CAN communication bus",
+  U0002: "High speed CAN communication bus performance",
+  U0006: "Medium speed CAN communication bus",
+};
+
+const DTC_CATEGORY = {
+  P: "Powertrain (engine, transmission, emissions)",
+  C: "Chassis (brakes, steering, suspension, ABS)",
+  B: "Body (airbags, climate, seats, lighting)",
+  U: "Network / communication",
+};
+
+function describeDtc(code) {
+  return DTC_DESCRIPTIONS[code]
+    || DTC_CATEGORY[String(code)[0]]
+    || "Unknown fault code";
+}
+
 // ── Tool implementations ───────────────────────────────────────────────────────
 
 async function get_vehicle_status() {
@@ -113,6 +152,11 @@ async function get_vehicle_status() {
   }
   if (ads.cruiseEnabled != null) {
     lines.push(`Cruise Control: ${ads.cruiseEnabled}  LKA: ${ads.laneKeepAssistOn ?? "N/A"}  Collision Warning: ${ads.collisionWarningActive ?? "N/A"}`);
+  }
+  const dg = data?.diagnostics;
+  if (dg) {
+    const codes = Array.isArray(dg.DTCList) ? dg.DTCList : [];
+    lines.push(codes.length ? `Active Fault Codes: ${dg.DTCCount ?? codes.length} (${codes.join(", ")})` : "Active Fault Codes: none");
   }
 
   return lines.join("\n");
@@ -279,6 +323,30 @@ async function get_adas_status() {
   return lines.join("\n");
 }
 
+async function get_diagnostics_status() {
+  const doc = await getStatus();
+  if (!doc || !doc.data?.diagnostics) return noData("diagnostics");
+
+  const dg    = doc.data.diagnostics;
+  const codes = Array.isArray(dg.DTCList) ? dg.DTCList : [];
+  const count = dg.DTCCount ?? codes.length;
+
+  const lines = [
+    `Diagnostics — ${VEHICLE_ID}`,
+    "=".repeat(50),
+    `Active Fault Codes: ${count}`,
+  ];
+  if (codes.length === 0) {
+    lines.push("No active fault codes. All systems nominal.");
+  } else {
+    for (const code of codes) lines.push(`  ${code} — ${describeDtc(code)}`);
+    lines.push("", "NOTE: For what a specific code or warning light means and how to "
+      + "respond, consult the owner's manual (search_car_manual).");
+  }
+  lines.push(`Last Updated: ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`);
+  return lines.join("\n");
+}
+
 // ── Tool dispatch map ──────────────────────────────────────────────────────────
 
 const toolHandlers = {
@@ -290,6 +358,7 @@ const toolHandlers = {
   get_cabin_status:      (_args) => get_cabin_status(),
   get_location:          (_args) => get_location(),
   get_adas_status:       (_args) => get_adas_status(),
+  get_diagnostics_status:(_args) => get_diagnostics_status(),
 };
 
 // ── Express app ────────────────────────────────────────────────────────────────

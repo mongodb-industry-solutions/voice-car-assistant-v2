@@ -26,35 +26,8 @@ VEHICLE_ID = os.getenv("VEHICLE_ID", "VSS-DEMO-VIN-001")
 INTERVAL_S = float(os.getenv("SIMULATOR_INTERVAL", "2.0"))
 
 
-def seed_vehicle_meta():
-    payload = {
-        "vehicle_id":         VEHICLE_ID,
-        "vin":                VEHICLE_ID,
-        "oem":                "MongoDB",
-        "model":              "Leafy 1.0",
-        "platform":           "VSS-v4",
-        "softwareVersion":    "1.0.0",
-        "fuelTankCapacityL":  60.0,
-        "batteryCapacityKwh": 75.0,
-        "wheelbaseMm":        2875,
-        "curbWeightKg":       1800,
-        "powertrainType":     "HEV",
-        "drivetrainType":     "AWD",
-    }
-    for attempt in range(10):
-        try:
-            resp = http_requests.post(
-                f"{VSS_TELEMETRY_SERVICE_URL}/vss/meta",
-                json=payload,
-                timeout=3.0,
-            )
-            if resp.ok:
-                print(f"✅ VehicleMeta seeded: {resp.json()}")
-                return
-            print(f"⚠️  VehicleMeta seed attempt {attempt + 1} failed: {resp.status_code}")
-        except Exception as exc:
-            print(f"⚠️  VehicleMeta seed attempt {attempt + 1} error: {exc}")
-        time.sleep(3)
+# Vehicle metadata now rides inside every snapshot (see vss_generator.META) as a
+# sibling of the domain blocks — no separate /vss/meta seeding is needed.
 
 # ------------------------------------------------------------------ #
 #  Shared state                                                        #
@@ -208,9 +181,6 @@ def simulator_snapshot():
 # ------------------------------------------------------------------ #
 
 if __name__ == "__main__":
-    # Seed VehicleMeta once (runs in background so Flask can start immediately)
-    threading.Thread(target=seed_vehicle_meta, daemon=True, name="meta-seed").start()
-
     # Auto-start the background simulator on launch
     with _lock:
         _state["running"] = True

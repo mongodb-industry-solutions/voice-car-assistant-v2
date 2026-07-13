@@ -262,7 +262,8 @@ TOOL USE IS MANDATORY:
 • Overall status, "how is my car", or several readings at once → get_vehicle_status (ONE call). Never guess values.
 • A specific single reading (just fuel, just tires, etc.) → matching LIVE READING tool. Never guess values.
 • Navigation → navigate_to immediately.
-• Problem reported → relevant domain tool (powertrain, battery, chassis, etc.).
+• "Any faults", "check engine", "warning lights on", "what codes are set" → get_diagnostics (live). But "what does THIS warning light MEAN" / how to fix → search_car_manual.
+• Problem reported → relevant domain tool (powertrain, battery, chassis, diagnostics, etc.).
 • Reading + what to do → telemetry tool then search_car_manual.
 
 RULES: Summarise search_car_manual results. Never mention page numbers. After navigate_to, confirm destination and ETA only — no turn-by-turn steps. Lead with safety action for critical issues.\
@@ -313,7 +314,8 @@ def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
     else:
         mode_hint = (
             "MODE: You are OFFLINE. Live vehicle telemetry (overall car status, battery, "
-            "fuel, tyres, powertrain, cabin, location readings) needs an online connection "
+            "fuel, tyres, powertrain, cabin, location, fault-code/diagnostics readings) "
+            "needs an online connection "
             "and is NOT available now. If the user asks for any live vehicle reading, tell "
             "them you are offline and cannot access live vehicle data right now — do not "
             "guess values. Car-manual questions and navigation still work."
@@ -521,6 +523,12 @@ _TELEMETRY_TOOLS = [
         description="LIVE READING: current tire pressures (all four), ABS, traction control, brake pedal.",
         args_schema=_NoInput,
     ),
+    StructuredTool.from_function(
+        func=lambda: _call_telemetry("get_diagnostics_status"),
+        name="get_diagnostics",
+        description="LIVE READING: active fault codes (DTCs), how many are set, and which warning lights are on right now. Use for 'any faults?', 'check engine', 'warning lights', 'error codes'.",
+        args_schema=_NoInput,
+    ),
 ]
 # get_cabin_status, get_location, get_adas_status, get_driving_history removed to reduce
 # tool schema token count; restoring them adds ~160 tokens to every LLM call prefill.
@@ -655,6 +663,7 @@ def stream_agent(
         "get_fuel_status":     "Checking fuel…",
         "get_battery_status":  "Checking battery…",
         "get_chassis_status":  "Checking tires & chassis…",
+        "get_diagnostics":     "Checking fault codes…",
     }
 
     print(f"[agent] stream start — conversation_id={conversation_id} mode={network_mode}", flush=True)

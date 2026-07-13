@@ -101,6 +101,21 @@
                 </div>
             </div>
 
+            <!-- Cockpit warning-light cluster (tell-tales) -->
+            <div class="telltale-strip" id="telltaleStrip">
+                <div class="telltale off" id="tt-mil"  title="Check engine (powertrain fault)"><span class="tt-icon">🔧</span><span class="tt-lbl">CHK</span></div>
+                <div class="telltale off" id="tt-abs"  title="ABS / brake fault"><span class="tt-icon">🛑</span><span class="tt-lbl">ABS</span></div>
+                <div class="telltale off" id="tt-srs"  title="Airbag / SRS fault"><span class="tt-icon">💥</span><span class="tt-lbl">SRS</span></div>
+                <div class="telltale off" id="tt-elec" title="Electrical / network fault"><span class="tt-icon">⚡</span><span class="tt-lbl">ELEC</span></div>
+                <div class="telltale off" id="tt-temp" title="Coolant temperature"><span class="tt-icon">🌡️</span><span class="tt-lbl">TEMP</span></div>
+                <div class="telltale off" id="tt-fuel" title="Low fuel"><span class="tt-icon">⛽</span><span class="tt-lbl">FUEL</span></div>
+                <div class="telltale off" id="tt-batt" title="Battery charge"><span class="tt-icon">🔋</span><span class="tt-lbl">BATT</span></div>
+                <div class="telltale off" id="tt-tpms" title="Tire pressure (TPMS)"><span class="tt-icon">⭕</span><span class="tt-lbl">TPMS</span></div>
+                <div class="dtc-chip off" id="dtc-chip" title="Active diagnostic trouble codes">
+                    <span class="dtc-flag">⚑</span><span class="dtc-count" id="dtc-count">0</span><span class="dtc-unit">DTC</span>
+                </div>
+            </div>
+
             <!-- Single chat view -->
             <div class="chat-container" id="chatContainer">
                 <div class="chat-messages" id="chatMessages">

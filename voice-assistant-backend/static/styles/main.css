@@ -257,6 +257,84 @@ body {
     font-size: 0.72rem;
 }
 
+/* Cockpit warning-light cluster (tell-tales) */
+.telltale-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 1.5rem;
+    border-bottom: 1px solid rgba(42, 63, 95, 0.4);
+    background: rgba(0, 0, 0, 0.25);
+    flex-wrap: wrap;
+}
+
+.telltale {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.05rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 6px;
+    min-width: 44px;
+    transition: color 0.25s, background 0.25s, opacity 0.25s;
+}
+
+.telltale .tt-icon {
+    font-size: 1rem;
+    line-height: 1;
+    filter: grayscale(1);
+    opacity: 0.35;
+    transition: filter 0.25s, opacity 0.25s;
+}
+
+.telltale .tt-lbl {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    opacity: 0.45;
+    transition: color 0.25s, opacity 0.25s;
+}
+
+/* Lit states — colour + glow, drop the grayscale */
+.telltale.amber .tt-icon,
+.telltale.red   .tt-icon {
+    filter: none;
+    opacity: 1;
+}
+.telltale.amber { background: rgba(245, 166, 35, 0.12); }
+.telltale.amber .tt-lbl { color: #F5A623; opacity: 1; }
+.telltale.red   { background: rgba(255, 68, 68, 0.14); }
+.telltale.red   .tt-lbl { color: #FF4444; opacity: 1; }
+.telltale.red   { animation: telltaleBlink 1.1s steps(1) infinite; }
+
+@keyframes telltaleBlink {
+    50% { background: rgba(255, 68, 68, 0.03); }
+}
+
+/* DTC count chip — pushed to the right of the strip */
+.dtc-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: auto;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid rgba(42, 63, 95, 0.6);
+    font-weight: 700;
+    color: var(--text-secondary);
+    transition: color 0.25s, border-color 0.25s, background 0.25s;
+}
+.dtc-chip .dtc-flag  { font-size: 0.8rem; opacity: 0.5; }
+.dtc-chip .dtc-count { font-size: 0.95rem; }
+.dtc-chip .dtc-unit  { font-size: 0.6rem; letter-spacing: 0.06em; opacity: 0.7; }
+.dtc-chip.active {
+    color: #F5A623;
+    border-color: rgba(245, 166, 35, 0.6);
+    background: rgba(245, 166, 35, 0.1);
+}
+.dtc-chip.active .dtc-flag { opacity: 1; }
+
 /* Chat Container */
 .chat-container {
     flex: 1;

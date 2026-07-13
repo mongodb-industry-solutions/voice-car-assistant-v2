@@ -56,6 +56,7 @@ const TOOL_LABELS = {
     'get_cabin_status':         { icon: '🚪', label: 'Cabin' },
     'get_location':             { icon: '📍', label: 'Location' },
     'get_adas_status':          { icon: '🛡️', label: 'ADAS' },
+    'get_diagnostics':          { icon: '🔧', label: 'Diagnostics' },
     'get_vehicle_events':       { icon: '⚠️', label: 'Vehicle Events' },
     'get_driving_history':      { icon: '📈', label: 'Driving History' },
 };
@@ -429,6 +430,76 @@ function battHealthStatus(h){ return h < 70  ? 'critical' : h < 80  ? 'warning' 
 // Tire thresholds in kPa: normal 193–241 kPa (~28–35 psi)
 function tireKpaStatus(p)   { return p < 193 ? 'critical' : (p < 207 || p > 241) ? 'warning' : 'normal'; }
 
+// ── Diagnostics / cockpit warning lights ────────────────────────────────────────
+
+// Tell-tales lit from active DTC categories (P→CHK, C→ABS, B→SRS, U→ELEC) plus
+// derived thresholds from live telemetry (coolant→TEMP, fuel→FUEL, SOC→BATT, tires→TPMS).
+function setTellTale(id, level) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('off', 'amber', 'red');
+    el.classList.add(level || 'off');
+}
+
+// Escalate a tell-tale's severity without downgrading an already-higher one.
+function worse(a, b) {
+    const rank = { off: 0, amber: 1, red: 2 };
+    return (rank[b] > rank[a]) ? b : a;
+}
+
+function updateDiagnostics(data) {
+    const pt  = data.powertrain || {};
+    const bat = data.battery    || {};
+    const ch  = data.chassis    || {};
+    const dg  = data.diagnostics || {};
+    const codes = Array.isArray(dg.DTCList) ? dg.DTCList : [];
+
+    // DTC-category tell-tales (amber; airbag/SRS shown red — safety-critical).
+    let mil = 'off', abs = 'off', srs = 'off', elec = 'off';
+    codes.forEach(code => {
+        switch (String(code)[0]) {
+            case 'P': mil  = 'amber'; break;
+            case 'C': abs  = 'amber'; break;
+            case 'B': srs  = 'red';   break;
+            case 'U': elec = 'amber'; break;
+        }
+    });
+
+    // Derived tell-tales from live thresholds (mirror the gauge status logic).
+    let temp = 'off';
+    if (pt.coolantTempC != null) temp = pt.coolantTempC > 110 ? 'red' : pt.coolantTempC > 95 ? 'amber' : 'off';
+    let fuel = 'off';
+    if (pt.fuelLevelPct != null) fuel = pt.fuelLevelPct < 10 ? 'red' : pt.fuelLevelPct < 20 ? 'amber' : 'off';
+    let batt = 'off';
+    if (bat.socPct != null) batt = bat.socPct < 15 ? 'red' : bat.socPct < 25 ? 'amber' : 'off';
+    let tpms = 'off';
+    ['tirePressureFlKpa', 'tirePressureFrKpa', 'tirePressureRlKpa', 'tirePressureRrKpa'].forEach(f => {
+        const kpa = ch[f];
+        if (kpa == null) return;
+        tpms = worse(tpms, kpa < 193 ? 'red' : (kpa < 207 || kpa > 241) ? 'amber' : 'off');
+    });
+
+    setTellTale('tt-mil', mil);
+    setTellTale('tt-abs', abs);
+    setTellTale('tt-srs', srs);
+    setTellTale('tt-elec', elec);
+    setTellTale('tt-temp', temp);
+    setTellTale('tt-fuel', fuel);
+    setTellTale('tt-batt', batt);
+    setTellTale('tt-tpms', tpms);
+
+    const count = dg.DTCCount != null ? dg.DTCCount : codes.length;
+    const chip  = document.getElementById('dtc-chip');
+    const countEl = document.getElementById('dtc-count');
+    if (countEl) countEl.textContent = count;
+    if (chip) {
+        chip.classList.toggle('active', count > 0);
+        chip.title = count > 0
+            ? `Active fault codes: ${codes.join(', ')}`
+            : 'No active fault codes';
+    }
+}
+
 function updateDashboard(data) {
     if (!data) return;
     const pt  = data.powertrain || {};
@@ -553,7 +624,13 @@ function updateDashboard(data) {
         if (collEl)  { collEl.textContent = warn ? '⚠ ALERT' : 'CLEAR'; collEl.style.color = warn ? '#FF4444' : '#00ED64'; }
         if (badgeEl) { badgeEl.textContent = warn ? '⚠ ALERT' : '✓ OK'; badgeEl.style.color = warn ? '#FF4444' : '#00ED64'; }
     }
+
+    // Diagnostics / cockpit warning lights (uses pt/bat/ch thresholds above + DTC codes)
+    updateDiagnostics(data);
 }
+
+// Tell-tale ids reset to dim when telemetry is unavailable.
+const TELLTALE_IDS = ['tt-mil', 'tt-abs', 'tt-srs', 'tt-elec', 'tt-temp', 'tt-fuel', 'tt-batt', 'tt-tpms'];
 
 // Value elements that should always carry live data — set to "N/A" when the
 // telemetry service is unreachable so the dashboard never shows stale readings.
@@ -580,6 +657,12 @@ function markTelemetryUnavailable() {
         const rect = document.getElementById(`tire-${a}-rect`);
         if (rect) rect.style.stroke = '#888';
     });
+    // Diagnostics: no live data → dim all tell-tales and blank the DTC chip.
+    TELLTALE_IDS.forEach(id => setTellTale(id, 'off'));
+    const chip = document.getElementById('dtc-chip');
+    const countEl = document.getElementById('dtc-count');
+    if (chip) { chip.classList.remove('active'); chip.title = 'Data not available'; }
+    if (countEl) countEl.textContent = 'N/A';
 }
 
 // Clear the "unavailable" styling so updateDashboard can re-apply live colors

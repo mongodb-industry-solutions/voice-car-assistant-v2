@@ -113,81 +113,64 @@ function describeDtc(code) {
 }
 
 // ── Tool implementations ───────────────────────────────────────────────────────
+// Consumers read the full VSS `Vehicle` tree (telemetry-status.data); fields are
+// addressed by exact VSS path via pick().
+
+function pick(obj, path) {
+  return path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+const fmt = (v, u = "") => (v == null ? "N/A" : `${v}${u}`);
+const stamp = (doc) => `Last Updated: ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`;
 
 async function get_vehicle_status() {
   const doc = await getStatus();
-  if (!doc) return noData();
-
-  const { meta, data } = doc;
-  const pt  = data?.powertrain || {};
-  const bat = data?.battery    || {};
-  const loc = data?.location   || {};
-  const cab = data?.cabin      || {};
-  const ads = data?.adas       || {};
-  const ch  = data?.chassis    || {};
+  if (!doc || !doc.data) return noData();
+  const d = doc.data, meta = doc.meta;
 
   const lines = [`VSS Vehicle Status — ${VEHICLE_ID}`, "=".repeat(50)];
-
   if (meta) {
     lines.push(`OEM: ${meta.oem || "N/A"}  Model: ${meta.model || "N/A"}  VIN: ${meta.vin || "N/A"}`);
-    lines.push(`Powertrain: ${meta.powertrainType || "N/A"}  Drivetrain: ${meta.drivetrainType || "N/A"}  Wheelbase: ${meta.wheelbaseMm ?? "N/A"} mm  Curb Weight: ${meta.curbWeightKg ?? "N/A"} kg`);
-    lines.push(`Fuel Tank: ${meta.fuelTankCapacityL ?? "N/A"} L  Battery Capacity: ${meta.batteryCapacityKwh ?? "N/A"} kWh`);
+    lines.push(`Powertrain: ${meta.powertrainType || "N/A"}  Drivetrain: ${meta.drivetrainType || "N/A"}`);
   }
-  if (pt.speedKph != null) {
-    lines.push(`Speed: ${pt.speedKph} km/h  RPM: ${pt.engineRpm ?? "N/A"}  Fuel: ${pt.fuelLevelPct ?? "N/A"}%`);
-  }
-  if (bat.socPct != null) {
-    const charging = (bat.chargingPowerKw ?? 0) > 0 ? "charging" : "not charging";
-    lines.push(`Battery SOC: ${bat.socPct}%  Est. Range: ${bat.estimatedRangeKm ?? "N/A"} km  Charging: ${charging}`);
-  }
-  if (ch.tirePressureFlKpa != null) {
-    lines.push(`Tires (kPa)  FL: ${ch.tirePressureFlKpa}  FR: ${ch.tirePressureFrKpa}  RL: ${ch.tirePressureRlKpa}  RR: ${ch.tirePressureRrKpa}`);
-  }
-  const vsCoords = geoCoords(loc.locationGeoJson);
-  if (vsCoords) {
-    lines.push(`Location: ${vsCoords[1]}, ${vsCoords[0]}  Heading: ${loc.headingDeg ?? "N/A"}°`);
-  }
-  if (cab.insideTempC != null) {
-    lines.push(`Interior Temp: ${cab.insideTempC}°C  HVAC: ${cab.hvacMode ?? "N/A"}`);
-  }
-  if (ads.cruiseEnabled != null) {
-    lines.push(`Cruise Control: ${ads.cruiseEnabled}  LKA: ${ads.laneKeepAssistOn ?? "N/A"}  Collision Warning: ${ads.collisionWarningActive ?? "N/A"}`);
-  }
-  const dg = data?.diagnostics;
-  if (dg) {
-    const codes = Array.isArray(dg.DTCList) ? dg.DTCList : [];
-    lines.push(codes.length ? `Active Fault Codes: ${dg.DTCCount ?? codes.length} (${codes.join(", ")})` : "Active Fault Codes: none");
-  }
-
+  lines.push(`Speed: ${fmt(pick(d, "Speed"))} km/h  Engine RPM: ${fmt(pick(d, "Powertrain.CombustionEngine.Speed"))}  Gear: ${fmt(pick(d, "Powertrain.Transmission.CurrentGear"))}`);
+  lines.push(`Fuel: ${fmt(pick(d, "Powertrain.FuelSystem.RelativeLevel"))} %  Battery SOC: ${fmt(pick(d, "Powertrain.TractionBattery.StateOfCharge.Current"))} %  Range: ${fmt(pick(d, "Powertrain.TractionBattery.Range"))} km`);
+  const chg = pick(d, "Powertrain.TractionBattery.Charging.IsCharging");
+  lines.push(`Charging: ${chg == null ? "N/A" : (chg ? "yes" : "no")}`);
+  lines.push(`Tires (kPa)  FL: ${fmt(pick(d, "Chassis.Axle.Row1.Wheel.Left.Tire.Pressure"))}  FR: ${fmt(pick(d, "Chassis.Axle.Row1.Wheel.Right.Tire.Pressure"))}  RL: ${fmt(pick(d, "Chassis.Axle.Row2.Wheel.Left.Tire.Pressure"))}  RR: ${fmt(pick(d, "Chassis.Axle.Row2.Wheel.Right.Tire.Pressure"))}`);
+  const loc = d.CurrentLocation || {};
+  const coords = geoCoords(loc.locationGeoJson);
+  const lat = coords ? coords[1] : loc.Latitude;
+  const lon = coords ? coords[0] : loc.Longitude;
+  if (lat != null) lines.push(`Location: ${lat}, ${lon}  Heading: ${fmt(loc.Heading)}`);
+  lines.push(`Cabin: ${fmt(pick(d, "Cabin.HVAC.AmbientAirTemperature"))} °C  A/C: ${fmt(pick(d, "Cabin.HVAC.IsAirConditioningActive"))}`);
+  lines.push(`Cruise: ${fmt(pick(d, "ADAS.CruiseControl.IsActive"))}  Active Fault Codes: ${fmt(pick(d, "Diagnostics.DTCCount"))}`);
   return lines.join("\n");
 }
 
 async function get_powertrain_status() {
   const doc = await getStatus();
-  if (!doc || !doc.data?.powertrain) return noData("powertrain");
-
-  const pt = doc.data.powertrain;
+  if (!doc || !pick(doc.data, "Powertrain")) return noData("powertrain");
+  const d = doc.data;
+  const coolant = pick(d, "Powertrain.CombustionEngine.EngineCoolant.Temperature");
 
   const lines = [
     `Powertrain Status — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Speed:         ${pt.speedKph      ?? "N/A"} km/h`,
-    `Engine RPM:    ${pt.engineRpm     ?? "N/A"} rpm`,
-    `Coolant Temp:  ${pt.coolantTempC  ?? "N/A"} °C${pt.coolantTempC != null ? (pt.coolantTempC > 110 ? "  ⚠ OVERHEATING" : pt.coolantTempC > 95 ? "  (warm)" : "  (normal)") : ""}`,
-    `Gear:          ${pt.gear          ?? "N/A"}`,
-    `Throttle:      ${pt.throttlePct   ?? "N/A"} %`,
-    `Last Updated:  ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`,
+    `Vehicle Speed: ${fmt(pick(d, "Speed"))} km/h`,
+    `Engine RPM:    ${fmt(pick(d, "Powertrain.CombustionEngine.Speed"))} rpm`,
+    `Coolant Temp:  ${fmt(coolant)} °C${coolant != null ? (coolant > 110 ? "  ⚠ OVERHEATING" : coolant > 95 ? "  (warm)" : "  (normal)") : ""}`,
+    `Gear:          ${fmt(pick(d, "Powertrain.Transmission.CurrentGear"))}`,
+    `Throttle:      ${fmt(pick(d, "Powertrain.CombustionEngine.TPS"))} %`,
+    stamp(doc),
   ];
   return lines.join("\n");
 }
 
 async function get_fuel_status() {
   const doc = await getStatus();
-  if (!doc || !doc.data?.powertrain) return noData("powertrain");
-
-  const pt   = doc.data.powertrain;
-  const meta = doc.meta || {};
-  const pct    = pt.fuelLevelPct;
+  if (!doc || !pick(doc.data, "Powertrain.FuelSystem")) return noData("fuel");
+  const d = doc.data, meta = doc.meta || {};
+  const pct    = pick(d, "Powertrain.FuelSystem.RelativeLevel");
   const tankL  = meta.fuelTankCapacityL ?? null;
   const litres = (pct != null && tankL != null) ? (pct / 100 * tankL).toFixed(1) : null;
   const label  = pct == null ? "" : pct < 10 ? "  ⚠ CRITICALLY LOW" : pct < 20 ? "  (low)" : "";
@@ -195,10 +178,11 @@ async function get_fuel_status() {
   const lines = [
     `Fuel Status — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Fuel Level:        ${pct != null ? pct.toFixed(1) : "N/A"} %${label}`,
-    `Fuel Remaining:    ${litres ?? "N/A"} L${tankL != null ? `  (tank: ${tankL} L)` : ""}`,
-    `Consumption Rate:  ${pt.fuelRateLph != null ? pt.fuelRateLph.toFixed(1) : "N/A"} L/h`,
-    `Last Updated:      ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`,
+    `Fuel Level:          ${fmt(pct)} %${label}`,
+    `Fuel Remaining:      ${litres ?? "N/A"} L${tankL != null ? `  (tank: ${tankL} L)` : ""}`,
+    `Range:               ${fmt(pick(d, "Powertrain.FuelSystem.Range"))} km`,
+    `Instant Consumption: ${fmt(pick(d, "Powertrain.FuelSystem.InstantConsumption"))} l/100km`,
+    stamp(doc),
     "",
     "NOTE: This is liquid fuel only. For the high-voltage drive battery (state of "
       + "charge, electric range, charging), use get_battery_status instead.",
@@ -208,43 +192,41 @@ async function get_fuel_status() {
 
 async function get_battery_status() {
   const doc = await getStatus();
-  if (!doc || !doc.data?.battery) return noData("battery");
-
-  const bat = doc.data.battery;
-  const isCharging    = (bat.chargingPowerKw ?? 0) > 0;
-  const chargingStatus = isCharging ? `Charging at ${bat.chargingPowerKw ?? "N/A"} kW` : "Not charging";
+  if (!doc || !pick(doc.data, "Powertrain.TractionBattery")) return noData("battery");
+  const d = doc.data;
+  const soc      = pick(d, "Powertrain.TractionBattery.StateOfCharge.Current");
+  const charging = pick(d, "Powertrain.TractionBattery.Charging.IsCharging");
+  const rate     = pick(d, "Powertrain.TractionBattery.Charging.ChargeRate");
   const socLabel =
-    bat.socPct != null
-      ? bat.socPct < 15 ? "  ⚠ CRITICALLY LOW"
-      : bat.socPct < 25 ? "  (low)"
-      : bat.socPct > 90 ? "  (full)"
-      : "  (normal)"
-      : "";
+    soc == null ? ""
+    : soc < 15 ? "  ⚠ CRITICALLY LOW"
+    : soc < 25 ? "  (low)"
+    : soc > 90 ? "  (full)"
+    : "  (normal)";
 
   const lines = [
     `Battery Status — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `State of Charge: ${bat.socPct           ?? "N/A"} %${socLabel}`,
-    `Estimated Range: ${bat.estimatedRangeKm ?? "N/A"} km`,
-    `Charging Status: ${chargingStatus}`,
-    `Voltage:         ${bat.voltageV         ?? "N/A"} V`,
-    `Current:         ${bat.currentA         ?? "N/A"} A`,
-    `Temp:            ${bat.batteryTempC     ?? "N/A"} °C`,
-    `State of Health: ${bat.sohPct           ?? "N/A"} %`,
-    `Last Updated:    ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`,
+    `State of Charge: ${fmt(soc)} %${socLabel}`,
+    `Estimated Range: ${fmt(pick(d, "Powertrain.TractionBattery.Range"))} km`,
+    `Charging Status: ${charging == null ? "N/A" : charging ? `Charging (${fmt(rate)} kW)` : "Not charging"}`,
+    `Voltage:         ${fmt(pick(d, "Powertrain.TractionBattery.CurrentVoltage"))} V`,
+    `Current:         ${fmt(pick(d, "Powertrain.TractionBattery.CurrentCurrent"))} A`,
+    `Temp:            ${fmt(pick(d, "Powertrain.TractionBattery.Temperature.Average"))} °C`,
+    `State of Health: ${fmt(pick(d, "Powertrain.TractionBattery.StateOfHealth"))} %`,
+    stamp(doc),
   ];
   return lines.join("\n");
 }
 
 async function get_chassis_status() {
   const doc = await getStatus();
-  if (!doc || !doc.data?.chassis) return noData("chassis");
-
-  const ch = doc.data.chassis;
+  if (!doc || !pick(doc.data, "Chassis")) return noData("chassis");
+  const d = doc.data;
   const tireSummary = (position, kpa) => {
     if (kpa == null) return `${position}: N/A`;
     const psi    = (kpa / 6.895).toFixed(1);
-    const status = psi < 28 ? "⚠ CRITICAL" : psi < 30 || psi > 35 ? "⚠ WARNING" : "OK";
+    const status = psi < 28 ? "⚠ CRITICAL" : (psi < 30 || psi > 35) ? "⚠ WARNING" : "OK";
     return `${position}: ${psi} psi (${kpa} kPa)  [${status}]`;
   };
 
@@ -252,82 +234,81 @@ async function get_chassis_status() {
     `Chassis Status — ${VEHICLE_ID}`,
     "=".repeat(50),
     "Tire Pressures:",
-    `  ${tireSummary("Front-Left ", ch.tirePressureFlKpa)}`,
-    `  ${tireSummary("Front-Right", ch.tirePressureFrKpa)}`,
-    `  ${tireSummary("Rear-Left  ", ch.tirePressureRlKpa)}`,
-    `  ${tireSummary("Rear-Right ", ch.tirePressureRrKpa)}`,
-    `ABS Active:       ${ch.absActive             ?? "N/A"}`,
-    `Traction Control: ${ch.tractionControlActive ?? "N/A"}`,
-    `Brake Pedal:      ${ch.brakePedalPct         ?? "N/A"} %`,
-    `Last Updated:     ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`,
+    `  ${tireSummary("Front-Left ", pick(d, "Chassis.Axle.Row1.Wheel.Left.Tire.Pressure"))}`,
+    `  ${tireSummary("Front-Right", pick(d, "Chassis.Axle.Row1.Wheel.Right.Tire.Pressure"))}`,
+    `  ${tireSummary("Rear-Left  ", pick(d, "Chassis.Axle.Row2.Wheel.Left.Tire.Pressure"))}`,
+    `  ${tireSummary("Rear-Right ", pick(d, "Chassis.Axle.Row2.Wheel.Right.Tire.Pressure"))}`,
+    `ABS Engaged:      ${fmt(pick(d, "ADAS.ABS.IsEngaged"))}`,
+    `Traction Control: ${fmt(pick(d, "ADAS.TCS.IsEngaged"))}`,
+    `Brake Pedal:      ${fmt(pick(d, "Chassis.Brake.PedalPosition"))} %`,
+    stamp(doc),
   ];
   return lines.join("\n");
 }
 
 async function get_cabin_status() {
   const doc = await getStatus();
-  if (!doc || !doc.data?.cabin) return noData("cabin");
-
-  const cab = doc.data.cabin;
+  if (!doc || !pick(doc.data, "Cabin")) return noData("cabin");
+  const d = doc.data;
 
   const lines = [
     `Cabin Status — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Interior Temp:        ${cab.insideTempC            ?? "N/A"} °C`,
-    `Outside Temp:         ${cab.outsideTempC           ?? "N/A"} °C`,
-    `HVAC Mode:            ${cab.hvacMode               ?? "N/A"}`,
-    `Fan Speed:            ${cab.fanSpeed               ?? "N/A"}`,
-    `Last Updated: ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`,
+    `Cabin Temp:    ${fmt(pick(d, "Cabin.HVAC.AmbientAirTemperature"))} °C`,
+    `Outside Temp:  ${fmt(pick(d, "Exterior.AirTemperature"))} °C`,
+    `A/C Active:    ${fmt(pick(d, "Cabin.HVAC.IsAirConditioningActive"))}`,
+    `Recirculation: ${fmt(pick(d, "Cabin.HVAC.IsRecirculationActive"))}`,
+    stamp(doc),
   ];
   return lines.join("\n");
 }
 
 async function get_location() {
   const doc = await getStatus();
-  if (!doc || !doc.data?.location) return noData("location");
+  if (!doc || !pick(doc.data, "CurrentLocation")) return noData("location");
 
-  const loc    = doc.data.location;
+  const loc    = doc.data.CurrentLocation;
   const coords = geoCoords(loc.locationGeoJson);
-  const lon    = coords ? coords[0] : null;
-  const lat    = coords ? coords[1] : null;
+  const lat    = coords ? coords[1] : loc.Latitude;
+  const lon    = coords ? coords[0] : loc.Longitude;
 
   const lines = [
     `Location — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Latitude:    ${lat               ?? "N/A"}`,
-    `Longitude:   ${lon               ?? "N/A"}`,
-    `Altitude:    ${loc.altitudeM     ?? "N/A"} m`,
-    `Heading:     ${loc.headingDeg    ?? "N/A"} °`,
-    `Speed (GPS): ${loc.speedKph      ?? "N/A"} km/h`,
-    `Accuracy:    ${loc.accuracyM     ?? "N/A"} m`,
-    `Last Updated:${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`,
+    `Latitude:      ${fmt(lat)}`,
+    `Longitude:     ${fmt(lon)}`,
+    `Altitude:      ${fmt(loc.Altitude)} m`,
+    `Heading:       ${fmt(loc.Heading)} °`,
+    `Vehicle Speed: ${fmt(pick(doc.data, "Speed"))} km/h`,
+    stamp(doc),
   ];
   return lines.join("\n");
 }
 
 async function get_adas_status() {
   const doc = await getStatus();
-  if (!doc || !doc.data?.adas) return noData("adas");
-
-  const ads = doc.data.adas;
+  if (!doc || !pick(doc.data, "ADAS")) return noData("adas");
+  const d = doc.data;
+  const collision = pick(d, "ADAS.ObstacleDetection.Front.Center.IsWarning");
 
   const lines = [
     `ADAS Status — ${VEHICLE_ID}`,
     "=".repeat(50),
-    `Cruise Control:    ${ads.cruiseEnabled          ?? "N/A"}`,
-    `Cruise Set Speed:  ${ads.cruiseSetSpeedKph      ?? "N/A"} km/h`,
-    `Lane Keep Assist:  ${ads.laneKeepAssistOn       ?? "N/A"}`,
-    `Collision Warning: ${ads.collisionWarningActive ?? "N/A"}${ads.collisionWarningActive ? "  ⚠ ALERT" : ""}`,
-    `Last Updated:      ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`,
+    `Cruise Control:    ${fmt(pick(d, "ADAS.CruiseControl.IsActive"))}`,
+    `Cruise Set Speed:  ${fmt(pick(d, "ADAS.CruiseControl.SpeedSet"))} km/h`,
+    `Lane Departure:    ${fmt(pick(d, "ADAS.LaneDepartureDetection.IsEnabled"))}`,
+    `Collision Warning: ${fmt(collision)}${collision ? "  ⚠ ALERT" : ""}`,
+    `ABS / TCS / ESC:   ${fmt(pick(d, "ADAS.ABS.IsEngaged"))} / ${fmt(pick(d, "ADAS.TCS.IsEngaged"))} / ${fmt(pick(d, "ADAS.ESC.IsEngaged"))}`,
+    stamp(doc),
   ];
   return lines.join("\n");
 }
 
 async function get_diagnostics_status() {
   const doc = await getStatus();
-  if (!doc || !doc.data?.diagnostics) return noData("diagnostics");
+  if (!doc || !pick(doc.data, "Diagnostics")) return noData("diagnostics");
 
-  const dg    = doc.data.diagnostics;
+  const dg    = doc.data.Diagnostics;
   const codes = Array.isArray(dg.DTCList) ? dg.DTCList : [];
   const count = dg.DTCCount ?? codes.length;
 
@@ -343,7 +324,7 @@ async function get_diagnostics_status() {
     lines.push("", "NOTE: For what a specific code or warning light means and how to "
       + "respond, consult the owner's manual (search_car_manual).");
   }
-  lines.push(`Last Updated: ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`);
+  lines.push(stamp(doc));
   return lines.join("\n");
 }
 

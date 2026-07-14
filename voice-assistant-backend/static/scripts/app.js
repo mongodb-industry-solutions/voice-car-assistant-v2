@@ -432,6 +432,11 @@ function tireKpaStatus(p)   { return p < 193 ? 'critical' : (p < 207 || p > 241)
 
 // ── Diagnostics / cockpit warning lights ────────────────────────────────────────
 
+// Read a nested VSS path from the /api/vss/latest response (the VSS Vehicle tree).
+function vssPick(data, path) {
+    return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), data);
+}
+
 // Tell-tales lit from active DTC categories (P→CHK, C→ABS, B→SRS, U→ELEC) plus
 // derived thresholds from live telemetry (coolant→TEMP, fuel→FUEL, SOC→BATT, tires→TPMS).
 function setTellTale(id, level) {
@@ -448,10 +453,18 @@ function worse(a, b) {
 }
 
 function updateDiagnostics(data) {
-    const pt  = data.powertrain || {};
-    const bat = data.battery    || {};
-    const ch  = data.chassis    || {};
-    const dg  = data.diagnostics || {};
+    const pt = {
+        coolantTempC: vssPick(data, 'Powertrain.CombustionEngine.EngineCoolant.Temperature'),
+        fuelLevelPct: vssPick(data, 'Powertrain.FuelSystem.RelativeLevel'),
+    };
+    const bat = { socPct: vssPick(data, 'Powertrain.TractionBattery.StateOfCharge.Current') };
+    const ch = {
+        tirePressureFlKpa: vssPick(data, 'Chassis.Axle.Row1.Wheel.Left.Tire.Pressure'),
+        tirePressureFrKpa: vssPick(data, 'Chassis.Axle.Row1.Wheel.Right.Tire.Pressure'),
+        tirePressureRlKpa: vssPick(data, 'Chassis.Axle.Row2.Wheel.Left.Tire.Pressure'),
+        tirePressureRrKpa: vssPick(data, 'Chassis.Axle.Row2.Wheel.Right.Tire.Pressure'),
+    };
+    const dg  = vssPick(data, 'Diagnostics') || {};
     const codes = Array.isArray(dg.DTCList) ? dg.DTCList : [];
 
     // DTC-category tell-tales (amber; airbag/SRS shown red — safety-critical).
@@ -502,9 +515,29 @@ function updateDiagnostics(data) {
 
 function updateDashboard(data) {
     if (!data) return;
-    const pt  = data.powertrain || {};
-    const bat = data.battery    || {};
-    const ch  = data.chassis    || {};
+    const pt = {
+        engineRpm:    vssPick(data, 'Powertrain.CombustionEngine.Speed'),
+        coolantTempC: vssPick(data, 'Powertrain.CombustionEngine.EngineCoolant.Temperature'),
+        throttlePct:  vssPick(data, 'Powertrain.CombustionEngine.TPS'),
+        fuelLevelPct: vssPick(data, 'Powertrain.FuelSystem.RelativeLevel'),
+        gear:         vssPick(data, 'Powertrain.Transmission.CurrentGear'),
+        speedKph:     vssPick(data, 'Speed'),
+    };
+    const bat = {
+        socPct:           vssPick(data, 'Powertrain.TractionBattery.StateOfCharge.Current'),
+        voltageV:         vssPick(data, 'Powertrain.TractionBattery.CurrentVoltage'),
+        sohPct:           vssPick(data, 'Powertrain.TractionBattery.StateOfHealth'),
+        estimatedRangeKm: vssPick(data, 'Powertrain.TractionBattery.Range'),
+    };
+    const ch = {
+        tirePressureFlKpa:     vssPick(data, 'Chassis.Axle.Row1.Wheel.Left.Tire.Pressure'),
+        tirePressureFrKpa:     vssPick(data, 'Chassis.Axle.Row1.Wheel.Right.Tire.Pressure'),
+        tirePressureRlKpa:     vssPick(data, 'Chassis.Axle.Row2.Wheel.Left.Tire.Pressure'),
+        tirePressureRrKpa:     vssPick(data, 'Chassis.Axle.Row2.Wheel.Right.Tire.Pressure'),
+        brakePedalPct:         vssPick(data, 'Chassis.Brake.PedalPosition'),
+        absActive:             vssPick(data, 'ADAS.ABS.IsEngaged'),
+        tractionControlActive: vssPick(data, 'ADAS.TCS.IsEngaged'),
+    };
 
     // RPM gauge
     if (pt.engineRpm != null) {
@@ -602,8 +635,13 @@ function updateDashboard(data) {
         if (el) { el.textContent = ch.tractionControlActive ? 'ACTIVE' : 'OFF'; el.style.color = ch.tractionControlActive ? '#F5A623' : '#00ED64'; }
     }
 
-    // ADAS — fields: cruiseEnabled, cruiseSetSpeedKph, laneKeepAssistOn, collisionWarningActive
-    const adas = data.adas || {};
+    // ADAS — mapped to VSS paths
+    const adas = {
+        cruiseEnabled:          vssPick(data, 'ADAS.CruiseControl.IsActive'),
+        cruiseSetSpeedKph:      vssPick(data, 'ADAS.CruiseControl.SpeedSet'),
+        laneKeepAssistOn:       vssPick(data, 'ADAS.LaneDepartureDetection.IsEnabled'),
+        collisionWarningActive: vssPick(data, 'ADAS.ObstacleDetection.Front.Center.IsWarning'),
+    };
     if (adas.cruiseEnabled != null) {
         const el = document.getElementById('adas-cruise');
         if (el) {

@@ -103,13 +103,14 @@ def simulator_status():
     last = s.get("last_snapshot")
     summary = None
     if last:
+        # data is now the full VSS tree (exact VSS paths); surface a few top-level signals.
         summary = {
             "vehicle_id": last.get("vehicle_id"),
             "ts": last.get("ts"),
             "trip_id": last.get("trip_id"),
-            "speedKph": last.get("powertrain", {}).get("speedKph"),
-            "socPct": last.get("battery", {}).get("socPct"),
-            "fuelLevelPct": last.get("powertrain", {}).get("fuelLevelPct"),
+            "speed": last.get("Speed"),
+            "isMoving": last.get("IsMoving"),
+            "traveledDistance": last.get("TraveledDistance"),
         }
 
     return jsonify({

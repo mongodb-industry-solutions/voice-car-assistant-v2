@@ -1,5 +1,5 @@
-// Car Manual Voice Assistant - Chat Interface
-// Connects to Python backend and displays conversation in chat bubbles
+// Car Cockpit — Copilot Assistant + live VSS telemetry
+// Connects to the Python backend (Socket.IO) and renders the cockpit.
 
 // Initialize Socket.IO connection
 const socket = io();
@@ -155,7 +155,6 @@ function hideStatus() {
 // Connection events
 socket.on('connect', () => {
     console.log('✅ Connected to backend server');
-    console.log('ℹ️  Voice assistant NOT initialized - waiting for button click');
     hideStatus();
     searchStatus.style.color = 'var(--accent)';
     micButton.disabled = false;
@@ -164,7 +163,7 @@ socket.on('connect', () => {
 socket.on('disconnect', () => {
     console.log('❌ Disconnected from backend');
     searchStatus.textContent = 'Offline';
-    searchStatus.style.color = '#FF4444';
+    searchStatus.style.color = '#FF4B4B';
     micButton.disabled = true;
     isListening = false;
     micButton.classList.remove('listening');
@@ -173,8 +172,6 @@ socket.on('disconnect', () => {
 
 // Status updates
 socket.on('status', (data) => {
-    console.log('📊 Status:', data);
-    
     switch(data.state) {
         case 'listening':
             showStatus('🎤 Listening...');
@@ -196,16 +193,13 @@ socket.on('status', (data) => {
 
 // Statistics
 socket.on('stats', (data) => {
-    console.log('📈 Stats:', data);
-    
     if (data.search_service === 'online') {
         searchStatus.textContent = 'Online';
         searchStatus.style.color = 'var(--accent)';
     } else {
         searchStatus.textContent = 'Offline';
-        searchStatus.style.color = '#FF4444';
+        searchStatus.style.color = '#FF4B4B';
     }
-    
     if (data.chunk_count !== undefined) {
         chunkCount.textContent = data.chunk_count.toLocaleString();
     }
@@ -214,9 +208,7 @@ socket.on('stats', (data) => {
 // Question received — only used for voice path; text path adds the message locally
 let _pendingTextMessage = null;
 socket.on('question', (data) => {
-    console.log('❓ Question:', data.text);
     if (_pendingTextMessage && _pendingTextMessage === data.text) {
-        // Already added client-side in sendTextMessage — just clear the flag
         _pendingTextMessage = null;
         return;
     }
@@ -228,7 +220,6 @@ socket.on('question', (data) => {
 // Search results (stored for answer)
 let currentSources = [];
 socket.on('search_results', (data) => {
-    console.log('📚 Search results:', data.count, 'chunks');
     currentSources = data.chunks || [];
 });
 
@@ -245,7 +236,6 @@ socket.on('answer_token', (data) => {
 
 // Answer received — finalise the streamed bubble with tools/sources metadata
 socket.on('answer', (data) => {
-    console.log('💬 Answer:', data.text.substring(0, 50) + '...');
     _streamedText = '';
     removeThinkingBubble();
     addAssistantMessage(data.text, currentSources, data.tools_used || []);
@@ -384,366 +374,196 @@ chatInput.addEventListener('keydown', (e) => {
     }
 });
 
-// Initialize
-console.log('🚗 Car Dashboard UI initialized');
-console.log('🎤 Click microphone or type to start conversation');
+console.log('🚗 Car Cockpit UI initialized');
 
-// ── Telemetry Dashboard (VSS model) ──────────────────────────────────────────
-
-const ARC_C_MAIN = 408.41;  // circumference at r=65
-const ARC_C_MINI = 238.76;  // circumference at r=38
-
-function updateArc(id, value, max, C) {
-    const arcLen = C * (240 / 360);
-    const filled = arcLen * Math.max(0, Math.min(1, value / max));
-    const el = document.getElementById(id);
-    if (el) el.style.strokeDasharray = `${filled.toFixed(2)} ${(C - filled).toFixed(2)}`;
+// ── Live clock ─────────────────────────────────────────────────────────────────
+const clockEl = document.getElementById('clock');
+function tickClock() {
+    if (clockEl) clockEl.textContent = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
+tickClock();
+setInterval(tickClock, 1000);
 
-function updateBar(id, pct) {
-    const el = document.getElementById(id);
-    if (el) el.setAttribute('width', Math.max(0, Math.min(100, pct)).toFixed(1));
-}
-
-function applyColor(id, color) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const tag = (el.tagName || '').toLowerCase();
-    if (tag === 'circle') {
-        el.style.stroke = color;
-    } else if (tag === 'rect') {
-        el.style.fill = color;
-    } else {
-        el.style.fill  = color;
-        el.style.color = color;
-    }
-}
-
-function statusColor(status) {
-    return { normal: '#00ED64', warning: '#F5A623', critical: '#FF4444' }[status] || '#00ED64';
-}
-
-// Compute status from raw VSS values
-function coolantStatus(c)   { return c > 110 ? 'critical' : c > 95  ? 'warning' : 'normal'; }
-function battSocStatus(s)   { return s < 15  ? 'critical' : s < 25  ? 'warning' : 'normal'; }
-function battHealthStatus(h){ return h < 70  ? 'critical' : h < 80  ? 'warning' : 'normal'; }
-// Tire thresholds in kPa: normal 193–241 kPa (~28–35 psi)
-function tireKpaStatus(p)   { return p < 193 ? 'critical' : (p < 207 || p > 241) ? 'warning' : 'normal'; }
-
-// ── Diagnostics / cockpit warning lights ────────────────────────────────────────
-
+// ── Telemetry helpers ────────────────────────────────────────────────────────
 // Read a nested VSS path from the /api/vss/latest response (the VSS Vehicle tree).
 function vssPick(data, path) {
     return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), data);
 }
 
-// OBD-II code → description catalog (from values-vss-data.md), loaded once for the
-// diagnostics panel so it can show codes the tell-tale icons can't represent.
-let _dtcCatalog = {};
-fetch('/static/dtc_catalog.json')
-    .then(r => r.ok ? r.json() : {})
-    .then(c => { _dtcCatalog = c || {}; })
-    .catch(() => { _dtcCatalog = {}; });
-
-// Render the active fault codes into the diagnostics panel.
-function renderDtcPanel(codes) {
-    const panel = document.getElementById('dtc-panel');
-    if (!panel) return;
-    if (!codes || codes.length === 0) {
-        panel.innerHTML = '<div class="dtc-empty" id="dtc-empty">No active fault codes</div>';
-        return;
-    }
-    panel.innerHTML = codes.map(code => {
-        const desc = _dtcCatalog[code] || 'Unknown fault code';
-        const cat = ({ P: 'Powertrain', C: 'Chassis', B: 'Body', U: 'Network' })[String(code)[0]] || '';
-        return `<div class="dtc-item" title="${escapeHtml(cat)}">
-            <span class="dtc-code">${escapeHtml(code)}</span>
-            <span class="dtc-desc">${escapeHtml(desc)}</span>
-        </div>`;
-    }).join('');
+// ── Circular gauges (SVG arcs, 270° sweep with a gap at the bottom) ───────────
+const G = { cx: 130, cy: 130, r: 104, rTick: 84, a0: 225, span: 270 };
+function gpolar(deg, r) {
+    const a = (deg - 90) * Math.PI / 180;
+    return [G.cx + r * Math.cos(a), G.cy + r * Math.sin(a)];
 }
+function gArc(frac0, frac1, r) {
+    const s = G.a0 + G.span * frac0, e = G.a0 + G.span * frac1;
+    const [x0, y0] = gpolar(s, r), [x1, y1] = gpolar(e, r);
+    const large = (e - s) <= 180 ? 0 : 1;
+    return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+function initGauge(cfg) {
+    const track = document.getElementById(cfg.track);
+    if (track) track.setAttribute('d', gArc(0, 1, G.r));
+    const fill = document.getElementById(cfg.fill);
+    if (fill) fill.setAttribute('d', gArc(0, 0, G.r));
+    if (cfg.redline) {
+        const rl = document.getElementById(cfg.redline);
+        if (rl) rl.setAttribute('d', gArc(0.85, 1, G.r));
+    }
+    const ticks = document.getElementById(cfg.ticks);
+    if (ticks) {
+        ticks.innerHTML = cfg.labels.map(v => {
+            const [x, y] = gpolar(G.a0 + G.span * (v / cfg.max), G.rTick);
+            return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}">${v}</text>`;
+        }).join('');
+    }
+}
+function setGauge(fillId, value, max) {
+    const frac = Math.max(0, Math.min(1, (value || 0) / max));
+    const el = document.getElementById(fillId);
+    if (el) el.setAttribute('d', frac <= 0 ? '' : gArc(0, frac, G.r));
+}
+const RPM_MAX = 8000, SPD_MAX = 160;
+initGauge({ track: 'rpm-track', fill: 'rpm-fill', redline: 'rpm-redline', ticks: 'rpm-ticks', labels: [0,1,2,3,4,5,6,7,8], max: 8 });
+initGauge({ track: 'spd-track', fill: 'spd-fill', ticks: 'spd-ticks', labels: [0,40,80,120,160], max: SPD_MAX });
 
-// Tell-tales lit from active DTC categories (P→CHK, C→ABS, B→SRS, U→ELEC) plus
-// derived thresholds from live telemetry (coolant→TEMP, fuel→FUEL, SOC→BATT, tires→TPMS).
+// ── Tell-tales ────────────────────────────────────────────────────────────────
+const TELLTALE_IDS = ['tt-mil', 'tt-abs', 'tt-tpms', 'tt-belt', 'tt-temp', 'tt-batt', 'tt-fuel'];
 function setTellTale(id, level) {
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.remove('off', 'amber', 'red');
     el.classList.add(level || 'off');
 }
+function worse(a, b) { const r = { off: 0, amber: 1, red: 2 }; return r[b] > r[a] ? b : a; }
 
-// Escalate a tell-tale's severity without downgrading an already-higher one.
-function worse(a, b) {
-    const rank = { off: 0, amber: 1, red: 2 };
-    return (rank[b] > rank[a]) ? b : a;
+// ── DTC catalog + bottom ticker ────────────────────────────────────────────────
+let _dtcCatalog = {};
+fetch('/static/dtc_catalog.json')
+    .then(r => r.ok ? r.json() : {})
+    .then(c => { _dtcCatalog = c || {}; })
+    .catch(() => { _dtcCatalog = {}; });
+
+function renderDtcTicker(codes) {
+    const el = document.getElementById('dtcTicker');
+    if (!el) return;
+    if (!codes || !codes.length) {
+        el.innerHTML = '<span class="dtc-none">No active fault codes</span>';
+        return;
+    }
+    el.innerHTML = codes.map(code => {
+        const desc = _dtcCatalog[code] || 'Unknown fault code';
+        const c0 = String(code)[0];
+        const chassis = c0 === 'C' || c0 === 'B';
+        return `<span class="dtc-chip2 ${chassis ? 'chassis' : ''}" title="${escapeHtml(desc)}">${escapeHtml(code)}</span>`;
+    }).join('');
 }
 
-function updateDiagnostics(data) {
-    const pt = {
-        coolantTempC: vssPick(data, 'Powertrain.CombustionEngine.EngineCoolant.Temperature'),
-        fuelLevelPct: vssPick(data, 'Powertrain.FuelSystem.RelativeLevel'),
-    };
-    const bat = { socPct: vssPick(data, 'Powertrain.TractionBattery.StateOfCharge.Current') };
-    const ch = {
-        tirePressureFlKpa: vssPick(data, 'Chassis.Axle.Row1.Wheel.Left.Tire.Pressure'),
-        tirePressureFrKpa: vssPick(data, 'Chassis.Axle.Row1.Wheel.Right.Tire.Pressure'),
-        tirePressureRlKpa: vssPick(data, 'Chassis.Axle.Row2.Wheel.Left.Tire.Pressure'),
-        tirePressureRrKpa: vssPick(data, 'Chassis.Axle.Row2.Wheel.Right.Tire.Pressure'),
-    };
-    const dg  = vssPick(data, 'Diagnostics') || {};
+// ── Gear selector ──────────────────────────────────────────────────────────────
+function setGear(gearNum) {
+    let g = null;
+    if (gearNum != null) g = gearNum < 0 ? 'R' : gearNum === 0 ? 'N' : 'D';
+    document.querySelectorAll('#gearSelect span').forEach(s => s.classList.toggle('active', s.dataset.g === g));
+}
+
+// ── Main cockpit update ─────────────────────────────────────────────────────────
+function updateCockpit(data) {
+    if (!data) return;
+
+    // Gauges
+    const rpm = vssPick(data, 'Powertrain.CombustionEngine.Speed');
+    setGauge('rpm-fill', rpm, RPM_MAX);
+    const rpmEl = document.getElementById('rpm-num');
+    if (rpmEl) rpmEl.textContent = rpm == null ? 'N/A' : (rpm / 1000).toFixed(1);
+
+    const spd = vssPick(data, 'Speed');
+    setGauge('spd-fill', spd, SPD_MAX);
+    const spdEl = document.getElementById('speed-num');
+    if (spdEl) spdEl.textContent = spd == null ? 'N/A' : Math.round(spd);
+
+    // Cruise captions
+    const cruise = vssPick(data, 'ADAS.CruiseControl.IsActive');
+    const setspd = vssPick(data, 'ADAS.CruiseControl.SpeedSet');
+    const cruiseTxt = cruise == null ? 'Adaptive Cruise —'
+        : cruise ? `Adaptive Cruise ${setspd ? Math.round(setspd) + ' km/h' : 'Active'}`
+        : 'Adaptive Cruise Off';
+    const cruiseEl = document.getElementById('spd-cruise');
+    if (cruiseEl) cruiseEl.textContent = cruiseTxt;
+
+    // Exterior temperature
+    const ext = vssPick(data, 'Exterior.AirTemperature');
+    const extEl = document.getElementById('ext-temp');
+    if (extEl) extEl.textContent = ext == null ? '--°C' : `${Math.round(ext)}°C`;
+
+    // Bottom metrics
+    const range = vssPick(data, 'Powertrain.TractionBattery.Range');
+    const rEl = document.getElementById('range-val');
+    if (rEl) rEl.textContent = range == null ? '-- km' : `${Math.round(range)} km`;
+    const rBar = document.getElementById('range-bar');
+    if (rBar) rBar.style.width = Math.max(0, Math.min(100, (range || 0) / 500 * 100)) + '%';
+
+    const econ = vssPick(data, 'Powertrain.FuelSystem.InstantConsumption');
+    const eEl = document.getElementById('econ-val');
+    if (eEl) eEl.textContent = econ == null ? '--' : `${econ.toFixed(1)} L/100km`;
+
+    const dist = vssPick(data, 'TraveledDistance');
+    const dEl = document.getElementById('dist-val');
+    if (dEl) dEl.textContent = dist == null ? '--' : `${Number(dist).toLocaleString()} km`;
+
+    const svc = vssPick(data, 'Service.DistanceToService');
+    const sEl = document.getElementById('service-val');
+    if (sEl) sEl.textContent = svc == null ? '--' : `${Math.round(svc).toLocaleString()} km`;
+
+    setGear(vssPick(data, 'Powertrain.Transmission.CurrentGear'));
+
+    // Diagnostics + tell-tales
+    const dg = vssPick(data, 'Diagnostics') || {};
     const codes = Array.isArray(dg.DTCList) ? dg.DTCList : [];
+    let mil = 'off', abs = 'off';
+    codes.forEach(c => { const k = String(c)[0]; if (k === 'P') mil = 'amber'; else if (k === 'C' || k === 'B') abs = 'amber'; });
 
-    // DTC-category tell-tales (amber; airbag/SRS shown red — safety-critical).
-    let mil = 'off', abs = 'off', srs = 'off', elec = 'off';
-    codes.forEach(code => {
-        switch (String(code)[0]) {
-            case 'P': mil  = 'amber'; break;
-            case 'C': abs  = 'amber'; break;
-            case 'B': srs  = 'red';   break;
-            case 'U': elec = 'amber'; break;
-        }
-    });
-
-    // Derived tell-tales from live thresholds (mirror the gauge status logic).
-    let temp = 'off';
-    if (pt.coolantTempC != null) temp = pt.coolantTempC > 110 ? 'red' : pt.coolantTempC > 95 ? 'amber' : 'off';
-    let fuel = 'off';
-    if (pt.fuelLevelPct != null) fuel = pt.fuelLevelPct < 10 ? 'red' : pt.fuelLevelPct < 20 ? 'amber' : 'off';
-    let batt = 'off';
-    if (bat.socPct != null) batt = bat.socPct < 15 ? 'red' : bat.socPct < 25 ? 'amber' : 'off';
+    const coolant = vssPick(data, 'Powertrain.CombustionEngine.EngineCoolant.Temperature');
+    const temp = coolant == null ? 'off' : coolant > 110 ? 'red' : coolant > 100 ? 'amber' : 'off';
+    const fuelPct = vssPick(data, 'Powertrain.FuelSystem.RelativeLevel');
+    const fuel = fuelPct == null ? 'off' : fuelPct < 10 ? 'red' : fuelPct < 20 ? 'amber' : 'off';
+    const soc = vssPick(data, 'Powertrain.TractionBattery.StateOfCharge.Current');
+    const batt = soc == null ? 'off' : soc < 15 ? 'red' : soc < 25 ? 'amber' : 'off';
     let tpms = 'off';
-    ['tirePressureFlKpa', 'tirePressureFrKpa', 'tirePressureRlKpa', 'tirePressureRrKpa'].forEach(f => {
-        const kpa = ch[f];
-        if (kpa == null) return;
-        tpms = worse(tpms, kpa < 193 ? 'red' : (kpa < 207 || kpa > 241) ? 'amber' : 'off');
+    ['Chassis.Axle.Row1.Wheel.Left.Tire.Pressure', 'Chassis.Axle.Row1.Wheel.Right.Tire.Pressure',
+     'Chassis.Axle.Row2.Wheel.Left.Tire.Pressure', 'Chassis.Axle.Row2.Wheel.Right.Tire.Pressure'].forEach(p => {
+        const k = vssPick(data, p);
+        if (k == null) return;
+        tpms = worse(tpms, k < 193 ? 'red' : (k < 207 || k > 241) ? 'amber' : 'off');
     });
+    const belted = vssPick(data, 'Cabin.Seat.Row1.DriverSide.IsBelted');
+    const belt = belted == null ? 'off' : belted ? 'off' : 'red';
 
     setTellTale('tt-mil', mil);
     setTellTale('tt-abs', abs);
-    setTellTale('tt-srs', srs);
-    setTellTale('tt-elec', elec);
-    setTellTale('tt-temp', temp);
-    setTellTale('tt-fuel', fuel);
-    setTellTale('tt-batt', batt);
     setTellTale('tt-tpms', tpms);
+    setTellTale('tt-belt', belt);
+    setTellTale('tt-temp', temp);
+    setTellTale('tt-batt', batt);
+    setTellTale('tt-fuel', fuel);
 
-    const count = dg.DTCCount != null ? dg.DTCCount : codes.length;
-    const chip  = document.getElementById('dtc-chip');
-    const countEl = document.getElementById('dtc-count');
-    if (countEl) countEl.textContent = count;
-    if (chip) {
-        chip.classList.toggle('active', count > 0);
-        chip.title = count > 0
-            ? `Active fault codes: ${codes.join(', ')}`
-            : 'No active fault codes';
-    }
-    renderDtcPanel(codes);
+    renderDtcTicker(codes);
 }
 
-function updateDashboard(data) {
-    if (!data) return;
-    const pt = {
-        engineRpm:    vssPick(data, 'Powertrain.CombustionEngine.Speed'),
-        coolantTempC: vssPick(data, 'Powertrain.CombustionEngine.EngineCoolant.Temperature'),
-        throttlePct:  vssPick(data, 'Powertrain.CombustionEngine.TPS'),
-        fuelLevelPct: vssPick(data, 'Powertrain.FuelSystem.RelativeLevel'),
-        gear:         vssPick(data, 'Powertrain.Transmission.CurrentGear'),
-        speedKph:     vssPick(data, 'Speed'),
-    };
-    const bat = {
-        socPct:           vssPick(data, 'Powertrain.TractionBattery.StateOfCharge.Current'),
-        voltageV:         vssPick(data, 'Powertrain.TractionBattery.CurrentVoltage'),
-        sohPct:           vssPick(data, 'Powertrain.TractionBattery.StateOfHealth'),
-        estimatedRangeKm: vssPick(data, 'Powertrain.TractionBattery.Range'),
-    };
-    const ch = {
-        tirePressureFlKpa:     vssPick(data, 'Chassis.Axle.Row1.Wheel.Left.Tire.Pressure'),
-        tirePressureFrKpa:     vssPick(data, 'Chassis.Axle.Row1.Wheel.Right.Tire.Pressure'),
-        tirePressureRlKpa:     vssPick(data, 'Chassis.Axle.Row2.Wheel.Left.Tire.Pressure'),
-        tirePressureRrKpa:     vssPick(data, 'Chassis.Axle.Row2.Wheel.Right.Tire.Pressure'),
-        brakePedalPct:         vssPick(data, 'Chassis.Brake.PedalPosition'),
-        absActive:             vssPick(data, 'ADAS.ABS.IsEngaged'),
-        tractionControlActive: vssPick(data, 'ADAS.TCS.IsEngaged'),
-    };
-
-    // RPM gauge
-    if (pt.engineRpm != null) {
-        updateArc('rpm-arc', pt.engineRpm, 7000, ARC_C_MAIN);
-        const el = document.getElementById('rpm-num');
-        if (el) el.textContent = Math.round(pt.engineRpm).toLocaleString();
-        applyColor('rpm-arc', '#00ED64');
-    }
-
-    // Coolant
-    if (pt.coolantTempC != null) {
-        const st = coolantStatus(pt.coolantTempC);
-        const valEl = document.getElementById('coolant-val');
-        if (valEl) { valEl.textContent = `${pt.coolantTempC.toFixed(0)}°C`; applyColor('coolant-val', statusColor(st)); }
-    }
-
-    // Throttle
-    if (pt.throttlePct != null) {
-        const valEl = document.getElementById('throttle-val');
-        if (valEl) valEl.textContent = `${pt.throttlePct.toFixed(0)}%`;
-    }
-
-    // Battery SoC
-    if (bat.socPct != null) {
-        const st = battSocStatus(bat.socPct);
-        const el = document.getElementById('batt-pct');
-        if (el) { el.textContent = bat.socPct.toFixed(0) + '%'; applyColor('batt-pct', statusColor(st)); }
-    }
-    if (bat.voltageV != null) {
-        const el = document.getElementById('batt-v');
-        if (el) el.textContent = `${bat.voltageV.toFixed(1)}V`;
-    }
-    if (bat.sohPct != null) {
-        const st = battHealthStatus(bat.sohPct);
-        const el = document.getElementById('batt-health');
-        if (el) { el.textContent = `${bat.sohPct.toFixed(0)}%`; applyColor('batt-health', statusColor(st)); }
-    }
-    if (bat.estimatedRangeKm != null) {
-        const el = document.getElementById('batt-range');
-        if (el) el.textContent = `${Math.round(bat.estimatedRangeKm)} km`;
-    }
-    // Fuel gauge
-    if (pt.fuelLevelPct != null) {
-        updateArc('fuel-arc', pt.fuelLevelPct, 100, ARC_C_MAIN);
-        const el = document.getElementById('fuel-num');
-        if (el) el.textContent = pt.fuelLevelPct.toFixed(0);
-        const st = pt.fuelLevelPct < 10 ? 'critical' : pt.fuelLevelPct < 20 ? 'warning' : 'normal';
-        applyColor('fuel-arc', statusColor(st));
-    }
-
-    // Gear — field: gear (number)
-    if (pt.gear != null) {
-        const el = document.getElementById('current-gear');
-        if (el) el.textContent = pt.gear;
-    }
-
-    // Speed — field: speedKph
-    if (pt.speedKph != null) {
-        const el = document.getElementById('speed-val');
-        if (el) el.textContent = `${pt.speedKph.toFixed(0)} km/h`;
-    }
-
-    // Tires — fields: tirePressureFlKpa / FrKpa / RlKpa / RrKpa (kPa)
-    const tireMap = {
-        tirePressureFlKpa: 'fl',
-        tirePressureFrKpa: 'fr',
-        tirePressureRlKpa: 'rl',
-        tirePressureRrKpa: 'rr',
-    };
-    Object.entries(tireMap).forEach(([field, abbr]) => {
-        const kpa = ch[field];
-        if (kpa == null) return;
-        const psi = kpa * 0.14504;  // display in PSI for readability
-        const c = statusColor(tireKpaStatus(kpa));
-        const valEl  = document.getElementById(`tire-${abbr}-val`);
-        const rectEl = document.getElementById(`tire-${abbr}-rect`);
-        if (valEl)  { valEl.textContent = psi.toFixed(1); valEl.style.fill = c; }
-        if (rectEl) { rectEl.style.stroke = c; }
-    });
-
-    // Brake pedal — field: brakePedalPct
-    if (ch.brakePedalPct != null) {
-        const valEl = document.getElementById('brake-pedal-val');
-        if (valEl) valEl.textContent = `${ch.brakePedalPct.toFixed(0)}%`;
-    }
-
-    // ABS — field: absActive
-    if (ch.absActive != null) {
-        const el = document.getElementById('abs-val');
-        if (el) { el.textContent = ch.absActive ? 'ACTIVE' : 'OFF'; el.style.color = ch.absActive ? '#F5A623' : '#00ED64'; }
-    }
-    // Traction control — field: tractionControlActive (replaces escActive)
-    if (ch.tractionControlActive != null) {
-        const el = document.getElementById('esc-val');
-        if (el) { el.textContent = ch.tractionControlActive ? 'ACTIVE' : 'OFF'; el.style.color = ch.tractionControlActive ? '#F5A623' : '#00ED64'; }
-    }
-
-    // ADAS — mapped to VSS paths
-    const adas = {
-        cruiseEnabled:          vssPick(data, 'ADAS.CruiseControl.IsActive'),
-        cruiseSetSpeedKph:      vssPick(data, 'ADAS.CruiseControl.SpeedSet'),
-        laneKeepAssistOn:       vssPick(data, 'ADAS.LaneDepartureDetection.IsEnabled'),
-        collisionWarningActive: vssPick(data, 'ADAS.ObstacleDetection.Front.Center.IsWarning'),
-    };
-    if (adas.cruiseEnabled != null) {
-        const el = document.getElementById('adas-cruise');
-        if (el) {
-            el.textContent = adas.cruiseEnabled
-                ? `ON${adas.cruiseSetSpeedKph ? ' ' + adas.cruiseSetSpeedKph.toFixed(0) + ' km/h' : ''}`
-                : 'OFF';
-            el.style.color = adas.cruiseEnabled ? '#00ED64' : '#888';
-        }
-    }
-    if (adas.laneKeepAssistOn != null) {
-        const el = document.getElementById('adas-lka');
-        if (el) { el.textContent = adas.laneKeepAssistOn ? 'ON' : 'OFF'; el.style.color = adas.laneKeepAssistOn ? '#00ED64' : '#888'; }
-    }
-    if (adas.collisionWarningActive != null) {
-        const collEl  = document.getElementById('adas-collision');
-        const badgeEl = document.getElementById('collision-badge');
-        const warn = adas.collisionWarningActive;
-        if (collEl)  { collEl.textContent = warn ? '⚠ ALERT' : 'CLEAR'; collEl.style.color = warn ? '#FF4444' : '#00ED64'; }
-        if (badgeEl) { badgeEl.textContent = warn ? '⚠ ALERT' : '✓ OK'; badgeEl.style.color = warn ? '#FF4444' : '#00ED64'; }
-    }
-
-    // Diagnostics / cockpit warning lights (uses pt/bat/ch thresholds above + DTC codes)
-    updateDiagnostics(data);
-}
-
-// Tell-tale ids reset to dim when telemetry is unavailable.
-const TELLTALE_IDS = ['tt-mil', 'tt-abs', 'tt-srs', 'tt-elec', 'tt-temp', 'tt-fuel', 'tt-batt', 'tt-tpms'];
-
-// Value elements that should always carry live data — set to "N/A" when the
-// telemetry service is unreachable so the dashboard never shows stale readings.
-const TELEM_VALUE_IDS = [
-    'rpm-num', 'coolant-val', 'throttle-val',
-    'batt-pct', 'batt-v', 'batt-health', 'batt-range',
-    'fuel-num', 'current-gear', 'speed-val',
-    'tire-fl-val', 'tire-fr-val', 'tire-rl-val', 'tire-rr-val',
-    'brake-pedal-val', 'abs-val', 'esc-val',
-    'adas-cruise', 'adas-lka', 'adas-collision', 'collision-badge',
-];
-
-let _telemUnavailable = false;
-
+// ── Availability ────────────────────────────────────────────────────────────────
 function markTelemetryUnavailable() {
-    _telemUnavailable = true;
-    TELEM_VALUE_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.textContent = 'N/A'; el.title = 'Data not available'; el.style.color = '#888'; el.style.fill = '#888'; }
+    setGauge('rpm-fill', 0, RPM_MAX);
+    setGauge('spd-fill', 0, SPD_MAX);
+    const rpmEl = document.getElementById('rpm-num'); if (rpmEl) rpmEl.textContent = 'N/A';
+    const spdEl = document.getElementById('speed-num'); if (spdEl) spdEl.textContent = 'N/A';
+    ['range-val', 'econ-val', 'dist-val', 'service-val'].forEach(id => {
+        const e = document.getElementById(id); if (e) e.textContent = 'N/A';
     });
-    updateArc('rpm-arc', 0, 7000, ARC_C_MAIN);
-    updateArc('fuel-arc', 0, 100, ARC_C_MAIN);
-    ['fl', 'fr', 'rl', 'rr'].forEach(a => {
-        const rect = document.getElementById(`tire-${a}-rect`);
-        if (rect) rect.style.stroke = '#888';
-    });
-    // Diagnostics: no live data → dim all tell-tales and blank the DTC chip.
+    const rBar = document.getElementById('range-bar'); if (rBar) rBar.style.width = '0%';
     TELLTALE_IDS.forEach(id => setTellTale(id, 'off'));
-    const chip = document.getElementById('dtc-chip');
-    const countEl = document.getElementById('dtc-count');
-    if (chip) { chip.classList.remove('active'); chip.title = 'Data not available'; }
-    if (countEl) countEl.textContent = 'N/A';
-    const panel = document.getElementById('dtc-panel');
-    if (panel) panel.innerHTML = '<div class="dtc-empty">Data not available</div>';
-}
-
-// Clear the "unavailable" styling so updateDashboard can re-apply live colors
-// (it only re-colors some fields, so grey would otherwise leak after recovery).
-function clearTelemetryUnavailable() {
-    TELEM_VALUE_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.style.color = ''; el.style.fill = ''; el.removeAttribute('title'); }
-    });
-    ['fl', 'fr', 'rl', 'rr'].forEach(a => {
-        const rect = document.getElementById(`tire-${a}-rect`);
-        if (rect) rect.style.stroke = '';
-    });
-    _telemUnavailable = false;
+    setGear(null);
+    const t = document.getElementById('dtcTicker');
+    if (t) t.innerHTML = '<span class="dtc-none">Data not available</span>';
 }
 
 async function fetchTelemetry() {
@@ -752,8 +572,7 @@ async function fetchTelemetry() {
         if (!resp.ok) { markTelemetryUnavailable(); return; }
         const data = await resp.json();
         if (data.error) { markTelemetryUnavailable(); return; }
-        if (_telemUnavailable) clearTelemetryUnavailable();
-        updateDashboard(data);
+        updateCockpit(data);
     } catch (_) {
         markTelemetryUnavailable();
     }
@@ -762,22 +581,27 @@ async function fetchTelemetry() {
 fetchTelemetry();
 setInterval(fetchTelemetry, 3000);
 
-// ── Network mode toggle ────────────────────────────────────────────────────────
-
+// ── Network mode toggle (online / offline) ──────────────────────────────────────
 let networkMode = 'offline';
 const networkToggle = document.getElementById('networkToggle');
 const networkLabel  = document.getElementById('networkLabel');
+const copilotLive   = document.getElementById('copilotLive');
 
 function setNetworkMode(mode) {
     networkMode = mode;
-    if (mode === 'online') {
-        networkLabel.textContent = 'ONLINE';
-        networkToggle.classList.add('online');
-    } else {
-        networkLabel.textContent = 'OFFLINE';
-        networkToggle.classList.remove('online');
+    const online = mode === 'online';
+    networkLabel.textContent = online ? 'ONLINE' : 'OFFLINE';
+    networkToggle.classList.toggle('online', online);
+    if (copilotLive) {
+        copilotLive.textContent = online ? '● LIVE TELEMETRY CONNECTED' : '● OFFLINE';
+        copilotLive.classList.toggle('on', online);
     }
+    // Orange highlight around the whole screen while offline.
+    document.body.classList.toggle('offline-mode', !online);
 }
+
+// Apply the initial (offline) state on load until the server reports the mode.
+setNetworkMode('offline');
 
 networkToggle.addEventListener('click', () => {
     const next = networkMode === 'offline' ? 'online' : 'offline';
@@ -789,7 +613,6 @@ socket.on('network_mode_changed', (data) => {
 });
 
 // ── Simulator start/stop toggle ─────────────────────────────────────────────────
-
 const simToggle      = document.getElementById('simToggle');
 const simToggleIcon  = document.getElementById('simToggleIcon');
 const simToggleLabel = document.getElementById('simToggleLabel');
@@ -799,7 +622,7 @@ function renderSimState(running) {
     simRunning = running;
     simToggle.classList.toggle('running', running);
     simToggleIcon.textContent  = running ? '⏹' : '▶';
-    simToggleLabel.textContent = running ? 'STOP SIM' : 'START SIM';
+    simToggleLabel.textContent = running ? 'STOP SIMULATION' : 'START SIMULATION';
 }
 
 async function refreshSimStatus() {

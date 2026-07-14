@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Car Manual Assistant | MongoDB + ObjectBox</title>
+    <title>Car Cockpit | MongoDB + ObjectBox</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/navigation.css') }}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -11,119 +11,84 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-    <!-- Car Dashboard Container -->
-    <div class="car-dashboard">
-        <!-- Left panel: Engine & Battery -->
-        <div class="dashboard-left">
+    <div class="cockpit">
 
-            <!-- RPM arc gauge -->
-            <div class="telem-gauge">
-                <svg viewBox="0 0 180 150" class="arc-svg">
-                    <circle cx="90" cy="100" r="65" class="arc-track" transform="rotate(150,90,100)"/>
-                    <circle cx="90" cy="100" r="65" class="arc-fill"  id="rpm-arc"  transform="rotate(150,90,100)"/>
-                    <text x="90" y="91"  class="arc-num"    id="rpm-num">0</text>
-                    <text x="90" y="109" class="arc-lbl">RPM</text>
-                    <text x="23" y="140" class="arc-minmax">0</text>
-                    <text x="157" y="140" class="arc-minmax">7K</text>
-                </svg>
-                <div class="gauge-footer">
-                    <div class="gauge-stat">
-                        <span class="gauge-stat-label">ALERT</span>
-                        <span class="gauge-stat-val" id="collision-badge">--</span>
-                    </div>
-                </div>
+        <!-- ── Top bar ────────────────────────────────────────────────── -->
+        <header class="cockpit-top">
+            <button class="sim-btn" id="simToggle" title="Start or stop the telemetry simulator">
+                <span class="sim-dot" id="simToggleIcon">▶</span>
+                <span id="simToggleLabel">START SIMULATION</span>
+            </button>
+            <div class="top-center">SIMULATION MODE</div>
+            <div class="top-right">
+                <button class="conn-toggle" id="networkToggle" title="Switch online / offline">
+                    <span class="conn-dot"></span>
+                    <span id="networkLabel">OFFLINE</span>
+                </button>
+                <span class="veh-name">ORION-7</span>
+            </div>
+        </header>
+
+        <!-- ── Status row ─────────────────────────────────────────────── -->
+        <div class="cockpit-status">
+            <div class="status-left">
+                <span id="clock">--:--</span>
+                <span class="sep">·</span>
+                <span id="ext-temp">--°C</span>
             </div>
 
-            <!-- Engine metrics -->
-            <div class="telem-group">
-                <div class="telem-group-title">ENGINE</div>
-                <div class="stat-row">
-                    <span class="stat-label">COOLANT</span>
-                    <span class="stat-val" id="coolant-val">--°C</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">THROTTLE</span>
-                    <span class="stat-val" id="throttle-val">--%</span>
-                </div>
+            <div class="telltales" id="telltales">
+                <div class="tt off" id="tt-mil"  title="Check engine (powertrain fault)"><span>🔧</span><label>CHK</label></div>
+                <div class="tt off" id="tt-abs"  title="ABS / brake fault"><span>🛑</span><label>ABS</label></div>
+                <div class="tt off" id="tt-tpms" title="Tire pressure (TPMS)"><span>⭕</span><label>TPMS</label></div>
+                <div class="tt off" id="tt-belt" title="Seatbelt"><span>🔒</span><label>BELT</label></div>
+                <div class="tt off" id="tt-temp" title="Coolant temperature"><span>🌡️</span><label>TEMP</label></div>
+                <div class="tt off" id="tt-batt" title="Battery charge"><span>🔋</span><label>BATT</label></div>
+                <div class="tt off" id="tt-fuel" title="Low fuel"><span>⛽</span><label>FUEL</label></div>
             </div>
 
-            <!-- Battery -->
-            <div class="telem-group">
-                <div class="telem-group-title">BATTERY</div>
-                <div class="stat-row">
-                    <span class="stat-label">SOC</span>
-                    <span class="stat-val" id="batt-pct">--%</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">VOLTAGE</span>
-                    <span class="stat-val" id="batt-v">--V</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">HEALTH</span>
-                    <span class="stat-val" id="batt-health">--%</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">RANGE</span>
-                    <span class="stat-val" id="batt-range">-- km</span>
-                </div>
+            <div class="status-right">
+                <span class="conn-ico">📶</span>
+                <span id="searchStatus">Connecting…</span>
+                <span class="sep">·</span>
+                <span>📚 <span id="chunkCount">--</span></span>
             </div>
-
         </div>
 
-        <!-- Center Touchscreen -->
-        <div class="touchscreen">
-            <!-- Touchscreen Header -->
-            <div class="touchscreen-header">
-                <div class="header-left">
-                    <div class="mongodb-leaf">🍃</div>
-                    <div class="header-title">
-                        <h1>Car Assistant</h1>
-                        <p class="header-subtitle">MongoDB + ObjectBox</p>
-                    </div>
-                </div>
-                <div class="header-stats">
-                    <div class="stat-badge">
-                        <span class="stat-icon">🔍</span>
-                        <span class="stat-text" id="searchStatus">Connecting...</span>
-                    </div>
-                    <div class="stat-badge">
-                        <span class="stat-icon">📚</span>
-                        <span class="stat-text" id="chunkCount">--</span>
-                    </div>
-                    <button class="network-toggle" id="networkToggle" title="Switch search backend">
-                        <span class="network-toggle-icon">📡</span>
-                        <span class="network-toggle-label" id="networkLabel">OFFLINE</span>
-                    </button>
-                    <button class="sim-toggle" id="simToggle" title="Start or stop the telemetry simulator">
-                        <span class="sim-toggle-icon" id="simToggleIcon">▶</span>
-                        <span class="sim-toggle-label" id="simToggleLabel">START SIM</span>
-                    </button>
-                </div>
-            </div>
+        <!-- ── Main: RPM gauge · Copilot · Speedometer ────────────────── -->
+        <main class="cockpit-main">
 
-            <!-- Cockpit warning-light cluster (tell-tales) -->
-            <div class="telltale-strip" id="telltaleStrip">
-                <div class="telltale off" id="tt-mil"  title="Check engine (powertrain fault)"><span class="tt-icon">🔧</span><span class="tt-lbl">CHK</span></div>
-                <div class="telltale off" id="tt-abs"  title="ABS / brake fault"><span class="tt-icon">🛑</span><span class="tt-lbl">ABS</span></div>
-                <div class="telltale off" id="tt-srs"  title="Airbag / SRS fault"><span class="tt-icon">💥</span><span class="tt-lbl">SRS</span></div>
-                <div class="telltale off" id="tt-elec" title="Electrical / network fault"><span class="tt-icon">⚡</span><span class="tt-lbl">ELEC</span></div>
-                <div class="telltale off" id="tt-temp" title="Coolant temperature"><span class="tt-icon">🌡️</span><span class="tt-lbl">TEMP</span></div>
-                <div class="telltale off" id="tt-fuel" title="Low fuel"><span class="tt-icon">⛽</span><span class="tt-lbl">FUEL</span></div>
-                <div class="telltale off" id="tt-batt" title="Battery charge"><span class="tt-icon">🔋</span><span class="tt-lbl">BATT</span></div>
-                <div class="telltale off" id="tt-tpms" title="Tire pressure (TPMS)"><span class="tt-icon">⭕</span><span class="tt-lbl">TPMS</span></div>
-                <div class="dtc-chip off" id="dtc-chip" title="Active diagnostic trouble codes">
-                    <span class="dtc-flag">⚑</span><span class="dtc-count" id="dtc-count">0</span><span class="dtc-unit">DTC</span>
+            <!-- Left: RPM -->
+            <section class="gauge-wrap">
+                <svg class="gauge" viewBox="0 0 260 260" aria-hidden="true">
+                    <path class="g-track" id="rpm-track"/>
+                    <path class="g-redline" id="rpm-redline"/>
+                    <path class="g-fill" id="rpm-fill"/>
+                    <g class="g-ticks" id="rpm-ticks"></g>
+                </svg>
+                <div class="gauge-center">
+                    <div class="g-value g-value-lg" id="rpm-num">0.0</div>
+                    <div class="g-unit">1/MIN × 1000</div>
+                    <div class="g-cap">EFFICIENCY</div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Single chat view -->
-            <div class="chat-container" id="chatContainer">
+            <!-- Center: Copilot Assistant -->
+            <section class="copilot">
+                <div class="copilot-head">
+                    <div class="copilot-title">
+                        <span class="leaf">🍃</span>
+                        <span>Leafy Assistant</span>
+                    </div>
+                    <div class="copilot-live" id="copilotLive">● OFFLINE</div>
+                </div>
+
                 <div class="chat-messages" id="chatMessages">
                     <div class="message assistant-message">
                         <div class="message-avatar">🤖</div>
                         <div class="message-content">
                             <div class="message-text">
-                                Welcome! I'm your unified car assistant. Ask me about your vehicle's status, how to fix a warning light, or say "take me to the nearest mechanic" — I'll handle it all.
+                                Welcome aboard. Ask me about your vehicle's status, a warning light, or say "take me to the nearest charging station" — I'll handle it.
                             </div>
                             <div class="message-time">Just now</div>
                         </div>
@@ -131,148 +96,77 @@
                 </div>
 
                 <div class="chat-status" id="chatStatus">
-                    <div class="status-dots">
-                        <span></span><span></span><span></span>
-                    </div>
+                    <div class="status-dots"><span></span><span></span><span></span></div>
                     <span class="status-text" id="statusText">Ready</span>
                 </div>
-            </div>
 
-            <!-- Navigation panel — hidden until agent returns a route -->
-            <div class="nav-panel hidden" id="navPanel">
-                <div class="nav-panel-header">
-                    <div class="nav-panel-title">
-                        <span>📍</span>
-                        <span id="navPanelTitle">Route</span>
+                <div class="copilot-input">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Ask Leafy…" autocomplete="off">
+                    <button class="mic-button" id="micButton" title="Tap to talk"><span id="micIcon">🎤</span></button>
+                    <button class="send-btn" id="sendBtn" title="Send">➤</button>
+                </div>
+
+                <!-- Navigation route map — hidden until the agent returns a route -->
+                <div class="nav-panel hidden" id="navPanel">
+                    <div class="nav-panel-header">
+                        <div class="nav-panel-title"><span>📍</span><span id="navPanelTitle">Route</span></div>
+                        <button class="nav-panel-close" onclick="closeNavPanel()">✕</button>
                     </div>
-                    <button class="nav-panel-close" onclick="closeNavPanel()">✕</button>
+                    <div id="mapContainer"></div>
                 </div>
-                <div id="mapContainer"></div>
-            </div>
+            </section>
 
-            <!-- Touchscreen Controls -->
-            <div class="touchscreen-controls">
-                <div class="chat-input-row">
-                    <input
-                        type="text"
-                        id="chatInput"
-                        class="chat-input"
-                        placeholder="Type a message..."
-                        autocomplete="off"
-                    >
-                    <button class="send-btn" id="sendBtn" title="Send">→</button>
-                </div>
-                <button class="mic-button" id="micButton" title="Click to start/stop voice">
-                    <div class="mic-icon" id="micIcon">🎤</div>
-                    <span class="mic-label">Tap to Talk</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Right panel: Fuel, Tires & Brakes -->
-        <div class="dashboard-right">
-
-            <!-- Fuel arc gauge -->
-            <div class="telem-gauge">
-                <svg viewBox="0 0 180 150" class="arc-svg">
-                    <circle cx="90" cy="100" r="65" class="arc-track" transform="rotate(150,90,100)"/>
-                    <circle cx="90" cy="100" r="65" class="arc-fill"  id="fuel-arc" transform="rotate(150,90,100)"/>
-                    <text x="90" y="91"  class="arc-num"    id="fuel-num">--</text>
-                    <text x="90" y="109" class="arc-lbl">FUEL %</text>
-                    <text x="23" y="140" class="arc-minmax">E</text>
-                    <text x="157" y="140" class="arc-minmax">F</text>
+            <!-- Right: Speedometer -->
+            <section class="gauge-wrap">
+                <svg class="gauge" viewBox="0 0 260 260" aria-hidden="true">
+                    <path class="g-track" id="spd-track"/>
+                    <path class="g-fill" id="spd-fill"/>
+                    <g class="g-ticks" id="spd-ticks"></g>
                 </svg>
-                <div class="gauge-footer">
-                    <div class="gauge-stat">
-                        <span class="gauge-stat-label">GEAR</span>
-                        <span class="gauge-stat-val" id="current-gear">--</span>
-                    </div>
-                    <div class="gauge-stat">
-                        <span class="gauge-stat-label">SPEED</span>
-                        <span class="gauge-stat-val" id="speed-val">-- km/h</span>
-                    </div>
+                <div class="gauge-center">
+                    <div class="g-value g-value-lg" id="speed-num">0</div>
+                    <div class="g-unit">km/h</div>
+                    <div class="g-sub" id="spd-cruise">Adaptive Cruise —</div>
                 </div>
+            </section>
+
+        </main>
+
+        <!-- ── Bottom bar ─────────────────────────────────────────────── -->
+        <footer class="cockpit-bottom">
+            <div class="dtc-ticker">
+                <span class="dtc-ticker-label">ACTIVE DTC CODES</span>
+                <span class="dtc-ticker-list" id="dtcTicker"><span class="dtc-none">No active fault codes</span></span>
             </div>
 
-            <!-- Tires -->
-            <div class="telem-group">
-                <div class="telem-group-title">TIRES</div>
-                <svg viewBox="0 0 160 125" class="tire-svg">
-                    <!-- Car body -->
-                    <rect x="46" y="14"  width="68" height="97" rx="14" class="car-body"/>
-                    <rect x="53" y="20"  width="54" height="28" rx="5"  class="car-glass"/>
-                    <rect x="53" y="77"  width="54" height="25" rx="5"  class="car-glass"/>
-                    <!-- FL -->
-                    <rect x="4"   y="6"  width="36" height="46" rx="7" class="tire-rect" id="tire-fl-rect"/>
-                    <text x="22"  y="23" class="tire-pos-lbl">FL</text>
-                    <text x="22"  y="41" class="tire-psi-val" id="tire-fl-val">--</text>
-                    <!-- FR -->
-                    <rect x="120" y="6"  width="36" height="46" rx="7" class="tire-rect" id="tire-fr-rect"/>
-                    <text x="138" y="23" class="tire-pos-lbl">FR</text>
-                    <text x="138" y="41" class="tire-psi-val" id="tire-fr-val">--</text>
-                    <!-- RL -->
-                    <rect x="4"   y="73" width="36" height="46" rx="7" class="tire-rect" id="tire-rl-rect"/>
-                    <text x="22"  y="90" class="tire-pos-lbl">RL</text>
-                    <text x="22"  y="108" class="tire-psi-val" id="tire-rl-val">--</text>
-                    <!-- RR -->
-                    <rect x="120" y="73" width="36" height="46" rx="7" class="tire-rect" id="tire-rr-rect"/>
-                    <text x="138" y="90" class="tire-pos-lbl">RR</text>
-                    <text x="138" y="108" class="tire-psi-val" id="tire-rr-val">--</text>
-                </svg>
-            </div>
-
-            <!-- Chassis -->
-            <div class="telem-group">
-                <div class="telem-group-title">CHASSIS</div>
-                <div class="stat-row">
-                    <span class="stat-label">ABS</span>
-                    <span class="stat-val" id="abs-val">--</span>
+            <div class="bottom-metrics">
+                <div class="metric metric-range">
+                    <span class="m-label">RANGE POTENTIAL</span>
+                    <span class="m-val" id="range-val">-- km</span>
+                    <div class="m-bar"><div class="m-bar-fill" id="range-bar"></div></div>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">TRACTION</span>
-                    <span class="stat-val" id="esc-val">--</span>
+                <div class="metric">
+                    <span class="m-label">ECON</span>
+                    <span class="m-val econ" id="econ-val">--</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">BRAKE</span>
-                    <span class="stat-val" id="brake-pedal-val">--%</span>
+                <div class="metric">
+                    <span class="m-label">TOTAL DIST</span>
+                    <span class="m-val" id="dist-val">--</span>
+                </div>
+                <div class="metric">
+                    <span class="m-label">NEXT SERVICE</span>
+                    <span class="m-val" id="service-val">--</span>
+                </div>
+                <div class="gear-select" id="gearSelect">
+                    <span data-g="P">P</span>
+                    <span data-g="R">R</span>
+                    <span data-g="N">N</span>
+                    <span data-g="D">D</span>
+                    <span data-g="S">S</span>
                 </div>
             </div>
+        </footer>
 
-            <!-- ADAS -->
-            <div class="telem-group">
-                <div class="telem-group-title">ADAS</div>
-                <div class="stat-row">
-                    <span class="stat-label">CRUISE</span>
-                    <span class="stat-val stat-val-sm" id="adas-cruise">--</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">LANE KEEP</span>
-                    <span class="stat-val" id="adas-lka">--</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">COLLISION</span>
-                    <span class="stat-val" id="adas-collision">--</span>
-                </div>
-            </div>
-
-            <!-- Diagnostics — active fault codes (beyond the tell-tale icons) -->
-            <div class="telem-group">
-                <div class="telem-group-title">DIAGNOSTICS</div>
-                <div class="dtc-panel" id="dtc-panel">
-                    <div class="dtc-empty" id="dtc-empty">No active fault codes</div>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- Tech Stack Footer -->
-    <div class="tech-footer">
-        <span class="tech-badge">🎤 Whisper STT</span>
-        <span class="tech-badge">🔍 ObjectBox HNSW</span>
-        <span class="tech-badge">🤖 Ollama LLM</span>
-        <span class="tech-badge">🗄️ MongoDB Atlas</span>
-        <span class="tech-badge">🗺️ OpenStreetMap</span>
     </div>
 
     <script src="{{ url_for('static', filename='scripts/app.js') }}"></script>

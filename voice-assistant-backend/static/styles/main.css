@@ -335,6 +335,46 @@ body {
 }
 .dtc-chip.active .dtc-flag { opacity: 1; }
 
+/* Diagnostics fault-code panel */
+.dtc-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    max-height: 120px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+.dtc-panel::-webkit-scrollbar { width: 5px; }
+.dtc-panel::-webkit-scrollbar-thumb { background: var(--touchscreen-border); border-radius: 3px; }
+
+.dtc-empty {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    padding: 0.2rem 0;
+}
+
+.dtc-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    padding: 0.25rem 0.4rem;
+    border-left: 3px solid #F5A623;
+    background: rgba(245, 166, 35, 0.08);
+    border-radius: 4px;
+}
+.dtc-code {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #F5A623;
+    letter-spacing: 0.03em;
+}
+.dtc-desc {
+    font-size: 0.62rem;
+    line-height: 1.2;
+    color: var(--text-secondary);
+}
+
 /* Chat Container */
 .chat-container {
     flex: 1;

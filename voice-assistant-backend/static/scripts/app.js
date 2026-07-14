@@ -437,6 +437,32 @@ function vssPick(data, path) {
     return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), data);
 }
 
+// OBD-II code → description catalog (from values-vss-data.md), loaded once for the
+// diagnostics panel so it can show codes the tell-tale icons can't represent.
+let _dtcCatalog = {};
+fetch('/static/dtc_catalog.json')
+    .then(r => r.ok ? r.json() : {})
+    .then(c => { _dtcCatalog = c || {}; })
+    .catch(() => { _dtcCatalog = {}; });
+
+// Render the active fault codes into the diagnostics panel.
+function renderDtcPanel(codes) {
+    const panel = document.getElementById('dtc-panel');
+    if (!panel) return;
+    if (!codes || codes.length === 0) {
+        panel.innerHTML = '<div class="dtc-empty" id="dtc-empty">No active fault codes</div>';
+        return;
+    }
+    panel.innerHTML = codes.map(code => {
+        const desc = _dtcCatalog[code] || 'Unknown fault code';
+        const cat = ({ P: 'Powertrain', C: 'Chassis', B: 'Body', U: 'Network' })[String(code)[0]] || '';
+        return `<div class="dtc-item" title="${escapeHtml(cat)}">
+            <span class="dtc-code">${escapeHtml(code)}</span>
+            <span class="dtc-desc">${escapeHtml(desc)}</span>
+        </div>`;
+    }).join('');
+}
+
 // Tell-tales lit from active DTC categories (P→CHK, C→ABS, B→SRS, U→ELEC) plus
 // derived thresholds from live telemetry (coolant→TEMP, fuel→FUEL, SOC→BATT, tires→TPMS).
 function setTellTale(id, level) {
@@ -511,6 +537,7 @@ function updateDiagnostics(data) {
             ? `Active fault codes: ${codes.join(', ')}`
             : 'No active fault codes';
     }
+    renderDtcPanel(codes);
 }
 
 function updateDashboard(data) {
@@ -701,6 +728,8 @@ function markTelemetryUnavailable() {
     const countEl = document.getElementById('dtc-count');
     if (chip) { chip.classList.remove('active'); chip.title = 'Data not available'; }
     if (countEl) countEl.textContent = 'N/A';
+    const panel = document.getElementById('dtc-panel');
+    if (panel) panel.innerHTML = '<div class="dtc-empty">Data not available</div>';
 }
 
 // Clear the "unavailable" styling so updateDashboard can re-apply live colors

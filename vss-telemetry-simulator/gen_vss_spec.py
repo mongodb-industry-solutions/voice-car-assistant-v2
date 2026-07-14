@@ -37,6 +37,12 @@ except ImportError:
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_IN = os.path.join(HERE, "..", "values-vss-data.md")
 DEFAULT_OUT = os.path.join(HERE, "vss_model.json")
+# DTC catalog is emitted here (used by the generator) and mirrored into the
+# dashboard's static dir (used by the UI diagnostics panel).
+DTC_OUT = os.path.join(HERE, "dtc_catalog.json")
+DTC_OUT_UI = os.path.join(HERE, "..", "voice-assistant-backend", "static", "dtc_catalog.json")
+
+_DTC_CODE_RE = re.compile(r"^[PCBU][0-9A-F]{4}$")
 
 # DTCReference is documentation (code→meaning tables), not real VSS signals — skip it.
 SKIP_SUBPATHS = {"Diagnostics.DTCReference"}
@@ -150,6 +156,28 @@ def flatten(node, prefix, out):
         out[rel] = _parse_leaf(node)
 
 
+def extract_dtc_catalog(doc) -> dict:
+    """
+    Collect the official OBD-II codes listed under
+    Vehicle.Diagnostics.DTCReference.GenericExamples → { "P0128": "description", ... }.
+    These are the only codes the simulator may emit.
+    """
+    node = (((doc.get("Vehicle") or {}).get("Diagnostics") or {})
+            .get("DTCReference") or {}).get("GenericExamples") or {}
+    catalog = {}
+
+    def walk(n):
+        if isinstance(n, dict):
+            for k, v in n.items():
+                if isinstance(v, str) and _DTC_CODE_RE.match(str(k)):
+                    catalog[str(k)] = v
+                else:
+                    walk(v)
+
+    walk(node)
+    return catalog
+
+
 def main():
     src = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_IN
     dst = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_OUT
@@ -167,12 +195,22 @@ def main():
     with open(dst, "w", encoding="utf-8") as f:
         json.dump(flat, f, indent=1, sort_keys=True)
 
+    # DTC catalog → generator copy + dashboard static copy (kept in sync from here).
+    catalog = extract_dtc_catalog(doc)
+    for path in (DTC_OUT, DTC_OUT_UI):
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(catalog, f, indent=1, sort_keys=True)
+        except OSError as e:
+            print(f"  (skip {path}: {e})")
+
     # Summary
     from collections import Counter
     kinds = Counter(spec["t"] for spec in flat.values())
     print(f"Wrote {dst}")
     print(f"  leaves: {len(flat)}")
     print(f"  by kind: {dict(kinds)}")
+    print(f"Wrote {DTC_OUT}  ({len(catalog)} DTC codes)")
 
 
 if __name__ == "__main__":

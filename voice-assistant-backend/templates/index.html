@@ -48,9 +48,6 @@
             </div>
 
             <div class="status-right">
-                <span class="conn-ico">📶</span>
-                <span id="searchStatus">Connecting…</span>
-                <span class="sep">·</span>
                 <span>📚 <span id="chunkCount">--</span></span>
             </div>
         </div>
@@ -106,14 +103,6 @@
                     <button class="send-btn" id="sendBtn" title="Send">➤</button>
                 </div>
 
-                <!-- Navigation route map — hidden until the agent returns a route -->
-                <div class="nav-panel hidden" id="navPanel">
-                    <div class="nav-panel-header">
-                        <div class="nav-panel-title"><span>📍</span><span id="navPanelTitle">Route</span></div>
-                        <button class="nav-panel-close" onclick="closeNavPanel()">✕</button>
-                    </div>
-                    <div id="mapContainer"></div>
-                </div>
             </section>
 
             <!-- Right: Speedometer -->
@@ -130,6 +119,14 @@
                 </div>
             </section>
 
+            <!-- Navigation map overlay — spans the full cockpit-main when a route is active -->
+            <div class="nav-panel hidden" id="navPanel">
+                <div class="nav-panel-header">
+                    <div class="nav-panel-title"><span>📍</span><span id="navPanelTitle">Route</span></div>
+                    <button class="nav-panel-close" onclick="closeNavPanel()">✕</button>
+                </div>
+                <div id="mapContainer"></div>
+            </div>
         </main>
 
         <!-- ── Bottom bar ─────────────────────────────────────────────── -->

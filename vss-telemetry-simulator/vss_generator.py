@@ -63,6 +63,13 @@ FAULT_EPISODES = {
     "transmission": {"codes": ["P0700"], "pick": False},
     "electrical":   {"codes": ["U0001", "U0002", "U0006"], "pick": True},
     "wheel_speed":  {"codes": ["C0021", "C0035", "C0040"], "pick": True},
+    # custom codes — not standard OBD-II; added for dashboard tell-tale demonstration
+    "overheat":     {"codes": ["P1217"], "pick": False},  # → TEMP tell-tale
+    "fuel_low":     {"codes": ["P1001"], "pick": False},  # → FUEL tell-tale
+    "batt_low":     {"codes": ["P1002"], "pick": False},  # → BATT tell-tale
+    "tpms_warn":    {"codes": ["C1001"], "pick": False},  # → TPMS tell-tale
+    "belt_warn":    {"codes": ["B1001"], "pick": False},  # → BELT tell-tale
+    "oil_pressure": {"codes": ["P0520"], "pick": False},  # → OIL tell-tale
 }
 FAULT_DWELL_MIN, FAULT_DWELL_MAX = 15, 45   # ticks (~30–90 s at 2 s/tick)
 FAULT_MAX_ACTIVE = 4
@@ -236,6 +243,7 @@ class VssGenerator:
         self.speed = 0.0
         self.fuel_pct = 72.0
         self.coolant = 20.0
+        self.oil_pressure = 55.0  # kPa, normal ~40-80
         self.throttle = 0.0
         self.gear = 1
         self.soc = 82.0
@@ -251,8 +259,13 @@ class VssGenerator:
         self.altitude = 40.0
         self.brake = 0.0
         self.cruise_set = 0.0
-        # faults
+        # faults — pre-seed tick counter mid-cycle so correlated triggers fire sooner
+        self.tick = 80
         self.faults: dict = {}          # code -> expiry tick
+        # seed one fault immediately so the demo ticker shows a code on first snapshot
+        for kind in random.sample(list(FAULT_EPISODES.keys()), 2):
+            self._start(kind)
+        self.tick = 0  # reset after seeding (expiry values are large, fault persists)
 
     # ---- helpers ----
     @staticmethod
@@ -299,8 +312,8 @@ class VssGenerator:
             self._start("electrical")
         if self.brake > 60 and self.speed > 40 and random.random() < 0.05:
             self._start("wheel_speed")
-        # low baseline of any episode so the demo shows occasional (varied) faults
-        if random.random() < 0.009:
+        # baseline: any episode fires ~every 30-60 ticks so the demo always has active codes
+        if random.random() < 0.04:
             self._start(random.choice(list(FAULT_EPISODES)))
         active_kinds = {_CODE_TO_KIND[c] for c in self.faults if c in _CODE_TO_KIND}
         return active_kinds
@@ -322,7 +335,7 @@ class VssGenerator:
 
         # coolant warm-up
         target = 90.0 if self.tick > 30 else 20.0 + self.tick * 2.5
-        self.coolant = self._clamp(self._drift(self.coolant, min(target, 95.0), 0.05, 0.2), 20.0, 105.0)
+        self.coolant = self._clamp(self._drift(self.coolant, min(target, 95.0), 0.05, 0.2), 20.0, 115.0)
 
         # HV battery
         if self.charging:
@@ -372,7 +385,7 @@ class VssGenerator:
             rpm = self._clamp(rpm + random.gauss(0, 350), 500, 6000)
             self.throttle = self._clamp(self.throttle + random.gauss(0, 10), 0, 100)
         if "coolant" in active:
-            self.coolant = self._clamp(self.coolant - random.uniform(20, 35), 20, 105)  # stuck cold (P0128)
+            self.coolant = self._clamp(self.coolant - random.uniform(20, 35), 20, 115)  # stuck cold (P0128)
         if "electrical" in active:
             self.hv_voltage = self._clamp(self.hv_voltage - random.uniform(20, 45), 250, 410)
         if "speed_sensor" in active and random.random() < 0.5:
@@ -381,6 +394,20 @@ class VssGenerator:
             self.gear = 0
         if "wheel_speed" in active:
             abs_evt = True
+        # custom fault effects — push the matching sensor into the warning range
+        if "overheat" in active:
+            self.coolant = self._clamp(self.coolant + random.uniform(15, 25), 20, 115)  # → above 100°C (P1217)
+        if "fuel_low" in active:
+            self.fuel_pct = self._clamp(self.fuel_pct - random.uniform(8, 18), 0, 100)  # → below 20% (P1001)
+        if "batt_low" in active:
+            self.soc = self._clamp(self.soc - random.uniform(5, 12), 0, 100)  # → below 25% (P1002)
+        if "tpms_warn" in active:
+            k = random.choice(list(self.tire.keys()))
+            self.tire[k] = self._clamp(self.tire[k] - random.uniform(20, 40), 150, 240)  # → below 193 kPa (C1001)
+        belted = not ("belt_warn" in active)  # B1001 — unbelted during episode
+        self.oil_pressure = self._clamp(self._drift(self.oil_pressure, 55.0, 0.05, 0.3), 10.0, 90.0)
+        if "oil_pressure" in active:
+            self.oil_pressure = self._clamp(self.oil_pressure - random.uniform(10, 25), 10.0, 90.0)  # → below 35 kPa (P0520)
 
         codes = sorted(self.faults.keys())
 
@@ -407,10 +434,10 @@ class VssGenerator:
             "Powertrain.TractionBattery.Temperature.Average": round(self.batt_temp, 1),
             "Powertrain.TractionBattery.Charging.IsCharging": self.charging,
             "Powertrain.TractionBattery.Charging.ChargeRate": round(self.charge_kw, 1),
-            "Chassis.Axle.Row1.Wheel.Left.Tire.Pressure": round(self.tire["fl"]),
-            "Chassis.Axle.Row1.Wheel.Right.Tire.Pressure": round(self.tire["fr"]),
-            "Chassis.Axle.Row2.Wheel.Left.Tire.Pressure": round(self.tire["rl"]),
-            "Chassis.Axle.Row2.Wheel.Right.Tire.Pressure": round(self.tire["rr"]),
+            "Chassis.Axle.Row1.Wheel.Left.Tire.Pressure": round(self.tire["fl"], 1),
+            "Chassis.Axle.Row1.Wheel.Right.Tire.Pressure": round(self.tire["fr"], 1),
+            "Chassis.Axle.Row2.Wheel.Left.Tire.Pressure": round(self.tire["rl"], 1),
+            "Chassis.Axle.Row2.Wheel.Right.Tire.Pressure": round(self.tire["rr"], 1),
             "Chassis.Brake.PedalPosition": round(self.brake),
             "ADAS.ABS.IsEngaged": abs_evt,
             "ADAS.ABS.IsEnabled": True,
@@ -419,6 +446,8 @@ class VssGenerator:
             "ADAS.CruiseControl.IsActive": cruise,
             "ADAS.CruiseControl.IsEnabled": cruise,
             "ADAS.CruiseControl.SpeedSet": round(self.cruise_set, 1),
+            "Cabin.Seat.Row1.DriverSide.IsBelted": belted,
+            "Powertrain.CombustionEngine.OilPressure": round(self.oil_pressure, 1),
             "Cabin.HVAC.AmbientAirTemperature": round(self.inside_temp, 1),
             "Exterior.AirTemperature": round(self.outside_temp, 1),
             "CurrentLocation.Latitude": round(lat, 6),

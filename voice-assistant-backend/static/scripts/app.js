@@ -14,7 +14,6 @@ const micIcon = document.getElementById('micIcon');
 const chatMessages = document.getElementById('chatMessages');
 const chatStatus = document.getElementById('chatStatus');
 const statusText = document.getElementById('statusText');
-const searchStatus = document.getElementById('searchStatus');
 const chunkCount = document.getElementById('chunkCount');
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -156,14 +155,11 @@ function hideStatus() {
 socket.on('connect', () => {
     console.log('✅ Connected to backend server');
     hideStatus();
-    searchStatus.style.color = 'var(--accent)';
     micButton.disabled = false;
 });
 
 socket.on('disconnect', () => {
     console.log('❌ Disconnected from backend');
-    searchStatus.textContent = 'Offline';
-    searchStatus.style.color = '#FF4B4B';
     micButton.disabled = true;
     isListening = false;
     micButton.classList.remove('listening');
@@ -193,13 +189,6 @@ socket.on('status', (data) => {
 
 // Statistics
 socket.on('stats', (data) => {
-    if (data.search_service === 'online') {
-        searchStatus.textContent = 'Online';
-        searchStatus.style.color = 'var(--accent)';
-    } else {
-        searchStatus.textContent = 'Offline';
-        searchStatus.style.color = '#FF4B4B';
-    }
     if (data.chunk_count !== undefined) {
         chunkCount.textContent = data.chunk_count.toLocaleString();
     }
@@ -391,7 +380,7 @@ function vssPick(data, path) {
 }
 
 // ── Circular gauges (SVG arcs, 270° sweep with a gap at the bottom) ───────────
-const G = { cx: 130, cy: 130, r: 104, rTick: 84, a0: 225, span: 270 };
+const G = { cx: 130, cy: 130, r: 100, rTick: 128, rTickInner: 85, a0: 225, span: 270 };
 function gpolar(deg, r) {
     const a = (deg - 90) * Math.PI / 180;
     return [G.cx + r * Math.cos(a), G.cy + r * Math.sin(a)];
@@ -402,34 +391,66 @@ function gArc(frac0, frac1, r) {
     const large = (e - s) <= 180 ? 0 : 1;
     return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
 }
+const NEEDLE_LEN = 82;
 function initGauge(cfg) {
     const track = document.getElementById(cfg.track);
     if (track) track.setAttribute('d', gArc(0, 1, G.r));
-    const fill = document.getElementById(cfg.fill);
-    if (fill) fill.setAttribute('d', gArc(0, 0, G.r));
     if (cfg.redline) {
         const rl = document.getElementById(cfg.redline);
         if (rl) rl.setAttribute('d', gArc(0.85, 1, G.r));
     }
     const ticks = document.getElementById(cfg.ticks);
     if (ticks) {
-        ticks.innerHTML = cfg.labels.map(v => {
-            const [x, y] = gpolar(G.a0 + G.span * (v / cfg.max), G.rTick);
-            return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}">${v}</text>`;
+        const majorSet = new Set(cfg.labels.map(v => v / cfg.max));
+        let minorHtml = '';
+        if (cfg.minorInterval) {
+            for (let v = 0; v <= cfg.max; v += cfg.minorInterval) {
+                const frac = v / cfg.max;
+                if (majorSet.has(frac)) continue;
+                const ang = G.a0 + G.span * frac;
+                const [ix, iy] = gpolar(ang, G.r - 8);
+                const [ox, oy] = gpolar(ang, G.r);
+                minorHtml += `<line x1="${ix.toFixed(1)}" y1="${iy.toFixed(1)}" x2="${ox.toFixed(1)}" y2="${oy.toFixed(1)}" class="g-tick-minor"/>`;
+            }
+        }
+        const majorHtml = cfg.labels.map(v => {
+            const ang = G.a0 + G.span * (v / cfg.max);
+            const [tx, ty] = gpolar(ang, G.rTick);
+            const [ix, iy] = gpolar(ang, G.rTickInner);
+            const [ox, oy] = gpolar(ang, G.r);
+            return `<line x1="${ix.toFixed(1)}" y1="${iy.toFixed(1)}" x2="${ox.toFixed(1)}" y2="${oy.toFixed(1)}"/>` +
+                   `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}">${v}</text>`;
         }).join('');
+        ticks.innerHTML = minorHtml + majorHtml;
+    }
+    // initialise needle and fill arc at 0
+    const needle = document.getElementById(cfg.needle);
+    if (needle) {
+        const [x2, y2] = gpolar(G.a0, NEEDLE_LEN);
+        needle.setAttribute('x2', x2.toFixed(1));
+        needle.setAttribute('y2', y2.toFixed(1));
+    }
+    if (cfg.fill) {
+        const fillEl = document.getElementById(cfg.fill);
+        if (fillEl) fillEl.setAttribute('d', '');
     }
 }
-function setGauge(fillId, value, max) {
+function setNeedle(needleId, fillId, value, max) {
     const frac = Math.max(0, Math.min(1, (value || 0) / max));
-    const el = document.getElementById(fillId);
-    if (el) el.setAttribute('d', frac <= 0 ? '' : gArc(0, frac, G.r));
+    const [x2, y2] = gpolar(G.a0 + G.span * frac, NEEDLE_LEN);
+    const el = document.getElementById(needleId);
+    if (el) { el.setAttribute('x2', x2.toFixed(1)); el.setAttribute('y2', y2.toFixed(1)); }
+    if (fillId) {
+        const fillEl = document.getElementById(fillId);
+        if (fillEl) fillEl.setAttribute('d', frac > 0.001 ? gArc(0, frac, G.r) : '');
+    }
 }
-const RPM_MAX = 8000, SPD_MAX = 160;
-initGauge({ track: 'rpm-track', fill: 'rpm-fill', redline: 'rpm-redline', ticks: 'rpm-ticks', labels: [0,1,2,3,4,5,6,7,8], max: 8 });
-initGauge({ track: 'spd-track', fill: 'spd-fill', ticks: 'spd-ticks', labels: [0,40,80,120,160], max: SPD_MAX });
+const RPM_MAX = 8000, SPD_MAX = 240;
+initGauge({ track: 'rpm-track', redline: 'rpm-redline', ticks: 'rpm-ticks', needle: 'rpm-needle', fill: 'rpm-fill', labels: [0,1,2,3,4,5,6,7,8], max: 8 });
+initGauge({ track: 'spd-track', ticks: 'spd-ticks', needle: 'spd-needle', fill: 'spd-fill', labels: [0,40,80,120,160,200,240], max: SPD_MAX, minorInterval: 20 });
 
 // ── Tell-tales ────────────────────────────────────────────────────────────────
-const TELLTALE_IDS = ['tt-mil', 'tt-abs', 'tt-tpms', 'tt-belt', 'tt-temp', 'tt-batt', 'tt-fuel'];
+const TELLTALE_IDS = ['tt-mil', 'tt-abs', 'tt-tpms', 'tt-belt', 'tt-temp', 'tt-batt', 'tt-oil', 'tt-fuel'];
 function setTellTale(id, level) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -473,23 +494,15 @@ function updateCockpit(data) {
 
     // Gauges
     const rpm = vssPick(data, 'Powertrain.CombustionEngine.Speed');
-    setGauge('rpm-fill', rpm, RPM_MAX);
+    setNeedle('rpm-needle', 'rpm-fill', rpm, RPM_MAX);
     const rpmEl = document.getElementById('rpm-num');
     if (rpmEl) rpmEl.textContent = rpm == null ? 'N/A' : (rpm / 1000).toFixed(1);
 
     const spd = vssPick(data, 'Speed');
-    setGauge('spd-fill', spd, SPD_MAX);
+    setNeedle('spd-needle', 'spd-fill', spd, SPD_MAX);
     const spdEl = document.getElementById('speed-num');
     if (spdEl) spdEl.textContent = spd == null ? 'N/A' : Math.round(spd);
 
-    // Cruise captions
-    const cruise = vssPick(data, 'ADAS.CruiseControl.IsActive');
-    const setspd = vssPick(data, 'ADAS.CruiseControl.SpeedSet');
-    const cruiseTxt = cruise == null ? 'Adaptive Cruise —'
-        : cruise ? `Adaptive Cruise ${setspd ? Math.round(setspd) + ' km/h' : 'Active'}`
-        : 'Adaptive Cruise Off';
-    const cruiseEl = document.getElementById('spd-cruise');
-    if (cruiseEl) cruiseEl.textContent = cruiseTxt;
 
     // Exterior temperature
     const ext = vssPick(data, 'Exterior.AirTemperature');
@@ -520,24 +533,45 @@ function updateCockpit(data) {
     // Diagnostics + tell-tales
     const dg = vssPick(data, 'Diagnostics') || {};
     const codes = Array.isArray(dg.DTCList) ? dg.DTCList : [];
-    let mil = 'off', abs = 'off';
-    codes.forEach(c => { const k = String(c)[0]; if (k === 'P') mil = 'amber'; else if (k === 'C' || k === 'B') abs = 'amber'; });
 
+    // Sensor-based tell-tale state (baseline)
     const coolant = vssPick(data, 'Powertrain.CombustionEngine.EngineCoolant.Temperature');
-    const temp = coolant == null ? 'off' : coolant > 110 ? 'red' : coolant > 100 ? 'amber' : 'off';
+    let temp = coolant == null ? 'off' : coolant > 110 ? 'red' : coolant > 100 ? 'amber' : 'off';
     const fuelPct = vssPick(data, 'Powertrain.FuelSystem.RelativeLevel');
-    const fuel = fuelPct == null ? 'off' : fuelPct < 10 ? 'red' : fuelPct < 20 ? 'amber' : 'off';
+    let fuel = fuelPct == null ? 'off' : fuelPct < 10 ? 'red' : fuelPct < 20 ? 'amber' : 'off';
     const soc = vssPick(data, 'Powertrain.TractionBattery.StateOfCharge.Current');
-    const batt = soc == null ? 'off' : soc < 15 ? 'red' : soc < 25 ? 'amber' : 'off';
+    let batt = soc == null ? 'off' : soc < 15 ? 'red' : soc < 25 ? 'amber' : 'off';
     let tpms = 'off';
     ['Chassis.Axle.Row1.Wheel.Left.Tire.Pressure', 'Chassis.Axle.Row1.Wheel.Right.Tire.Pressure',
      'Chassis.Axle.Row2.Wheel.Left.Tire.Pressure', 'Chassis.Axle.Row2.Wheel.Right.Tire.Pressure'].forEach(p => {
-        const k = vssPick(data, p);
-        if (k == null) return;
-        tpms = worse(tpms, k < 193 ? 'red' : (k < 207 || k > 241) ? 'amber' : 'off');
+        const v = vssPick(data, p);
+        if (v == null) return;
+        tpms = worse(tpms, v < 193 ? 'red' : (v < 207 || v > 241) ? 'amber' : 'off');
     });
     const belted = vssPick(data, 'Cabin.Seat.Row1.DriverSide.IsBelted');
-    const belt = belted == null ? 'off' : belted ? 'off' : 'red';
+    let belt = belted == null ? 'off' : belted ? 'off' : 'red';
+    const oilPsi = vssPick(data, 'Powertrain.CombustionEngine.OilPressure');
+    let oil = oilPsi == null ? 'off' : oilPsi < 20 ? 'red' : oilPsi < 35 ? 'amber' : 'off';
+
+    // DTC-based upgrades — custom codes map to specific tell-tales;
+    // standard P/U → CHK, standard C → ABS.
+    // Custom codes (marked [custom] in dtc_catalog.json, not standard OBD-II):
+    //   P1217 → TEMP, P1001 → FUEL, P1002 → BATT, C1001 → TPMS, B1001 → BELT
+    // Standard code: P0520 → OIL
+    const DTC_TELLTALE = { 'P1217': 'temp', 'P1001': 'fuel', 'P1002': 'batt', 'C1001': 'tpms', 'B1001': 'belt', 'P0520': 'oil' };
+    let mil = 'off', abs = 'off';
+    codes.forEach(c => {
+        const k = String(c)[0];
+        const specific = DTC_TELLTALE[c];
+        if      (specific === 'temp') temp = worse(temp, 'amber');
+        else if (specific === 'fuel') fuel = worse(fuel, 'amber');
+        else if (specific === 'batt') batt = worse(batt, 'amber');
+        else if (specific === 'tpms') tpms = worse(tpms, 'amber');
+        else if (specific === 'belt') belt = worse(belt, 'amber');
+        else if (specific === 'oil')  oil  = worse(oil,  'red');
+        if (k === 'P' || k === 'U') mil = 'amber';
+        else if (k === 'C' && !specific) abs = 'amber';
+    });
 
     setTellTale('tt-mil', mil);
     setTellTale('tt-abs', abs);
@@ -545,15 +579,26 @@ function updateCockpit(data) {
     setTellTale('tt-belt', belt);
     setTellTale('tt-temp', temp);
     setTellTale('tt-batt', batt);
+    setTellTale('tt-oil',  oil);
     setTellTale('tt-fuel', fuel);
 
-    renderDtcTicker(codes);
+    // Synthesize DTC codes for tell-tales that fired from sensor thresholds alone
+    // (i.e. no fault episode is active but the sensor value crossed the warning band).
+    const displayCodes = [...codes];
+    const ensure = (active, code) => { if (active !== 'off' && !displayCodes.includes(code)) displayCodes.push(code); };
+    ensure(temp, 'P1217');
+    ensure(fuel, 'P1001');
+    ensure(batt, 'P1002');
+    ensure(tpms, 'C1001');
+    ensure(belt, 'B1001');
+    ensure(oil,  'P0520');
+    renderDtcTicker(displayCodes);
 }
 
 // ── Availability ────────────────────────────────────────────────────────────────
 function markTelemetryUnavailable() {
-    setGauge('rpm-fill', 0, RPM_MAX);
-    setGauge('spd-fill', 0, SPD_MAX);
+    setNeedle('rpm-needle', 'rpm-fill', 0, RPM_MAX);
+    setNeedle('spd-needle', 'spd-fill', 0, SPD_MAX);
     const rpmEl = document.getElementById('rpm-num'); if (rpmEl) rpmEl.textContent = 'N/A';
     const spdEl = document.getElementById('speed-num'); if (spdEl) spdEl.textContent = 'N/A';
     ['range-val', 'econ-val', 'dist-val', 'service-val'].forEach(id => {

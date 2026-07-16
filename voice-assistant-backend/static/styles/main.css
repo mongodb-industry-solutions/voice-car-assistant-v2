@@ -7,17 +7,17 @@
     --green-dim:  #00b34c;
     --green-dark: #00684A;
     --amber:      #F5A623;
-    --red:        #FF4B4B;
+    --red:        #E82020;
 
-    --bg-0:       #041310;
-    --bg-1:       #020a08;
-    --panel:      rgba(10, 26, 22, 0.55);
-    --panel-brd:  rgba(0, 237, 100, 0.14);
-    --hair:       rgba(120, 160, 150, 0.14);
+    --bg-0:       #0e1a16;
+    --bg-1:       #0a1210;
+    --panel:      rgba(18, 32, 26, 0.92);
+    --panel-brd:  rgba(0, 237, 100, 0.18);
+    --hair:       rgba(120, 160, 140, 0.25);
 
     --text:       #E8F1EE;
-    --text-2:     #8FA6A0;
-    --text-3:     #5f736d;
+    --text-2:     #a8c4bc;
+    --text-3:     #7a9990;
 
     --accent:      var(--green);
     --accent-glow: rgba(0, 237, 100, 0.45);
@@ -50,9 +50,9 @@ body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     color: var(--text);
     background:
-        radial-gradient(120% 80% at 15% 40%, rgba(0, 237, 100, 0.10), transparent 55%),
-        radial-gradient(120% 80% at 85% 40%, rgba(0, 237, 100, 0.10), transparent 55%),
-        linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+        radial-gradient(ellipse 80% 60% at 20% 50%, rgba(0, 80, 50, 0.18), transparent 60%),
+        radial-gradient(ellipse 80% 60% at 80% 50%, rgba(0, 80, 50, 0.18), transparent 60%),
+        linear-gradient(180deg, #111c17 0%, #0a1210 100%);
     overflow: hidden;
 }
 
@@ -142,9 +142,12 @@ body {
     border-radius: 10px;
     transition: background .25s;
 }
-.tt span { font-size: 1.05rem; line-height: 1; filter: grayscale(1); opacity: 0.4; transition: filter .25s, opacity .25s; }
+.tt span { display: flex; align-items: center; justify-content: center; line-height: 1; }
+.tt span svg { width: 22px; height: 22px; color: var(--text-3); opacity: 0.4; transition: color .25s, opacity .25s; }
 .tt label { font-size: 0.52rem; font-weight: 700; letter-spacing: 0.06em; color: var(--text-3); transition: color .25s; }
-.tt.amber span, .tt.red span { filter: none; opacity: 1; }
+.tt.amber span svg, .tt.red span svg { opacity: 1; }
+.tt.amber span svg { color: var(--amber); }
+.tt.red   span svg { color: var(--red); }
 .tt.amber { background: rgba(245,166,35,0.10); } .tt.amber label { color: var(--amber); }
 .tt.red   { background: rgba(255,75,75,0.12); }  .tt.red label { color: var(--red); }
 .tt.red   { animation: ttblink 1.1s steps(1) infinite; }
@@ -161,20 +164,26 @@ body {
 }
 
 /* ── Gauges ─────────────────────────────────────────────────────────────────── */
-.gauge-wrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-.gauge { width: 100%; max-width: 360px; max-height: 100%; aspect-ratio: 1; overflow: visible; }
+.gauge-wrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: visible; }
+.gauge { width: 100%; max-width: 380px; max-height: 100%; aspect-ratio: 1; overflow: visible; }
 
-.g-track   { fill: none; stroke: rgba(120,160,150,0.16); stroke-width: 10; stroke-linecap: round; }
-.g-redline { fill: none; stroke: var(--red); stroke-width: 10; stroke-linecap: round; opacity: 0.85; }
-.g-fill    { fill: none; stroke: var(--green); stroke-width: 10; stroke-linecap: round;
-             filter: drop-shadow(0 0 6px var(--accent-glow)); transition: d .35s ease; }
-.g-ticks text { fill: var(--text-2); font-size: 12px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }
-.g-ticks line { stroke: rgba(120,160,150,0.3); stroke-width: 2; }
+.g-track   { fill: none; stroke: rgba(255,255,255,0.18); stroke-width: 2; stroke-linecap: butt; }
+.g-fill    { fill: none; stroke: var(--green); stroke-width: 3; stroke-linecap: butt; opacity: 0.80; transition: d .3s ease; }
+.g-redline { fill: none; stroke: var(--red); stroke-width: 3; stroke-linecap: butt; opacity: 0.90; }
+.g-needle  { stroke: var(--red); stroke-width: 2.5; stroke-linecap: round; transition: x2 .3s ease, y2 .3s ease; }
+.g-pivot   { fill: #0e1a16; stroke: var(--red); stroke-width: 2; }
+.g-ticks text { fill: #e8e8e8; font-size: 14px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+.g-ticks line { stroke: rgba(255,255,255,0.70); stroke-width: 2; }
+.g-tick-minor { stroke: rgba(255,255,255,0.38); stroke-width: 1.2; }
 
 .gauge-center {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; pointer-events: none;
+}
+.gauge-center--bottom {
+    justify-content: flex-end;
+    padding-bottom: 8%;
 }
 .g-value { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 800; color: var(--text); line-height: 1; }
 .g-value-lg { font-size: clamp(2.8rem, 5vw, 4.2rem); }
@@ -188,10 +197,10 @@ body {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    background: var(--panel);
-    border: 1px solid var(--panel-brd);
+    background: rgba(18, 34, 26, 0.95);
+    border: 1px solid rgba(0, 237, 100, 0.20);
     border-radius: 18px;
-    box-shadow: inset 0 0 40px rgba(0,0,0,0.35), 0 0 30px rgba(0,0,0,0.4);
+    box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(0,237,100,0.06);
     overflow: hidden;
     position: relative;
 }
@@ -231,7 +240,8 @@ body {
 }
 .message-content { display: flex; flex-direction: column; gap: 0.2rem; }
 .message-text {
-    background: rgba(30, 42, 38, 0.9);
+    background: rgba(10, 22, 17, 0.85);
+    border: 1px solid rgba(120,160,140,0.12);
     padding: 0.6rem 0.85rem; border-radius: 12px 12px 12px 4px;
     font-size: 0.88rem; line-height: 1.45; color: var(--text);
 }

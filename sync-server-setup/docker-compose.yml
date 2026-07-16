@@ -155,7 +155,7 @@ services:
         condition: service_started
       navigation-service:
         condition: service_started
-      vss-telemetry-mcp-server:
+      vss-telemetry-api:
         condition: service_started
     environment:
       - OLLAMA_HOST=http://ollama:11434
@@ -164,7 +164,7 @@ services:
       - SEARCH_SERVICE_URL=http://search-service:8080
       - MONGODB_SEARCH_SERVICE_URL=http://mongodb-search-service:8085
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
-      - VSS_TELEMETRY_MCP_URL=http://vss-telemetry-mcp-server:3002
+      - VSS_TELEMETRY_API_URL=http://vss-telemetry-api:3002
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5002/health"]
       interval: 30s
@@ -242,11 +242,11 @@ services:
       timeout: 5s
       retries: 3
 
-  vss-telemetry-mcp-server:
+  vss-telemetry-api:
     build:
-      context: ../vss-telemetry-mcp-server
+      context: ../vss-telemetry-api
       dockerfile: Dockerfile
-    container_name: vss-telemetry-mcp-server
+    container_name: vss-telemetry-api
     restart: always
     ports:
       - "3002:3002"
@@ -255,7 +255,6 @@ services:
     environment:
       - MONGODB_URI=mongodb+srv://${MONGODB_USER}:${MONGODB_PASS}@${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true
       - DATABASE_NAME=${MONGODB_DATABASE}
-      - MCP_TRANSPORT=sse
       - PORT=3002
       - VEHICLE_ID=VSS-DEMO-VIN-001
     healthcheck:

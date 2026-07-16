@@ -1,427 +1,476 @@
 """
-Generates realistic VSS (Vehicle Signal Specification) telemetry data
-for a single simulated vehicle.
+Generates a full VSS telemetry snapshot with *realistic* values.
+
+The complete VSS `Vehicle` tree (~1300 signals) is emitted verbatim using exact
+VSS paths. Values are realistic rather than random-within-domain:
+
+  • Dynamic core — a smooth, correlated drive-cycle simulation drives the signals
+    that consumers surface (speed↔gear↔RPM↔throttle, coolant warm-up, fuel/SOC
+    depletion, tyre drift, GPS along a path, cruise, HV battery, cabin temps),
+    written at their exact VSS paths.
+  • Realistic bands — every other signal gets a plausible value via type/name
+    heuristics (faults mostly false, temps in sane ranges, enums a "normal"
+    default, tight numeric bands) instead of full-domain noise.
+  • Fault episodes ("faulty times") — occasionally a subsystem faults: the related
+    signal is pushed out of range AND a matching OBD-II code from the file catalog
+    (dtc_catalog.json, extracted from values-vss-data.md) is set for a dwell, then
+    it recovers. Diagnostics.DTCList is drawn ONLY from that catalog and
+    Diagnostics.DTCCount === DTCList.length.
+
+Storage/consumers are unchanged — the tree flows through the opaque JsonToNative
+`data` blob to Atlas; the API/dashboard read exact VSS paths.
 """
 
-import random
-import math
-import time
 import json
-import geohash2 as geohash
-from vss_thresholds import classify, VSS_THRESHOLDS
+import math
+import os
+import random
+import string
+import time
 
 VEHICLE_ID = "VSS-DEMO-VIN-001"
 VIN        = "WBA12345VSS00001"
 TRIP_ID    = "trip-001"
 
-# Starting GPS position (Paris outskirts)
+META = {
+    "vin":                VIN,
+    "oem":                "MongoDB",
+    "model":              "Leafy 1.0",
+    "platform":           "VSS-v4",
+    "softwareVersion":    "1.0.0",
+    "fuelTankCapacityL":  60.0,
+    "batteryCapacityKwh": 75.0,
+    "wheelbaseMm":        2875,
+    "curbWeightKg":       1800,
+    "powertrainType":     "HEV",
+    "drivetrainType":     "AWD",
+}
+
 BASE_LAT, BASE_LON = 48.8566, 2.3522
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SPEC_PATH = os.path.join(_HERE, "vss_model.json")
+_DTC_PATH = os.path.join(_HERE, "dtc_catalog.json")
+
+# ── Fault episodes: subsystem → catalog codes (filtered to what the file lists) ──
+FAULT_EPISODES = {
+    "misfire":      {"codes": ["P0300", "P0301", "P0302", "P0303", "P0304"], "pick": True},
+    "coolant":      {"codes": ["P0128"], "pick": False},
+    "catalyst":     {"codes": ["P0420", "P0430"], "pick": True},
+    "fuel_trim":    {"codes": ["P0171", "P0172"], "pick": True},
+    "evap":         {"codes": ["P0442", "P0455"], "pick": True},
+    "speed_sensor": {"codes": ["P0500"], "pick": False},
+    "transmission": {"codes": ["P0700"], "pick": False},
+    "electrical":   {"codes": ["U0001", "U0002", "U0006"], "pick": True},
+    "wheel_speed":  {"codes": ["C0021", "C0035", "C0040"], "pick": True},
+    # custom codes — not standard OBD-II; added for dashboard tell-tale demonstration
+    "overheat":     {"codes": ["P1217"], "pick": False},  # → TEMP tell-tale
+    "fuel_low":     {"codes": ["P1001"], "pick": False},  # → FUEL tell-tale
+    "batt_low":     {"codes": ["P1002"], "pick": False},  # → BATT tell-tale
+    "tpms_warn":    {"codes": ["C1001"], "pick": False},  # → TPMS tell-tale
+    "belt_warn":    {"codes": ["B1001"], "pick": False},  # → BELT tell-tale
+    "oil_pressure": {"codes": ["P0520"], "pick": False},  # → OIL tell-tale
+}
+FAULT_DWELL_MIN, FAULT_DWELL_MAX = 15, 45   # ticks (~30–90 s at 2 s/tick)
+FAULT_MAX_ACTIVE = 4
+
+_STR_ALPHABET = string.ascii_uppercase + string.digits
+_NORMAL_ENUM = {"NORMAL", "OK", "NONE", "INACTIVE", "OFF", "CLEAR", "UNKNOWN",
+                "NOT_APPLICABLE", "STOP", "CLOSED", "DRY", "AUTOMATIC"}
+_NEG_BOOL = ("error", "defect", "fault", "warn", "worn", "blocked", "overheat",
+             "fire", "submers", "broken", "stall", "emergency", "crosswind",
+             "icing", "rollover", "deployed", "triggered", "islevellow",
+             "isfuellevellow", "isfuellevelempty", "ispressurelow", "isbrakeswom",
+             "isdriveremergencybraking")
+
+
+# ── Realism classification (done once at load) ──────────────────────────────────
+
+def _refine(path: str, spec: dict) -> dict:
+    """Annotate a leaf spec with realistic bounds/weights for non-core signals."""
+    name = path.lower()
+    t = spec.get("t")
+
+    if t == "bool":
+        if any(k in name for k in _NEG_BOOL):
+            spec["p_true"] = 0.03
+        elif "islocked" in name:
+            spec["p_true"] = 0.85
+        elif "isopen" in name or name.endswith(".open"):
+            spec["p_true"] = 0.08
+        elif any(k in name for k in ("ison", "isactive", "isengaged", "isenabled",
+                                     "isavailable", "isconnected", "ischarging")):
+            spec["p_true"] = 0.3
+        else:
+            spec["p_true"] = 0.35
+        return spec
+
+    if t in ("int", "float"):
+        lo, hi = spec["min"], spec["max"]
+        span = hi - lo
+        def band(a, b):
+            return (max(lo, a), min(hi, b))
+        if "temp" in name:
+            if any(k in name for k in ("coolant", "oil", "exhaust", "catalyst", "engine")):
+                r = band(70, 100)
+            elif "battery" in name or "cell" in name:
+                r = band(20, 40)
+            else:
+                r = band(10, 35)
+        elif any(k in name for k in ("angle", "pitch", "roll", "yaw", "tilt", "pan",
+                                     "lateral", "longitudinal", "vertical", "steer")):
+            r = band(-15, 15)
+        elif (lo == 0 and hi == 100) or any(k in name for k in (
+                "percent", "level", "position", "support", "intensity", "brightness",
+                "volume", "load", "utilization", "fanspeed", "dimming", "recline",
+                "soc", "soh", "charge", "humidity", "wear", "friction")):
+            r = band(10, 90)
+        elif "voltage" in name:
+            r = band(11, 14) if hi <= 100 else band(320, 400)
+        elif "current" in name:
+            r = band(-50, 50) if lo < 0 else band(0, 50)
+        elif "pressure" in name:
+            r = band(lo, lo + span * 0.05)
+        elif any(k in name for k in ("range", "distance", "traveled", "odometer",
+                                     "capacity", "hours", "duration")):
+            r = band(lo, lo + min(span, 500))
+        elif "speed" in name or "rpm" in name:
+            r = band(0, min(hi, 120))
+        else:
+            if lo < 0 < hi:
+                w = min(span * 0.05, 50)
+                r = band(-w, w)
+            else:
+                r = band(lo, lo + min(span * 0.15, 100))
+        spec["rmin"], spec["rmax"] = r
+        return spec
+
+    if t == "enum":
+        vals = spec.get("vals") or []
+        pref = next((v for v in vals if str(v).upper() in _NORMAL_ENUM), vals[0] if vals else None)
+        spec["prefer"] = pref
+        return spec
+
+    if t == "enumnum":
+        vals = spec.get("vals") or []
+        spec["prefer"] = 0 if 0 in vals else (1 if 1 in vals else (vals[0] if vals else None))
+        return spec
+
+    return spec
+
+
+def _load_template(spec_path: str) -> dict:
+    with open(spec_path, "r", encoding="utf-8") as f:
+        flat = json.load(f)
+    template: dict = {}
+    for path, spec in flat.items():
+        _refine(path, spec)
+        node = template
+        parts = path.split(".")
+        for key in parts[:-1]:
+            node = node.setdefault(key, {})
+        node[parts[-1]] = spec
+    return template
+
+
+def _load_catalog(path: str) -> dict:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+_TEMPLATE = _load_template(_SPEC_PATH)
+_CATALOG = _load_catalog(_DTC_PATH)
+# code → subsystem, for applying fault effects to core signals
+_CODE_TO_KIND = {
+    c: kind for kind, cfg in FAULT_EPISODES.items()
+    for c in cfg["codes"] if c in _CATALOG
+}
+
+
+def _realistic_leaf(spec: dict):
+    t = spec.get("t")
+    if t == "bool":
+        return random.random() < spec.get("p_true", 0.3)
+    if t == "int":
+        return random.randint(round(spec.get("rmin", spec["min"])),
+                              round(spec.get("rmax", spec["max"])))
+    if t == "float":
+        return round(random.uniform(spec.get("rmin", spec["min"]),
+                                    spec.get("rmax", spec["max"])), 2)
+    if t == "enum" or t == "enumnum":
+        vals = spec.get("vals") or []
+        if not vals:
+            return None
+        pref = spec.get("prefer")
+        if pref is not None and random.random() < 0.8:
+            return pref
+        return random.choice(vals)
+    if t == "arr":
+        n = random.randint(spec.get("min", 1), min(2, spec.get("max", 2)))
+        return [_realistic_leaf(spec["item"]) for _ in range(n)]
+    if t == "branch":
+        return {}
+    return random.choice(["OK", "NORMAL", "N/A"])
+
+
+def _walk(node):
+    if isinstance(node, dict):
+        if "t" in node:
+            return _realistic_leaf(node)
+        return {k: _walk(v) for k, v in node.items()}
+    return node
+
+
+def _set_path(tree: dict, path: str, value) -> None:
+    parts = path.split(".")
+    node = tree
+    for key in parts[:-1]:
+        nxt = node.get(key)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            node[key] = nxt
+        node = nxt
+    node[parts[-1]] = value
 
 
 class VssGenerator:
     def __init__(self):
         self.tick = 0
-
-        # Powertrain state
-        self.speed_kph = 0.0
-        self.odometer_km = 12345.0
-        self.fuel_level_pct = 75.0
-        self.coolant_temp_c = 20.0  # starts cold
-        self.throttle_pct = 0.0
+        # drive-cycle state
+        self.speed = 0.0
+        self.fuel_pct = 72.0
+        self.coolant = 20.0
+        self.oil_pressure = 55.0  # kPa, normal ~40-80
+        self.throttle = 0.0
         self.gear = 1
+        self.soc = 82.0
+        self.soh = 96.5
+        self.batt_temp = 24.0
+        self.charging = False
+        self.charge_kw = 0.0
+        self.hv_voltage = 360.0
+        self.tire = {"fl": 221.0, "fr": 220.0, "rl": 219.0, "rr": 222.0}
+        self.inside_temp = 21.0
+        self.outside_temp = 15.0
+        self.path_angle = 0.0
+        self.altitude = 40.0
+        self.brake = 0.0
+        self.cruise_set = 0.0
+        # faults — pre-seed tick counter mid-cycle so correlated triggers fire sooner
+        self.tick = 80
+        self.faults: dict = {}          # code -> expiry tick
+        # seed one fault immediately so the demo ticker shows a code on first snapshot
+        for kind in random.sample(list(FAULT_EPISODES.keys()), 2):
+            self._start(kind)
+        self.tick = 0  # reset after seeding (expiry values are large, fault persists)
 
-        # Battery state
-        self.soc_pct = 85.0
-        self.soh_pct = 97.5
-        self.battery_temp_c = 22.0
-        self.charging_state = "not_charging"
-        self.charging_power_kw = 0.0
-        self.voltage_v = 13.8
-
-        # Chassis state
-        self.steering_angle_deg = 0.0
-        self.brake_pedal_pct = 0.0
-        self.tire_fl = 221.0
-        self.tire_fr = 220.0
-        self.tire_rl = 219.0
-        self.tire_rr = 222.0
-
-        # Cabin state
-        self.inside_temp_c = 22.0
-        self.outside_temp_c = 15.0
-        self.hvac_mode = "auto"
-        self.fan_speed = 2
-
-        # Location state
-        self.path_angle = 0.0   # angle along circular path in radians
-        self.altitude_m = 40.0
-        self.accuracy_m = 3.5
-
-        # ADAS state
-        self.cruise_set_speed_kph = 0.0
-        self.autopilot_mode = "none"
-
-        # Anomaly injection state
-        self._anomaly_active = None
-
-    # ------------------------------------------------------------------ #
-    #  Internal helpers                                                    #
-    # ------------------------------------------------------------------ #
-
-    def _drift(self, value: float, target: float, rate: float, noise: float = 0.0) -> float:
-        """Drift value toward target with optional noise."""
-        v = value + (target - value) * rate
+    # ---- helpers ----
+    @staticmethod
+    def _drift(v, target, rate, noise=0.0):
+        v += (target - v) * rate
         if noise:
             v += random.gauss(0, noise)
         return v
 
-    def _clamp(self, value: float, lo: float, hi: float) -> float:
-        return max(lo, min(hi, value))
+    @staticmethod
+    def _clamp(v, lo, hi):
+        return max(lo, min(hi, v))
 
-    def _speed_target(self) -> float:
-        """Oscillate between city and highway speeds in a slow cycle."""
-        cycle = math.sin(self.tick * 0.02)  # slow cycle
-        if cycle > 0.3:
-            return 100.0 + cycle * 30.0   # highway 100-130 kph
-        elif cycle > -0.3:
-            return 50.0 + cycle * 20.0    # suburban 44-56 kph
+    def _speed_target(self):
+        c = math.sin(self.tick * 0.02)
+        if c > 0.3:
+            return 100.0 + c * 30.0
+        if c > -0.3:
+            return 50.0 + c * 20.0
+        return 20.0 + (c + 0.3) * 10.0
+
+    def _gear_for(self, s):
+        return 1 if s < 15 else 2 if s < 30 else 3 if s < 50 else 4 if s < 80 else 5 if s < 110 else 6
+
+    # ---- fault engine ----
+    def _start(self, kind):
+        cfg = FAULT_EPISODES.get(kind)
+        codes = [c for c in cfg["codes"] if c in _CATALOG] if cfg else []
+        if not codes:
+            return
+        chosen = [random.choice(codes)] if cfg["pick"] else codes
+        for c in chosen:
+            if c not in self.faults and len(self.faults) >= FAULT_MAX_ACTIVE:
+                continue
+            self.faults[c] = self.tick + random.randint(FAULT_DWELL_MIN, FAULT_DWELL_MAX)
+
+    def _update_faults(self, rpm):
+        # expire
+        self.faults = {c: e for c, e in self.faults.items() if e > self.tick}
+        # correlated triggers (values are realistic, so conditions genuinely occur)
+        if self.throttle > 60 and rpm > 3500 and random.random() < 0.02:
+            self._start("misfire")
+        if self.soc < 20 and random.random() < 0.03:
+            self._start("electrical")
+        if self.brake > 60 and self.speed > 40 and random.random() < 0.05:
+            self._start("wheel_speed")
+        # baseline: any episode fires ~every 30-60 ticks so the demo always has active codes
+        if random.random() < 0.04:
+            self._start(random.choice(list(FAULT_EPISODES)))
+        active_kinds = {_CODE_TO_KIND[c] for c in self.faults if c in _CODE_TO_KIND}
+        return active_kinds
+
+    # ---- core drive-cycle ----
+    def _core(self) -> dict:
+        dt = 2.0
+        # speed / gear / rpm / throttle
+        self.speed = self._clamp(self._drift(self.speed, self._speed_target(), 0.08, 0.5), 0.0, 130.0)
+        self.gear = self._gear_for(self.speed)
+        self.throttle = self._clamp((self.speed / 130.0) * 70.0 + random.gauss(0, 3), 0.0, 100.0)
+        rpm = self._clamp(900.0 + self.speed * 20.0 + self.throttle * 12.0 + random.gauss(0, 80), 700.0, 6000.0)
+
+        # fuel
+        rate = self._clamp((rpm / 3000.0) * 8.0 + random.gauss(0, 0.3), 0.5, 20.0)
+        self.fuel_pct = self._clamp(self.fuel_pct - (rate / 3600.0) * dt * (100.0 / 60.0), 0.0, 100.0)
+        if self.fuel_pct < 5.0:
+            self.fuel_pct = 80.0
+
+        # coolant warm-up
+        target = 90.0 if self.tick > 30 else 20.0 + self.tick * 2.5
+        self.coolant = self._clamp(self._drift(self.coolant, min(target, 95.0), 0.05, 0.2), 20.0, 115.0)
+
+        # HV battery
+        if self.charging:
+            self.soc = self._clamp(self.soc + (self.charge_kw / 75.0) * (dt / 3600.0) * 100.0 * 40, 0.0, 100.0)
+            if self.soc >= 95.0:
+                self.charging = False
+                self.charge_kw = 0.0
         else:
-            return 20.0 + (cycle + 0.3) * 10.0  # city slow 17-23 kph
+            self.soc = self._clamp(self.soc - (self.speed / 130.0) * 0.05 - 0.005, 0.0, 100.0)
+            if self.soc <= 15.0:
+                self.charging = True
+                self.charge_kw = random.uniform(7.2, 50.0)
+        self.soh = self._clamp(self.soh + random.gauss(0, 0.002), 94.0, 100.0)
+        self.batt_temp = self._clamp(self._drift(self.batt_temp, 24.0 + (self.speed / 130.0) * 15.0, 0.03, 0.1), 15.0, 50.0)
+        self.hv_voltage = self._clamp(self._drift(self.hv_voltage, 320.0 + (self.soc / 100.0) * 80.0, 0.05, 0.3), 300.0, 410.0)
+        hv_current = (self.charge_kw * 1000.0 / max(self.hv_voltage, 1.0)) if self.charging else -(self.speed / 130.0) * 150.0 - 5.0
+        est_range = round((self.soc / 100.0) * 380.0)
+        fuel_range = round((self.fuel_pct / 100.0) * META["fuelTankCapacityL"] * 14.0)
 
-    def _compute_gear(self, speed: float) -> int:
-        if speed < 15:
-            return 1
-        elif speed < 30:
-            return 2
-        elif speed < 50:
-            return 3
-        elif speed < 80:
-            return 4
-        elif speed < 110:
-            return 5
-        else:
-            return 6
+        # tyres
+        for k in self.tire:
+            self.tire[k] = self._clamp(self.tire[k] + random.gauss(0, 0.3), 200.0, 240.0)
 
-    def _inject_anomaly(self) -> list:
-        """With 15% probability, inject a random anomaly and return events."""
-        events = []
-        if random.random() > 0.15:
-            self._anomaly_active = None
-            return events
+        # brake + ABS/TCS events
+        self.brake = random.uniform(10, 60) if random.random() < 0.1 else self._clamp(self._drift(self.brake, 0.0, 0.3), 0.0, 80.0)
+        abs_evt = self.brake > 50 and self.speed > 30 and random.random() < 0.3
+        tcs_evt = self.speed < 20 and random.random() < 0.05
 
-        anomaly = random.choice([
-            "low_fuel",
-            "low_battery",
-            "high_coolant",
-            "tire_pressure",
-            "high_rpm",
-        ])
-        self._anomaly_active = anomaly
+        # cabin / exterior
+        self.outside_temp = self._drift(self.outside_temp, 15.0 + 5.0 * math.sin(self.tick * 0.005), 0.01, 0.05)
+        self.inside_temp = self._clamp(self._drift(self.inside_temp, 22.0, 0.02, 0.1), 18.0, 26.0)
 
-        if anomaly == "low_fuel":
-            self.fuel_level_pct = random.uniform(5.0, 12.0)
-            severity = classify("fuelLevelPct", self.fuel_level_pct)
-            events.append({
-                "eventType": "FuelLow",
-                "severity": severity,
-                "vssPath": "Vehicle.Powertrain.FuelSystem.Level",
-                "code": "FUEL_LOW",
-                "description": f"Fuel level low: {self.fuel_level_pct:.1f}%",
-                "payloadJson": json.dumps({"fuelLevelPct": round(self.fuel_level_pct, 1)}),
-            })
+        # location on a circular path
+        self.path_angle = (self.path_angle + 0.001) % (2 * math.pi)
+        lat = BASE_LAT + 0.05 * math.cos(self.path_angle)
+        lon = BASE_LON + 0.05 * math.sin(self.path_angle)
+        heading = math.degrees(self.path_angle + math.pi / 2.0) % 360.0
+        self.altitude = self._clamp(self._drift(self.altitude, 40.0, 0.02, 0.2), 30.0, 50.0)
 
-        elif anomaly == "low_battery":
-            self.soc_pct = random.uniform(8.0, 18.0)
-            severity = classify("socPct", self.soc_pct)
-            events.append({
-                "eventType": "BatteryLow",
-                "severity": severity,
-                "vssPath": "Vehicle.Powertrain.TractionBattery.StateOfCharge.Current",
-                "code": "SOC_LOW",
-                "description": f"Battery state of charge low: {self.soc_pct:.1f}%",
-                "payloadJson": json.dumps({"socPct": round(self.soc_pct, 1)}),
-            })
+        # cruise
+        cruise = self.speed > 80.0
+        self.cruise_set = round(self.speed / 10.0) * 10.0 if cruise else 0.0
 
-        elif anomaly == "high_coolant":
-            self.coolant_temp_c = random.uniform(105.0, 118.0)
-            severity = classify("coolantTempC", self.coolant_temp_c)
-            events.append({
-                "eventType": "CoolantTempHigh",
-                "severity": severity,
-                "vssPath": "Vehicle.Powertrain.CombustionEngine.ECT",
-                "code": "COOLANT_TEMP_HIGH",
-                "description": f"Coolant temperature high: {self.coolant_temp_c:.1f}°C",
-                "payloadJson": json.dumps({"coolantTempC": round(self.coolant_temp_c, 1)}),
-            })
+        # ---- fault effects ----
+        active = self._update_faults(rpm)
+        if "misfire" in active:
+            rpm = self._clamp(rpm + random.gauss(0, 350), 500, 6000)
+            self.throttle = self._clamp(self.throttle + random.gauss(0, 10), 0, 100)
+        if "coolant" in active:
+            self.coolant = self._clamp(self.coolant - random.uniform(20, 35), 20, 115)  # stuck cold (P0128)
+        if "electrical" in active:
+            self.hv_voltage = self._clamp(self.hv_voltage - random.uniform(20, 45), 250, 410)
+        if "speed_sensor" in active and random.random() < 0.5:
+            self.speed = 0.0
+        if "transmission" in active:
+            self.gear = 0
+        if "wheel_speed" in active:
+            abs_evt = True
+        # custom fault effects — push the matching sensor into the warning range
+        if "overheat" in active:
+            self.coolant = self._clamp(self.coolant + random.uniform(15, 25), 20, 115)  # → above 100°C (P1217)
+        if "fuel_low" in active:
+            self.fuel_pct = self._clamp(self.fuel_pct - random.uniform(8, 18), 0, 100)  # → below 20% (P1001)
+        if "batt_low" in active:
+            self.soc = self._clamp(self.soc - random.uniform(5, 12), 0, 100)  # → below 25% (P1002)
+        if "tpms_warn" in active:
+            k = random.choice(list(self.tire.keys()))
+            self.tire[k] = self._clamp(self.tire[k] - random.uniform(20, 40), 150, 240)  # → below 193 kPa (C1001)
+        belted = not ("belt_warn" in active)  # B1001 — unbelted during episode
+        self.oil_pressure = self._clamp(self._drift(self.oil_pressure, 55.0, 0.05, 0.3), 10.0, 90.0)
+        if "oil_pressure" in active:
+            self.oil_pressure = self._clamp(self.oil_pressure - random.uniform(10, 25), 10.0, 90.0)  # → below 35 kPa (P0520)
 
-        elif anomaly == "tire_pressure":
-            tire_key = random.choice(["FL", "FR", "RL", "RR"])
-            low_pressure = random.uniform(150.0, 195.0)
-            severity = classify("tirePressureKpa", low_pressure)
-            attr = f"tire_{tire_key.lower()}"
-            setattr(self, attr, low_pressure)
-            vss_corner = {
-                "FL": "FrontLeft", "FR": "FrontRight",
-                "RL": "RearLeft",  "RR": "RearRight",
-            }[tire_key]
-            events.append({
-                "eventType": "TirePressureLow",
-                "severity": severity,
-                "vssPath": f"Vehicle.Chassis.Axle.Row1.Wheel.{vss_corner}.Tire.Pressure",
-                "code": "TIRE_PRESSURE_LOW",
-                "description": f"Tire pressure low ({tire_key}): {low_pressure:.0f} kPa",
-                "payloadJson": json.dumps({
-                    "corner": tire_key,
-                    "pressureKpa": round(low_pressure, 1),
-                }),
-            })
+        codes = sorted(self.faults.keys())
 
-        elif anomaly == "high_rpm":
-            self.speed_kph = self._clamp(self.speed_kph, 80.0, 130.0)
-            rpm_anomaly = random.uniform(5400.0, 6200.0)
-            severity = classify("engineRpm", rpm_anomaly)
-            events.append({
-                "eventType": "EngineRpmHigh",
-                "severity": severity,
-                "vssPath": "Vehicle.Powertrain.CombustionEngine.Speed",
-                "code": "ENGINE_RPM_HIGH",
-                "description": f"Engine RPM elevated: {rpm_anomaly:.0f} RPM",
-                "payloadJson": json.dumps({"engineRpm": round(rpm_anomaly, 0)}),
-            })
-
-        return events
-
-    # ------------------------------------------------------------------ #
-    #  Main snapshot generator                                             #
-    # ------------------------------------------------------------------ #
+        return {
+            "Speed": round(self.speed, 1),
+            "IsMoving": self.speed > 1.0,
+            "TraveledDistance": self.tick * 30,
+            "Powertrain.CombustionEngine.Speed": round(rpm, 0),
+            "Powertrain.CombustionEngine.IsRunning": True,
+            "Powertrain.CombustionEngine.TPS": round(self.throttle),
+            "Powertrain.CombustionEngine.EngineCoolant.Temperature": round(self.coolant, 1),
+            "Powertrain.Transmission.CurrentGear": self.gear,
+            "Powertrain.Transmission.SelectedGear": self.gear,
+            "Powertrain.FuelSystem.RelativeLevel": round(self.fuel_pct),
+            "Powertrain.FuelSystem.AbsoluteLevel": round(self.fuel_pct / 100.0 * META["fuelTankCapacityL"], 1),
+            "Powertrain.FuelSystem.Range": fuel_range,
+            "Powertrain.FuelSystem.InstantConsumption": round(rate / max(self.speed, 1.0) * 100.0, 1),
+            "Powertrain.TractionBattery.StateOfCharge.Current": round(self.soc, 1),
+            "Powertrain.TractionBattery.StateOfCharge.Displayed": round(self.soc, 1),
+            "Powertrain.TractionBattery.StateOfHealth": round(self.soh, 1),
+            "Powertrain.TractionBattery.Range": est_range,
+            "Powertrain.TractionBattery.CurrentVoltage": round(self.hv_voltage, 1),
+            "Powertrain.TractionBattery.CurrentCurrent": round(hv_current, 1),
+            "Powertrain.TractionBattery.Temperature.Average": round(self.batt_temp, 1),
+            "Powertrain.TractionBattery.Charging.IsCharging": self.charging,
+            "Powertrain.TractionBattery.Charging.ChargeRate": round(self.charge_kw, 1),
+            "Chassis.Axle.Row1.Wheel.Left.Tire.Pressure": round(self.tire["fl"], 1),
+            "Chassis.Axle.Row1.Wheel.Right.Tire.Pressure": round(self.tire["fr"], 1),
+            "Chassis.Axle.Row2.Wheel.Left.Tire.Pressure": round(self.tire["rl"], 1),
+            "Chassis.Axle.Row2.Wheel.Right.Tire.Pressure": round(self.tire["rr"], 1),
+            "Chassis.Brake.PedalPosition": round(self.brake),
+            "ADAS.ABS.IsEngaged": abs_evt,
+            "ADAS.ABS.IsEnabled": True,
+            "ADAS.TCS.IsEngaged": tcs_evt,
+            "ADAS.TCS.IsEnabled": True,
+            "ADAS.CruiseControl.IsActive": cruise,
+            "ADAS.CruiseControl.IsEnabled": cruise,
+            "ADAS.CruiseControl.SpeedSet": round(self.cruise_set, 1),
+            "Cabin.Seat.Row1.DriverSide.IsBelted": belted,
+            "Powertrain.CombustionEngine.OilPressure": round(self.oil_pressure, 1),
+            "Cabin.HVAC.AmbientAirTemperature": round(self.inside_temp, 1),
+            "Exterior.AirTemperature": round(self.outside_temp, 1),
+            "CurrentLocation.Latitude": round(lat, 6),
+            "CurrentLocation.Longitude": round(lon, 6),
+            "CurrentLocation.Heading": round(heading, 1),
+            "CurrentLocation.Altitude": round(self.altitude, 1),
+            "Diagnostics.DTCCount": len(codes),
+            "Diagnostics.DTCList": codes,
+        }
 
     def generate_snapshot(self) -> dict:
         self.tick += 1
-        dt = 2.0  # nominal tick interval in seconds
+        core = self._core()
 
-        # ---- Powertrain ----
-        target_speed = self._speed_target()
-        self.speed_kph = self._drift(self.speed_kph, target_speed, 0.08, noise=0.5)
-        self.speed_kph = self._clamp(self.speed_kph, 0.0, 130.0)
+        tree = {domain: _walk(sub) for domain, sub in _TEMPLATE.items()}
+        for path, value in core.items():
+            _set_path(tree, path, value)
 
-        self.gear = self._compute_gear(self.speed_kph)
-
-        # Engine RPM correlated with speed and gear
-        base_rpm = 800.0 + (self.speed_kph / 130.0) * 3200.0 * (7 - self.gear) / 6
-        engine_rpm = self._clamp(base_rpm + random.gauss(0, 50), 600.0, 5000.0)
-
-        # Throttle correlated with speed delta
-        self.throttle_pct = self._clamp(
-            (self.speed_kph / 130.0) * 70.0 + random.gauss(0, 3), 0.0, 100.0
-        )
-
-        # Fuel consumption
-        fuel_rate_lph = self._clamp(
-            (engine_rpm / 3000.0) * 8.0 + random.gauss(0, 0.3), 0.5, 20.0
-        )
-        fuel_consumed_pct = (fuel_rate_lph / 3600.0) * dt * (100.0 / 60.0)
-        self.fuel_level_pct = self._clamp(self.fuel_level_pct - fuel_consumed_pct, 0.0, 100.0)
-        if self.fuel_level_pct < 5.0:
-            self.fuel_level_pct = 80.0  # refuel
-
-        # Odometer
-        distance_km = (self.speed_kph / 3600.0) * dt
-        self.odometer_km += distance_km
-
-        # Coolant warms up after cold start, stays between 85-95 normal
-        coolant_target = 90.0 if self.tick > 30 else 20.0 + self.tick * 2.5
-        self.coolant_temp_c = self._drift(
-            self.coolant_temp_c,
-            min(coolant_target, 95.0),
-            0.05,
-            noise=0.2,
-        )
-        self.coolant_temp_c = self._clamp(self.coolant_temp_c, 20.0, 105.0)
-
-        # ---- Battery ----
-        # SOC depletes with load, charges back when very low
-        if self.charging_state == "charging":
-            soc_delta = (self.charging_power_kw / 80.0) * (dt / 3600.0) * 100.0
-            self.soc_pct = self._clamp(self.soc_pct + soc_delta * 50, 0.0, 100.0)
-            if self.soc_pct >= 95.0:
-                self.charging_state = "not_charging"
-                self.charging_power_kw = 0.0
-        else:
-            load_factor = (self.speed_kph / 130.0) * 0.005
-            self.soc_pct = self._clamp(
-                self.soc_pct - load_factor - 0.001, 0.0, 100.0
-            )
-            if self.soc_pct <= 15.0:
-                self.charging_state = "charging"
-                self.charging_power_kw = random.uniform(7.2, 50.0)
-
-        self.soh_pct = self._clamp(
-            self.soh_pct + random.gauss(0, 0.002), 94.0, 100.0
-        )
-
-        # Battery temp correlated with load
-        batt_temp_target = 22.0 + (self.speed_kph / 130.0) * 15.0
-        self.battery_temp_c = self._drift(self.battery_temp_c, batt_temp_target, 0.03, noise=0.1)
-        self.battery_temp_c = self._clamp(self.battery_temp_c, 15.0, 50.0)
-
-        estimated_range_km = self._clamp((self.soc_pct / 100.0) * 400.0, 0.0, 400.0)
-
-        # Voltage: higher when charging, lower under heavy load
-        if self.charging_state == "charging":
-            self.voltage_v = self._drift(self.voltage_v, 14.2, 0.1, noise=0.05)
-        else:
-            v_target = 12.6 + (self.soc_pct / 100.0) * 1.4
-            self.voltage_v = self._drift(self.voltage_v, v_target, 0.05, noise=0.02)
-        self.voltage_v = self._clamp(self.voltage_v, 11.0, 14.8)
-
-        current_a = (
-            (self.charging_power_kw * 1000.0 / max(self.voltage_v, 0.1))
-            if self.charging_state == "charging"
-            else -(self.speed_kph / 130.0) * 80.0 - 5.0
-        )
-
-        # ---- Chassis ----
-        # Steering oscillates gently while driving
-        steering_target = 15.0 * math.sin(self.tick * 0.1)
-        self.steering_angle_deg = self._drift(self.steering_angle_deg, steering_target, 0.15, noise=0.5)
-        self.steering_angle_deg = self._clamp(self.steering_angle_deg, -540.0, 540.0)
-
-        # Brake pedal: mostly 0, occasional moderate braking
-        if random.random() < 0.1:
-            self.brake_pedal_pct = random.uniform(10.0, 60.0)
-        else:
-            self.brake_pedal_pct = self._drift(self.brake_pedal_pct, 0.0, 0.3)
-        self.brake_pedal_pct = self._clamp(self.brake_pedal_pct, 0.0, 80.0)
-
-        abs_active = self.brake_pedal_pct > 50.0 and self.speed_kph > 30.0 and random.random() < 0.3
-        traction_control_active = self.speed_kph < 20.0 and random.random() < 0.05
-
-        # Tire pressures — slow drift with small noise
-        self.tire_fl = self._clamp(self.tire_fl + random.gauss(0, 0.3), 200.0, 240.0)
-        self.tire_fr = self._clamp(self.tire_fr + random.gauss(0, 0.3), 200.0, 240.0)
-        self.tire_rl = self._clamp(self.tire_rl + random.gauss(0, 0.3), 200.0, 240.0)
-        self.tire_rr = self._clamp(self.tire_rr + random.gauss(0, 0.3), 200.0, 240.0)
-
-        # ---- Cabin ----
-        self.outside_temp_c = self._drift(
-            self.outside_temp_c, 15.0 + 5.0 * math.sin(self.tick * 0.005), 0.01, noise=0.05
-        )
-        self.inside_temp_c = self._drift(self.inside_temp_c, 22.0, 0.02, noise=0.1)
-        self.inside_temp_c = self._clamp(self.inside_temp_c, 18.0, 26.0)
-
-        if self.inside_temp_c < 20.0:
-            self.hvac_mode = "heat"
-            self.fan_speed = 3
-        elif self.inside_temp_c > 24.0:
-            self.hvac_mode = "cool"
-            self.fan_speed = 3
-        else:
-            self.hvac_mode = "auto"
-            self.fan_speed = 2
-
-        # ---- Location ----
-        # Circular path around base point
-        radius_deg = 0.05
-        self.path_angle += 0.001  # advance per tick
-        if self.path_angle >= 2.0 * math.pi:
-            self.path_angle -= 2.0 * math.pi
-
-        lat = BASE_LAT + radius_deg * math.cos(self.path_angle)
-        lon = BASE_LON + radius_deg * math.sin(self.path_angle)
-
-        heading_deg = math.degrees(self.path_angle + math.pi / 2.0) % 360.0
-
-        self.altitude_m = self._drift(self.altitude_m, 40.0, 0.02, noise=0.2)
-        self.altitude_m = self._clamp(self.altitude_m, 30.0, 50.0)
-
-        self.accuracy_m = self._clamp(
-            self.accuracy_m + random.gauss(0, 0.1), 2.0, 6.0
-        )
-
-        geo = geohash.encode(lat, lon, precision=7)
-
-        # ---- ADAS ----
-        cruise_enabled = self.speed_kph > 80.0
-        if cruise_enabled:
-            self.cruise_set_speed_kph = self._clamp(
-                round(self.speed_kph / 10.0) * 10.0, 80.0, 150.0
-            )
-            self.autopilot_mode = "highway_assist"
-        else:
-            self.cruise_set_speed_kph = 0.0
-            self.autopilot_mode = "none"
-
-        collision_warning_active = random.random() < 0.01
-
-        # ---- Anomaly injection ----
-        events = self._inject_anomaly()
-
-        # Build snapshot
         snapshot = {
             "vehicle_id": VEHICLE_ID,
             "ts": int(time.time() * 1000),
             "trip_id": TRIP_ID,
-            "powertrain": {
-                "speedKph": round(self.speed_kph, 1),
-                "engineRpm": round(engine_rpm, 0),
-                "odometerKm": round(self.odometer_km, 2),
-                "fuelLevelPct": round(self.fuel_level_pct, 1),
-                "fuelRateLph": round(fuel_rate_lph, 2),
-                "coolantTempC": round(self.coolant_temp_c, 1),
-                "throttlePct": round(self.throttle_pct, 1),
-                "gear": self.gear,
-                "ignitionOn": True,
-            },
-            "battery": {
-                "socPct": round(self.soc_pct, 1),
-                "sohPct": round(self.soh_pct, 1),
-                "batteryTempC": round(self.battery_temp_c, 1),
-                "chargingState": self.charging_state,
-                "chargingPowerKw": round(self.charging_power_kw, 1),
-                "estimatedRangeKm": round(estimated_range_km, 1),
-                "voltageV": round(self.voltage_v, 2),
-                "currentA": round(current_a, 1),
-            },
-            "chassis": {
-                "steeringAngleDeg": round(self.steering_angle_deg, 1),
-                "brakePedalPct": round(self.brake_pedal_pct, 1),
-                "tirePressureFlKpa": round(self.tire_fl, 1),
-                "tirePressureFrKpa": round(self.tire_fr, 1),
-                "tirePressureRlKpa": round(self.tire_rl, 1),
-                "tirePressureRrKpa": round(self.tire_rr, 1),
-                "absActive": abs_active,
-                "tractionControlActive": traction_control_active,
-            },
-            "cabin": {
-                "insideTempC": round(self.inside_temp_c, 1),
-                "outsideTempC": round(self.outside_temp_c, 1),
-                "hvacMode": self.hvac_mode,
-                "fanSpeed": self.fan_speed,
-                "driverDoorOpen": False,
-                "passengerDoorOpen": False,
-                "rearLeftDoorOpen": False,
-                "rearRightDoorOpen": False,
-                "doorsLocked": True,
-                "seatbeltDriverFastened": True,
-            },
-            "location": {
-                "latitude": round(lat, 6),
-                "longitude": round(lon, 6),
-                "altitudeM": round(self.altitude_m, 1),
-                "headingDeg": round(heading_deg, 1),
-                "speedKph": round(self.speed_kph, 1),
-                "accuracyM": round(self.accuracy_m, 1),
-                "geohash": geo,
-            },
-            "adas": {
-                "cruiseEnabled": cruise_enabled,
-                "cruiseSetSpeedKph": round(self.cruise_set_speed_kph, 1),
-                "laneKeepAssistOn": True,
-                "parkingAssistOn": False,
-                "collisionWarningActive": collision_warning_active,
-                "autopilotMode": self.autopilot_mode,
-            },
-            "events": events,
+            "meta": META,
         }
-
+        snapshot.update(tree)
         return snapshot

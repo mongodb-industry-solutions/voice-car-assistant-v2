@@ -24,6 +24,7 @@ struct Conversation {
     std::string message;
     std::string sources;
     int64_t syncClock;
+    std::string tools_used;
 
     struct _OBX_MetaInfo {
         static constexpr obx_schema_id entityId() { return 3; }
@@ -53,4 +54,5 @@ struct Conversation_ {
     static const obx::Property<Conversation, OBXPropertyType_String> message;
     static const obx::Property<Conversation, OBXPropertyType_String> sources;
     static const obx::Property<Conversation, OBXPropertyType_Long> syncClock;
+    static const obx::Property<Conversation, OBXPropertyType_String> tools_used;
 };

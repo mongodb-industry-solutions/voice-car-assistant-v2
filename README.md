@@ -7,7 +7,8 @@ A multi-service, fully Dockerised in-vehicle assistant that combines live VSS te
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │  Browser  http://localhost:5000                                       │
-│  Voice UI (Flask + SocketIO + Whisper STT + Piper TTS)               │
+│  Cockpit UI (Flask + SocketIO + Whisper STT + Piper TTS)             │
+│  "Leafy Assistant" — RPM gauge · chat · speedometer · DTC ticker     │
 │  Streams tokens via answer_token; tool progress via agent_status     │
 └──────┬───────────────────────────────────────┬────────────────────────┘
        │ chat / agent (SSE stream)              │ conversation history
@@ -21,26 +22,32 @@ A multi-service, fully Dockerised in-vehicle assistant that combines live VSS te
 │  Ollama (qwen2.5:3b)                           │
 │  Two pre-compiled graphs (offline / online)    │
 │  Tools: car-manual search · navigation ·       │
-│         5 VSS telemetry tools (online mode)    │
+│         6 VSS telemetry tools (online mode)    │
 │  Streaming: POST /agent/chat/stream (SSE)      │
 └──┬──────────────┬─────────────────┬────────────┘
    │              │                 │
-   │    ┌─────────▼──────┐  ┌───────▼──────────────────┐
-   │    │ search-service │  │  vss-telemetry-mcp-server │
-   │    │ :8080          │  │  :3002  (Node.js MCP)     │
-   │    │ ObjectBox HNSW │  │  reads MongoDB Atlas      │
-   │    │ vector search  │  └───────────────────────────┘
+   │    ┌─────────▼──────┐  ┌───────▼──────────────────────────┐
+   │    │ search-service │  │  vss-telemetry-api               │
+   │    │ :8080          │  │  :3002  (Node.js REST API)        │
+   │    │ ObjectBox HNSW │  │  reads telemetry-status (unified) │
+   │    │ vector search  │  └───────────────────────────────────┘
    │    └────────────────┘             ▲
+   │                                   │ Atlas Trigger (assembleTelemetry)
+   │                        ┌──────────┴──────────────────┐
+   │                        │  MongoDB Atlas               │
+   │                        │  objectbox_telemetry (nested)│
+   │                        │  → telemetry-data (time-series)│
+   │                        │  → telemetry-status (unified)│
+   │                        └──────────┬──────────────────┘
    │                                   │ ObjectBox Sync
    │                        ┌──────────┴──────────────────┐
    │                        │  ObjectBox Sync Server       │
    │                        │  :9999 sync  :9980 admin     │
-   │                        │  replicates → MongoDB Atlas  │
    │                        └──────────┬──────────────────┘
    │                                   │
    │                        ┌──────────▼──────────────────┐
    │                        │  vss-telemetry-service :8086 │
-   │                        │  C++ ObjectBox, 14 entities  │
+   │                        │  C++ ObjectBox (snapshots)   │
    │                        └──────────┬──────────────────┘
    │                                   │ POST /vss/snapshot every 2 s
    │                        ┌──────────▼──────────────────┐
@@ -60,7 +67,7 @@ All services are defined in [`sync-server-setup/docker-compose.yml`](sync-server
 
 | Service | Port | Description |
 |---|---|---|
-| `voice-assistant-backend` | 5000 | Flask + SocketIO web UI; Whisper STT; Piper TTS |
+| `voice-assistant-backend` | 5000 | Flask + SocketIO cockpit UI; Whisper STT; Piper TTS |
 | `langchain-agent-service` | 5002 | LangChain ReAct agent (Ollama qwen2.5:3b) |
 | `navigation-service` | 5001 | LLM-powered navigation + OSRM routing |
 | `ollama` | 11434 | Ollama server — serves qwen2.5:3b; GPU-ready |
@@ -68,11 +75,9 @@ All services are defined in [`sync-server-setup/docker-compose.yml`](sync-server
 | `mongodb-search-service` | 8085 | MongoDB Atlas vector search (voyage-4-nano) |
 | `conversation-service` | 8081 | ObjectBox conversation history |
 | `sync-server` | 9980 / 9999 | ObjectBox Sync Server — replicates to MongoDB Atlas |
-| `vss-telemetry-service` | 8086 | C++ ObjectBox service — 14 typed VSS entities |
-| `vss-telemetry-simulator` | 8087 | Python VSS data generator — auto-starts on launch |
-| `vss-telemetry-mcp-server` | 3002 | Node.js MCP server — telemetry tools, reads MongoDB |
-
-Legacy telemetry stack (`telemetry-service` :8084, `telemetry-simulator` :8082, `telemetry-mcp-server` :3001) is kept for rollback but is not wired to the agent or UI.
+| `vss-telemetry-service` | 8086 | C++ ObjectBox service — stores snapshots as `objectbox_telemetry` |
+| `vss-telemetry-simulator` | 8087 | Python VSS data generator — start/stop from the dashboard |
+| `vss-telemetry-api` | 3002 | Node.js REST API — 9 tools, reads unified Atlas collections |
 
 ## Agent Service
 
@@ -82,9 +87,12 @@ The `langchain-agent-service` uses LangGraph `create_react_agent` and is optimis
 
 - **Two pre-compiled agents** (`_OFFLINE_AGENT`, `_ONLINE_AGENT`) compiled once at startup — zero compilation cost per request. The agent is selected by `network_mode` only; `lat`/`lon` are injected via `RunnableConfig` and never affect graph structure.
 - **Streaming responses** — `/agent/chat/stream` returns a `text/event-stream` SSE response. Tokens stream as they are generated; a `status` event is emitted immediately when the model commits to a tool call so the UI shows progress during the prefill phase. The blocking `/agent/chat` endpoint is kept for the voice loop (TTS needs the full answer before speaking).
-- **Shared conversation memory** — `MemorySaver` keyed by `conversation_id`; history trimmed to last 20 messages before each LLM call.
+- **Shared conversation memory** — `MemorySaver` keyed by `conversation_id`; history is token-aware trimmed to a ~600-token budget before each LLM call (`trim_messages`, `start_on="human"` so tool-call/response pairs stay intact).
+- **Source threading** — when `search_car_manual` returns results, the tool appends a `[SOURCES:<json>]` marker (stripped before the LLM sees it) that the streaming handler extracts and returns as a `sources` array alongside the answer.
+- **Tool tracking** — every assistant turn records which tools were called in `tools_used`, persisted to the `conversations` entity and synced to Atlas as a native BSON array (`JsonToNative`).
 - **Embedding cache** — query embeddings are LRU-cached (256 entries); repeated queries skip the encode step.
-- **Context budget** — system prompt (~80 tokens) + tool schemas (~200 tokens) + capped tool results (600 chars max) stay well within `num_ctx=1536`, keeping per-token generation fast.
+- **Context budget** — system prompt + mode hint (~250 tokens) + tool schemas + capped tool results (600 chars max) + token-trimmed history stay within `num_ctx=1536`, keeping per-token generation fast.
+- **Mode-aware** — the offline agent has no telemetry tools and is instructed to tell the user it is offline rather than guess live values.
 
 ### Model config
 
@@ -101,16 +109,16 @@ The `langchain-agent-service` uses LangGraph `create_react_agent` and is optimis
 Tools are labelled explicitly to prevent routing errors with a small model:
 
 - `search_car_manual` — **PROCEDURES & INSTRUCTIONS**: how-to guides, repair steps, warning light meanings, owner's manual content. Use for "how do I" or "what does X mean" questions.
-- Telemetry tools — **LIVE READING**: current sensor values only. Never used for procedures.
+- Telemetry tools — **LIVE READING**: current sensor values only. Never used for procedures. (`get_diagnostics` reports which fault codes/warning lights are active *now*; "what a light means / how to fix" routes to `search_car_manual`.)
 
 | Agent | Tools |
 |---|---|
 | Offline | `search_car_manual` (ObjectBox), `navigate_to` |
-| Online | `search_car_manual` (MongoDB Atlas), `navigate_to`, `get_powertrain_status`, `get_fuel_status`, `get_battery_status`, `get_chassis_status`, `get_vehicle_events` |
+| Online | `search_car_manual` (MongoDB Atlas), `navigate_to`, `get_vehicle_status`, `get_powertrain_status`, `get_fuel_status`, `get_battery_status`, `get_chassis_status`, `get_diagnostics` |
 
 ### Navigation
 
-The `navigate_to` tool strips turn-by-turn steps from the route data before the LLM sees the tool result. The LLM confirms destination + ETA only. The full route geometry is forwarded to the frontend for map rendering via a `[ROUTE_DATA:...]` marker in the tool return string, which is extracted by the streaming handler and removed from LLM context.
+The `navigate_to` tool strips turn-by-turn steps from the route data before the LLM sees the tool result. The LLM confirms destination + ETA only. The full route geometry is forwarded to the frontend for map rendering via a `[ROUTE_DATA:...]` marker in the tool return string, which is extracted by the streaming handler and removed from LLM context. The map opens as a full-width overlay covering the entire cockpit main area (RPM gauge + chat + speedometer columns) and closes with the ✕ button.
 
 ### Agent endpoints
 
@@ -128,7 +136,7 @@ data: {"status": null}                     ← emitted when tool result arrives 
 data: {"token": "Your battery is at..."}  ← one per generated token
 data: {"token": " 42%..."}
 ...
-data: {"done": true, "answer": "...", "tools_used": ["get_battery_status"], "navigation": null, "conversation_id": "..."}
+data: {"done": true, "answer": "...", "tools_used": ["get_battery_status"], "sources": [], "navigation": null, "conversation_id": "..."}
 ```
 
 ## Prerequisites
@@ -179,7 +187,11 @@ MONGODB_CLUSTER=your_cluster.xxxxx.mongodb.net
 MONGODB_DATABASE=your_database_name
 ```
 
-### 2. Start all services
+### 2. Set up Atlas unified collections (one-time)
+
+The telemetry API reads from two unified Atlas collections assembled by an Atlas App Services trigger. Before starting the stack, create the two collections (once) — `telemetry-data` as a **time-series** collection (`timeField: "ts"`, `metaField: "vehicleId"`) and `telemetry-status` with a **unique index** on `vehicleId` — via the Atlas UI or mongosh, then create the `assembleTelemetry` function and a database trigger on `objectbox_telemetry` inserts. Full step-by-step (collection recipe, function body, trigger config) is in [`atlas-app/README.md`](atlas-app/README.md).
+
+### 3. Start all services
 
 ```bash
 cd sync-server-setup
@@ -188,19 +200,18 @@ docker compose up
 
 Open the **ObjectBox Sync Server admin UI** at [http://localhost:9980](http://localhost:9980) and activate your trial licence when prompted.
 
-### 3. Load the car manual into the search-service (once)
+### 4. Load the car manual into the search-service (once)
 
-Run this **after** the stack is up, when `search-service` is healthy:
+Run this **after** the stack is up, when `search-service` is healthy (from the repo root):
 
 ```bash
-cd ..                     # back to repo root
-pip install -r requirements.txt
-python load_documents.py
+pip install -r mongodb-loader/requirements.txt
+python mongodb-loader/load_documents.py
 ```
 
 What happens:
 
-1. `load_documents.py` chunks [`documents/mongodb_leafy_car_manual.txt`](documents/mongodb_leafy_car_manual.txt)
+1. `load_documents.py` chunks [`mongodb-loader/documents/mongodb_leafy_car_manual.txt`](mongodb-loader/documents/mongodb_leafy_car_manual.txt)
    on heading boundaries (~379 chunks) and embeds each chunk with
    `voyageai/voyage-4-nano` (1024-d, `trust_remote_code=True`, the model's `document` prompt).
 2. It POSTs the chunks to the search-service via `POST /chunks` in batches.
@@ -231,66 +242,85 @@ cd sync-server-setup
 docker compose down
 Remove-Item -Force .\search-service-data\*.mdb   # PowerShell; or rm on Linux/macOS
 docker compose up -d --build search-service
-# wait until healthy, then re-run python load_documents.py from the repo root
+# wait until healthy, then re-run: python mongodb-loader/load_documents.py
 ```
 
 Once all containers are healthy, open the voice assistant at **[http://localhost:5000](http://localhost:5000)**.
 
 ## Using the Assistant
 
-The web UI is a single-page dashboard with:
-
-- **Left panel** — RPM arc gauge, engine telemetry (coolant, throttle, odometer), battery (SoC, voltage, health, range)
-- **Center** — Chat interface with real-time streaming responses, tool progress indicator, navigation map, mic button, online/offline mode toggle
-- **Right panel** — Fuel arc gauge with gear/speed, 4-tyre pressure diagram, chassis (ABS, traction control, brake)
+The web UI is a full-screen car cockpit dashboard ("Leafy Assistant"):
 
 All telemetry widgets poll `/api/vss/latest` every 3 seconds from the C++ service.
 
-**Offline mode** — uses ObjectBox vector search + local Ollama only (no MongoDB, no VSS tools).
+**Offline mode** — uses ObjectBox vector search + local Ollama only (no MongoDB, no VSS tools). An amber pulsing border highlights the screen.
 
-**Online mode** — adds 5 VSS telemetry tools and MongoDB Atlas vector search to the agent.
+**Online mode** — adds 6 VSS telemetry tools and MongoDB Atlas vector search to the agent.
 
 ### Example questions
 
 - "What is my current fuel level?" *(live telemetry)*
 - "Is the battery charging? What's the estimated range?" *(live telemetry)*
-- "Are there any active warnings or DTCs?" *(vehicle events)*
+- "Any fault codes active?" *(live diagnostics — reads DTCList)*
+- "What does the check engine light mean?" *(car manual search)*
 - "How do I check the brake fluid?" *(car manual search)*
-- "What does the engine temperature warning light mean?" *(car manual search)*
-- "How do I change a flat tire?" *(car manual search)*
-- "Navigate to the nearest service station" *(navigation — shows route on map, no turn-by-turn narration)*
+- "Navigate to the nearest service station" *(navigation — shows route map overlay, no turn-by-turn narration)*
 
 ## VSS Telemetry Schema
 
-The C++ service stores 14 typed entities (IDs 10–24), all sync-enabled to MongoDB Atlas.
+Each snapshot is stored **verbatim as one row** — no per-domain split.
 
-### Metadata
+### Entities
 | Entity | ID | Description |
 |---|---|---|
-| `VehicleMeta` | 10 | VIN, OEM, model, platform, software version, powertrain type, drivetrain type, fuel tank capacity, battery capacity, wheelbase, curb weight |
-| `SignalDefinition` | 11 | VSS signal registry (not populated at runtime) |
+| `SignalDefinition` | 11 | VSS signal registry (declared for shared-model compatibility; not populated) |
+| `objectbox_telemetry` | 26 | `id`, `vehicleId` (idx), `ts` (idx), **`data`** (full VSS Vehicle tree JSON), **`meta`** (vehicle metadata JSON), `syncClock`. Both `data` and `meta` use external type `JsonToNative`. Append-only, pruned after 24 h. |
 
-### State entities — one row per vehicle, upserted on every snapshot
-| Entity | ID | Key fields |
+`data` is the complete VSS `Vehicle` tree (~1300 signals, 45 top-level domains, exact VSS paths such as `Powertrain.CombustionEngine.Speed`). It is generated by `vss-telemetry-simulator` from the committed spec (`vss-telemetry-simulator/vss_model.json`) with a realistic drive-cycle physics core plus correlated OBD-II fault episodes (~20% of ticks). Active fault codes are drawn from the catalog in `vss-telemetry-simulator/dtc_catalog.json` (mirrored to `voice-assistant-backend/static/dtc_catalog.json` for the dashboard).
+
+The catalog contains **standard OBD-II codes** (C0xxx, P0xxx, U0xxx) plus **custom codes** added for dashboard tell-tale demonstration — these are not standard OBD-II and are marked `[custom]` in the catalog:
+
+| Code | Description | Tell-tale |
 |---|---|---|
-| `PowertrainState` | 13 | speed, RPM, fuel level %, fuel rate, coolant temp, throttle, gear, ignition, odometer |
-| `BatteryState` | 14 | SoC%, SoH%, voltage, current, charging state, charging power, estimated range, battery temp |
-| `ChassisState` | 15 | 4-tyre pressures (kPa), steering angle, brake pedal, ABS active, traction control active |
-| `CabinState` | 16 | inside/outside temp, HVAC mode, fan speed, door states, locks, seatbelt |
-| `LocationState` | 17 | GeoJSON Point (`locationGeoJson`), altitude, heading, GPS speed, geohash |
-| `AdasState` | 18 | cruise enabled/set speed, lane keep assist, parking assist, collision warning, autopilot mode |
+| `P1217` | Engine Coolant Over Temperature Condition | TEMP (amber/red) |
+| `P1001` | Fuel Level Low Warning | FUEL (amber/red) |
+| `P1002` | High Voltage Battery State of Charge Low | BATT (amber/red) |
+| `C1001` | Tire Pressure Below Minimum Threshold | TPMS (amber/red) |
+| `B1001` | Occupant Seat Belt Not Fastened | BELT (red) |
+| `P0520` | Engine Oil Pressure Sensor/Switch Circuit | OIL (amber/red) |
 
-### Sample entities — append-only history, pruned after 24 h
-`PowertrainSample` (19), `BatterySample` (20), `LocationSample` (21), `CabinSample` (22), `AdasSample` (23)
+Each custom code is backed by a fault episode in the simulator that also pushes the matching sensor signal into its warning range, so the tell-tale lights via both the DTC code and the live sensor value simultaneously.
 
-### Events
-`VehicleEvent` (24) — DTC/anomaly events with severity, VSS path, code; retained 7 days.
+`data` and `meta` are plain strings in ObjectBox (which stores no nested objects), but the `JsonToNative` external type makes the MongoDB connector expand each into a **native nested document** in the `objectbox_telemetry` Atlas collection — so there is no separate `VehicleMeta` collection; the metadata rides inside each snapshot.
 
-Full field-level documentation: [`vss-data.md`](vss-data.md)
+### Conversations entity
+
+| Property | ID | Type | Notes |
+|---|---|---|---|
+| `id` | 1 | Int64 | |
+| `conversation_id` | 2 | String | indexed |
+| `user_id` | 3 | String | indexed |
+| `timestamp` | 4 | Int64 | indexed |
+| `role` | 5 | String | `user` or `assistant` |
+| `message` | 6 | String | |
+| `sources` | 7 | String | `JsonToNative=112` → native BSON array in Atlas; `[{score, text}]` per manual chunk returned |
+| `syncClock` | 8 | Int64 | |
+| `tools_used` | 9 | String | `JsonToNative=112` → native BSON array in Atlas; list of tool names called on each assistant turn |
+
+### Unified Atlas collections (produced by Atlas Trigger)
+
+The Atlas App Services trigger (`atlas-app/`) fires on every `objectbox_telemetry` insert, enriches the snapshot's `CurrentLocation` with a GeoJSON Point, and writes two unified collections:
+
+| Collection | Type | Write cadence | Purpose |
+|---|---|---|---|
+| `telemetry-data` | Native time-series (`timeField: "ts"`, `metaField: "vehicleId"`) | Every ~2 s | Historical telemetry |
+| `telemetry-status` | Standard, unique index on `vehicleId` | Every ~10 s (debounced) | Current state — telemetry API reads from here |
+
+> **Important:** `timeField` is `"ts"` (epoch-ms Long converted to BSON Date by the trigger). Do not use `"timestamp"` — it will fail silently.
 
 ### Location format
 
-`locationGeoJson` is a GeoJSON Point string:
+`CurrentLocation.locationGeoJson` is a GeoJSON Point added by the Atlas trigger:
 ```json
 {"type":"Point","coordinates":[longitude, latitude]}
 ```
@@ -311,46 +341,44 @@ GET    /health   — status + chunk_count
 ## VSS Telemetry Service API
 
 ```
-POST /vss/snapshot              — upsert all State entities + append all Samples
-POST /vss/event                 — append a VehicleEvent
-POST /vss/meta                  — upsert VehicleMeta (seeded once at startup)
-GET  /vss/latest                — full current state (all domains)
-GET  /vss/powertrain/history?minutes=N
-GET  /vss/battery/history?minutes=N
-GET  /vss/location/history?minutes=N
-GET  /vss/cabin/history?minutes=N
-GET  /vss/adas/history?minutes=N
-GET  /vss/events?minutes=N[&severity=warning|critical]
+POST   /vss/snapshot          — store one snapshot (data + meta) as objectbox_telemetry
+GET    /vss/latest            — newest snapshot (parsed) + meta
+GET    /vss/history?minutes=N — recent snapshots (parsed)
 DELETE /vss/prune?older_than_hours=N
-GET  /health
+GET    /health
 ```
 
-## MCP Tools (vss-telemetry-mcp-server)
+## Telemetry Tools (vss-telemetry-api)
 
-The MCP server exposes all tools via `POST /tools/<name>`. The LangChain agent uses the following subset in online mode:
+The telemetry API reads exclusively from `telemetry-status` (one `findOne` per tool call) and exposes all tools via `POST /tools/<name>`. The LangChain agent uses the following subset in online mode:
 
-| Tool | Type | Description |
-|---|---|---|
-| `get_powertrain_status` | LIVE READING | Speed, RPM, coolant temp, gear, throttle, odometer |
-| `get_fuel_status` | LIVE READING | Fuel level %, litres remaining, consumption rate |
-| `get_battery_status` | LIVE READING | SoC%, SoH%, charging state, estimated electric range |
-| `get_chassis_status` | LIVE READING | Tyre pressures (all four), ABS, traction control |
-| `get_vehicle_events` | LIVE READING | Recent DTC/anomaly warnings and critical events |
+| Tool | Description |
+|---|---|
+| `get_vehicle_status` | Full snapshot — all domains + meta in one call |
+| `get_powertrain_status` | Speed, RPM, coolant temp, gear, throttle |
+| `get_fuel_status` | Fuel level %, litres remaining, consumption rate (+ tank capacity from `meta`) |
+| `get_battery_status` | SoC%, SoH%, charging (inferred from charging power), range, voltage, current, temp |
+| `get_chassis_status` | Tyre pressures (all four), ABS, traction control, brake pedal |
+| `get_diagnostics` | Active OBD-II fault codes (DTCs) with descriptions — the "which warning lights are on now" tool (API name `get_diagnostics_status`) |
 
-Additional MCP tools available on the server but not wired to the agent (to keep LLM context small): `get_vehicle_status`, `get_cabin_status`, `get_location`, `get_adas_status`, `get_driving_history`. They can be re-added to `_TELEMETRY_TOOLS` in `agent_service.py` if needed — note that each tool adds ~30 tokens to every LLM call prefill.
+Additional tools on the server but not wired to the agent: `get_cabin_status`, `get_location`, `get_adas_status`. Each adds ~30 tokens to every LLM call prefill — re-add to `_TELEMETRY_TOOLS` in `agent_service.py` if needed.
 
 ## Data Flow
 
 ```
 vss-telemetry-simulator (8087)
-  → POST /vss/snapshot every 2 s
+  → POST /vss/snapshot every 2 s (complete VSS Vehicle tree JSON)
     → vss-telemetry-service (8086, ObjectBox C++)   ← UI polls /vss/latest
+        one objectbox_telemetry row (data = verbatim JSON, JsonToNative)
       → ObjectBox Sync Server (9999)
-        → MongoDB Atlas
-          → vss-telemetry-mcp-server (3002)          ← LangChain agent (online mode)
+        → MongoDB Atlas: objectbox_telemetry collection (data expanded to nested doc)
+          → Atlas Trigger on objectbox_telemetry insert (assembleTelemetry)
+              ├── INSERT telemetry-data (time-series, every ~2 s)
+              └── UPSERT telemetry-status (every ~10 s)
+                    → vss-telemetry-api (3002)   ← LangChain agent (online mode)
 ```
 
-State writes always read the existing entity first to preserve `syncClock`, so the Sync Server accepts updates rather than reverting them.
+Snapshots are inserted with `id = 0` (append-only), so each one creates a new `objectbox_telemetry` row that replicates to Atlas; there is no read-modify-write.
 
 ## Resetting the VSS Database
 
@@ -379,10 +407,13 @@ Remove-Item -Recurse -Force sync-server-setup\search-service-data   # search-ser
 Remove-Item -Recurse -Force sync-server-setup\vss-telemetry-data     # vss-telemetry-service
 Remove-Item -Recurse -Force sync-server-setup\conversation-data      # conversation-service
 ```
-After restart, re-run `python load_documents.py` to reload manual chunks into the search-service.
+After restart, re-run `python mongodb-loader/load_documents.py` to reload manual chunks into the search-service.
 
 **C++ service: "Permission denied" (code 13) on startup**
 The host bind-mount directory is owned by root; the container process runs as `appuser` and cannot write to it. The `conversation-service` Dockerfile includes an `entrypoint.sh` that fixes ownership at startup via `gosu`. If other C++ services show the same error, apply the same entrypoint pattern to their Dockerfiles.
+
+**`telemetry-data` is empty / Atlas trigger silent failures**
+The trigger logs every step with the `[assembleTelemetry]` prefix. Check **App Services → Logs** for errors. The most common cause is the `telemetry-data` time-series collection not existing before the first trigger fire (MongoDB auto-creates it as a plain collection, which cannot accept time-series inserts). Drop and recreate it as time-series (`timeField: "ts"`) via mongosh, then the trigger will succeed on the next snapshot. A `testTelemetryWrite` function in `atlas-app/functions/` can be run manually from the App Services UI to verify database connectivity and write paths.
 
 **Agent answers from memory without calling a tool (online mode)**
 Two likely causes:

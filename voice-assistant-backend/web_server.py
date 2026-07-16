@@ -209,7 +209,8 @@ def _call_agent_stream(message: str, conversation_id: str, sid: str, lat=None, l
 
 # ── Conversation persistence ──────────────────────────────────────────────────
 
-def _save_message(conversation_id: str, user_id: str, role: str, message: str) -> None:
+def _save_message(conversation_id: str, user_id: str, role: str, message: str,
+                  tools_used: list | None = None, sources: list | None = None) -> None:
     try:
         http_requests.post(
             f"{CONVERSATION_SERVICE_URL}/conversations/message",
@@ -218,6 +219,9 @@ def _save_message(conversation_id: str, user_id: str, role: str, message: str) -
                 "user_id":         user_id,
                 "role":            role,
                 "message":         message,
+                # Stored as JSON array strings; empty for user turns.
+                "tools_used":      json.dumps(tools_used) if tools_used else "",
+                "sources":         json.dumps(sources) if sources else "",
             },
             timeout=2,
         )
@@ -375,7 +379,15 @@ def handle_send_message(data):
     )
 
     answer = agent_result.get('answer', '')
-    _save_message(conversation_id, user_id, 'assistant', answer)
+    sources = agent_result.get('sources', []) or []
+    _save_message(conversation_id, user_id, 'assistant', answer,
+                  tools_used=agent_result.get('tools_used', []),
+                  sources=sources)
+
+    # Emit before 'answer' — the client stores these on 'search_results' and reads
+    # them when finalising the assistant bubble ('answer' handler → source chips).
+    if sources:
+        emit('search_results', {'count': len(sources), 'chunks': sources})
 
     if agent_result.get('navigation'):
         emit('navigation_result', agent_result['navigation'])
@@ -466,6 +478,7 @@ def run_assistant_loop():
             )
 
             answer = agent_result['answer']
+            sources = agent_result.get('sources', []) or []
 
             # Emit navigation route to map if the agent used the navigate tool
             if agent_result.get('navigation'):
@@ -474,9 +487,14 @@ def run_assistant_loop():
             if should_stop:
                 break
 
+            # Emit before 'answer' so the client has the chunks ready for the bubble.
+            if sources:
+                socketio.emit('search_results', {'count': len(sources), 'chunks': sources})
+
             socketio.emit('answer', {'text': answer, 'tools_used': agent_result.get('tools_used', [])})
             socketio.emit('status', {'state': 'speaking', 'message': '🔊 Speaking...'})
-            assistant.save_message("assistant", answer)
+            assistant.save_message("assistant", answer,
+                                   sources=sources, tools_used=agent_result.get('tools_used', []))
             assistant.speak(answer)
 
             socketio.sleep(1)
@@ -505,7 +523,8 @@ class VoiceAssistantWithEvents(VoiceAssistant):
         self.conversation_id = str(uuid.uuid4())
         print(f"🆔 Session: user={self.user_id[:8]}... conv={self.conversation_id[:8]}...")
 
-    def save_message(self, role: str, message: str, sources: list = None):
+    def save_message(self, role: str, message: str, sources: list = None,
+                     tools_used: list = None):
         try:
             payload = {
                 "conversation_id": self.conversation_id,
@@ -513,6 +532,7 @@ class VoiceAssistantWithEvents(VoiceAssistant):
                 "role":            role,
                 "message":         message,
                 "sources":         json.dumps(sources) if sources else "",
+                "tools_used":      json.dumps(tools_used) if tools_used else "",
             }
             http_requests.post(
                 f"{CONVERSATION_SERVICE_URL}/conversations/message",

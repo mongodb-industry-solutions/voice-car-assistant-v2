@@ -11,6 +11,7 @@ const obx::Property<Conversation, OBXPropertyType_String> Conversation_::role(5)
 const obx::Property<Conversation, OBXPropertyType_String> Conversation_::message(6);
 const obx::Property<Conversation, OBXPropertyType_String> Conversation_::sources(7);
 const obx::Property<Conversation, OBXPropertyType_Long> Conversation_::syncClock(8);
+const obx::Property<Conversation, OBXPropertyType_String> Conversation_::tools_used(9);
 
 // Conversation serialization
 void Conversation::_OBX_MetaInfo::toFlatBuffer(flatbuffers::FlatBufferBuilder& fbb, const Conversation& object) {
@@ -20,7 +21,8 @@ void Conversation::_OBX_MetaInfo::toFlatBuffer(flatbuffers::FlatBufferBuilder& f
     auto offset_role = fbb.CreateString(object.role);
     auto offset_message = fbb.CreateString(object.message);
     auto offset_sources = fbb.CreateString(object.sources);
-    
+    auto offset_tools_used = fbb.CreateString(object.tools_used);
+
     flatbuffers::uoffset_t fbStart = fbb.StartTable();
     fbb.AddElement(4, object.id);  // Property 1: id
     fbb.AddOffset(6, offset_conversation_id);  // Property 2: conversation_id
@@ -30,6 +32,7 @@ void Conversation::_OBX_MetaInfo::toFlatBuffer(flatbuffers::FlatBufferBuilder& f
     fbb.AddOffset(14, offset_message);  // Property 6: message
     fbb.AddOffset(16, offset_sources);  // Property 7: sources
     fbb.AddElement(18, object.syncClock);  // Property 8: syncClock
+    fbb.AddOffset(20, offset_tools_used);  // Property 9: tools_used
     
     flatbuffers::Offset<flatbuffers::Table> offset;
     offset.o = fbb.EndTable(fbStart);
@@ -110,4 +113,14 @@ void Conversation::_OBX_MetaInfo::fromFlatBuffer(const void* data, size_t, Conve
     
     // Property 8: syncClock
     outObject.syncClock = table->GetField<int64_t>(18, 0);
+
+    // Property 9: tools_used
+    {
+        auto* ptr = table->GetPointer<const flatbuffers::String*>(20);
+        if (ptr) {
+            outObject.tools_used.assign(ptr->c_str(), ptr->size());
+        } else {
+            outObject.tools_used.clear();
+        }
+    }
 }

@@ -73,7 +73,7 @@ function showNavPanel() {
     if (!panel) return;
     panel.classList.remove('hidden');
     initMap();
-    setTimeout(() => { if (map) map.invalidateSize(); }, 150);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
 }
 
 function closeNavPanel() {
@@ -185,7 +185,7 @@ socket.on('navigation_result', (navData) => {
             map.invalidateSize();
             displayRoute(navData);
         }
-    }, 200);
+    }, 350);
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────

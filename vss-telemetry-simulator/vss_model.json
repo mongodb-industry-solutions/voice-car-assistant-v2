@@ -1,0 +1,5800 @@
+{
+ "ADAS.ABS.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.ABS.IsEngaged": {
+  "t": "bool"
+ },
+ "ADAS.ABS.IsError": {
+  "t": "bool"
+ },
+ "ADAS.ActiveAutonomyLevel": {
+  "t": "str"
+ },
+ "ADAS.CruiseControl.AdaptiveDistanceSet": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.CruiseControl.AdaptiveIntervalSet": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "ADAS.CruiseControl.IsActive": {
+  "t": "bool"
+ },
+ "ADAS.CruiseControl.IsAdaptive": {
+  "t": "bool"
+ },
+ "ADAS.CruiseControl.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.CruiseControl.IsError": {
+  "t": "bool"
+ },
+ "ADAS.CruiseControl.SpeedSet": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.DMS.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.DMS.IsError": {
+  "t": "bool"
+ },
+ "ADAS.DMS.IsWarning": {
+  "t": "bool"
+ },
+ "ADAS.EBA.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.EBA.IsEngaged": {
+  "t": "bool"
+ },
+ "ADAS.EBA.IsError": {
+  "t": "bool"
+ },
+ "ADAS.EBD.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.EBD.IsEngaged": {
+  "t": "bool"
+ },
+ "ADAS.EBD.IsError": {
+  "t": "bool"
+ },
+ "ADAS.ESC.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.ESC.IsEngaged": {
+  "t": "bool"
+ },
+ "ADAS.ESC.IsError": {
+  "t": "bool"
+ },
+ "ADAS.ESC.IsStrongCrossWindDetected": {
+  "t": "bool"
+ },
+ "ADAS.ESC.RoadFriction.LowerBound": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.ESC.RoadFriction.MostProbable": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.ESC.RoadFriction.UpperBound": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.LaneDepartureDetection.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.LaneDepartureDetection.IsError": {
+  "t": "bool"
+ },
+ "ADAS.LaneDepartureDetection.IsWarning": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Center.Distance": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.ObstacleDetection.Front.Center.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Center.IsError": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Center.IsWarning": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Center.TimeGap": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "ADAS.ObstacleDetection.Front.Center.WarningType": {
+  "t": "str"
+ },
+ "ADAS.ObstacleDetection.Front.Left.Distance": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.ObstacleDetection.Front.Left.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Left.IsError": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Left.IsWarning": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Left.TimeGap": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "ADAS.ObstacleDetection.Front.Left.WarningType": {
+  "t": "str"
+ },
+ "ADAS.ObstacleDetection.Front.Right.Distance": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.ObstacleDetection.Front.Right.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Right.IsError": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Right.IsWarning": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Front.Right.TimeGap": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "ADAS.ObstacleDetection.Front.Right.WarningType": {
+  "t": "str"
+ },
+ "ADAS.ObstacleDetection.Rear.Center.Distance": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.ObstacleDetection.Rear.Center.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Rear.Center.IsError": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Rear.Center.IsWarning": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Rear.Center.TimeGap": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "ADAS.ObstacleDetection.Rear.Center.WarningType": {
+  "t": "str"
+ },
+ "ADAS.ObstacleDetection.Rear.Left.Distance": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.ObstacleDetection.Rear.Left.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Rear.Left.IsError": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Rear.Left.IsWarning": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Rear.Left.TimeGap": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "ADAS.ObstacleDetection.Rear.Left.WarningType": {
+  "t": "str"
+ },
+ "ADAS.ObstacleDetection.Rear.Right.Distance": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ADAS.ObstacleDetection.Rear.Right.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Rear.Right.IsError": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Rear.Right.IsWarning": {
+  "t": "bool"
+ },
+ "ADAS.ObstacleDetection.Rear.Right.TimeGap": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "ADAS.ObstacleDetection.Rear.Right.WarningType": {
+  "t": "str"
+ },
+ "ADAS.SupportedAutonomyLevel": {
+  "t": "str"
+ },
+ "ADAS.TCS.IsEnabled": {
+  "t": "bool"
+ },
+ "ADAS.TCS.IsEngaged": {
+  "t": "bool"
+ },
+ "ADAS.TCS.IsError": {
+  "t": "bool"
+ },
+ "Acceleration.Lateral": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Acceleration.Longitudinal": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Acceleration.Vertical": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "AngularVelocity.Pitch": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "AngularVelocity.Roll": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "AngularVelocity.Yaw": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "AverageSpeed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Body.BodyType": {
+  "t": "str"
+ },
+ "Body.Hood.IsOpen": {
+  "t": "bool"
+ },
+ "Body.Hood.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Hood.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Body.Horn.IsActive": {
+  "t": "bool"
+ },
+ "Body.Lights.Backup.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.Backup.IsOn": {
+  "t": "bool"
+ },
+ "Body.Lights.Beam.High.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.Beam.High.IsOn": {
+  "t": "bool"
+ },
+ "Body.Lights.Beam.Low.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.Beam.Low.IsOn": {
+  "t": "bool"
+ },
+ "Body.Lights.Brake.IsActive": {
+  "t": "str"
+ },
+ "Body.Lights.Brake.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.DirectionIndicator.Left.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.DirectionIndicator.Left.IsSignaling": {
+  "t": "bool"
+ },
+ "Body.Lights.DirectionIndicator.Right.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.DirectionIndicator.Right.IsSignaling": {
+  "t": "bool"
+ },
+ "Body.Lights.Fog.Front.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.Fog.Front.IsOn": {
+  "t": "bool"
+ },
+ "Body.Lights.Fog.Rear.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.Fog.Rear.IsOn": {
+  "t": "bool"
+ },
+ "Body.Lights.Hazard.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.Hazard.IsSignaling": {
+  "t": "bool"
+ },
+ "Body.Lights.IsHighBeamSwitchOn": {
+  "t": "bool"
+ },
+ "Body.Lights.LicensePlate.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.LicensePlate.IsOn": {
+  "t": "bool"
+ },
+ "Body.Lights.LightSwitch": {
+  "t": "str"
+ },
+ "Body.Lights.Parking.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.Parking.IsOn": {
+  "t": "bool"
+ },
+ "Body.Lights.Running.IsDefect": {
+  "t": "bool"
+ },
+ "Body.Lights.Running.IsOn": {
+  "t": "bool"
+ },
+ "Body.Mirrors.DriverSide.IsFolded": {
+  "t": "bool"
+ },
+ "Body.Mirrors.DriverSide.IsHeatingOn": {
+  "t": "bool"
+ },
+ "Body.Mirrors.DriverSide.IsLocked": {
+  "t": "bool"
+ },
+ "Body.Mirrors.DriverSide.Pan": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Body.Mirrors.DriverSide.Tilt": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Body.Mirrors.DriverSide.Yaw": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Body.Mirrors.PassengerSide.IsFolded": {
+  "t": "bool"
+ },
+ "Body.Mirrors.PassengerSide.IsHeatingOn": {
+  "t": "bool"
+ },
+ "Body.Mirrors.PassengerSide.IsLocked": {
+  "t": "bool"
+ },
+ "Body.Mirrors.PassengerSide.Pan": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Body.Mirrors.PassengerSide.Tilt": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Body.Mirrors.PassengerSide.Yaw": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Body.Raindetection.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.RearMainSpoilerPosition": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Body.Trunk.Front.IsLightOn": {
+  "t": "bool"
+ },
+ "Body.Trunk.Front.IsLocked": {
+  "t": "bool"
+ },
+ "Body.Trunk.Front.IsOpen": {
+  "t": "bool"
+ },
+ "Body.Trunk.Front.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Trunk.Front.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Body.Trunk.Rear.IsLightOn": {
+  "t": "bool"
+ },
+ "Body.Trunk.Rear.IsLocked": {
+  "t": "bool"
+ },
+ "Body.Trunk.Rear.IsOpen": {
+  "t": "bool"
+ },
+ "Body.Trunk.Rear.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Trunk.Rear.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Body.Windshield.Front.IsHeatingOn": {
+  "t": "bool"
+ },
+ "Body.Windshield.Front.WasherFluid.IsLevelLow": {
+  "t": "bool"
+ },
+ "Body.Windshield.Front.WasherFluid.Level": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Windshield.Front.Wiping.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Windshield.Front.Wiping.IsWipersWorn": {
+  "t": "bool"
+ },
+ "Body.Windshield.Front.Wiping.Mode": {
+  "t": "str"
+ },
+ "Body.Windshield.Front.Wiping.System.ActualPosition": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Body.Windshield.Front.Wiping.System.DriveCurrent": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Body.Windshield.Front.Wiping.System.Frequency": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Windshield.Front.Wiping.System.IsBlocked": {
+  "t": "bool"
+ },
+ "Body.Windshield.Front.Wiping.System.IsEndingWipeCycle": {
+  "t": "bool"
+ },
+ "Body.Windshield.Front.Wiping.System.IsOverheated": {
+  "t": "bool"
+ },
+ "Body.Windshield.Front.Wiping.System.IsPositionReached": {
+  "t": "bool"
+ },
+ "Body.Windshield.Front.Wiping.System.IsWiperError": {
+  "t": "bool"
+ },
+ "Body.Windshield.Front.Wiping.System.IsWiping": {
+  "t": "bool"
+ },
+ "Body.Windshield.Front.Wiping.System.Mode": {
+  "t": "str"
+ },
+ "Body.Windshield.Front.Wiping.System.TargetPosition": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Body.Windshield.Front.Wiping.WiperWear": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Windshield.Rear.IsHeatingOn": {
+  "t": "bool"
+ },
+ "Body.Windshield.Rear.WasherFluid.IsLevelLow": {
+  "t": "bool"
+ },
+ "Body.Windshield.Rear.WasherFluid.Level": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Windshield.Rear.Wiping.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Windshield.Rear.Wiping.IsWipersWorn": {
+  "t": "bool"
+ },
+ "Body.Windshield.Rear.Wiping.Mode": {
+  "t": "str"
+ },
+ "Body.Windshield.Rear.Wiping.System.ActualPosition": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Body.Windshield.Rear.Wiping.System.DriveCurrent": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Body.Windshield.Rear.Wiping.System.Frequency": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Body.Windshield.Rear.Wiping.System.IsBlocked": {
+  "t": "bool"
+ },
+ "Body.Windshield.Rear.Wiping.System.IsEndingWipeCycle": {
+  "t": "bool"
+ },
+ "Body.Windshield.Rear.Wiping.System.IsOverheated": {
+  "t": "bool"
+ },
+ "Body.Windshield.Rear.Wiping.System.IsPositionReached": {
+  "t": "bool"
+ },
+ "Body.Windshield.Rear.Wiping.System.IsWiperError": {
+  "t": "bool"
+ },
+ "Body.Windshield.Rear.Wiping.System.IsWiping": {
+  "t": "bool"
+ },
+ "Body.Windshield.Rear.Wiping.System.Mode": {
+  "t": "str"
+ },
+ "Body.Windshield.Rear.Wiping.System.TargetPosition": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Body.Windshield.Rear.Wiping.WiperWear": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Convertible.Status": {
+  "t": "str"
+ },
+ "Cabin.Door.Row1.DriverSide.IsChildLockActive": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.DriverSide.IsLocked": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.DriverSide.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.DriverSide.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row1.DriverSide.Shade.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.DriverSide.Shade.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row1.DriverSide.Shade.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row1.DriverSide.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row1.DriverSide.Window.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.DriverSide.Window.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row1.DriverSide.Window.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row1.PassengerSide.IsChildLockActive": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.PassengerSide.IsLocked": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.PassengerSide.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.PassengerSide.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row1.PassengerSide.Shade.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.PassengerSide.Shade.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row1.PassengerSide.Shade.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row1.PassengerSide.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row1.PassengerSide.Window.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row1.PassengerSide.Window.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row1.PassengerSide.Window.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row2.DriverSide.IsChildLockActive": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.DriverSide.IsLocked": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.DriverSide.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.DriverSide.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row2.DriverSide.Shade.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.DriverSide.Shade.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row2.DriverSide.Shade.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row2.DriverSide.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row2.DriverSide.Window.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.DriverSide.Window.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row2.DriverSide.Window.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row2.PassengerSide.IsChildLockActive": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.PassengerSide.IsLocked": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.PassengerSide.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.PassengerSide.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row2.PassengerSide.Shade.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.PassengerSide.Shade.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row2.PassengerSide.Shade.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row2.PassengerSide.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Door.Row2.PassengerSide.Window.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Door.Row2.PassengerSide.Window.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Door.Row2.PassengerSide.Window.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.DoorCount": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.DriverPosition": {
+  "t": "str"
+ },
+ "Cabin.HVAC.AmbientAirTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.HVAC.IsAirConditioningActive": {
+  "t": "bool"
+ },
+ "Cabin.HVAC.IsFrontDefrosterActive": {
+  "t": "bool"
+ },
+ "Cabin.HVAC.IsRearDefrosterActive": {
+  "t": "bool"
+ },
+ "Cabin.HVAC.IsRecirculationActive": {
+  "t": "bool"
+ },
+ "Cabin.HVAC.Station.Row1.Driver.AirDistribution": {
+  "t": "str"
+ },
+ "Cabin.HVAC.Station.Row1.Driver.FanSpeed": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.HVAC.Station.Row1.Driver.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.HVAC.Station.Row1.Passenger.AirDistribution": {
+  "t": "str"
+ },
+ "Cabin.HVAC.Station.Row1.Passenger.FanSpeed": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.HVAC.Station.Row1.Passenger.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.HVAC.Station.Row2.Driver.AirDistribution": {
+  "t": "str"
+ },
+ "Cabin.HVAC.Station.Row2.Driver.FanSpeed": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.HVAC.Station.Row2.Driver.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.HVAC.Station.Row2.Passenger.AirDistribution": {
+  "t": "str"
+ },
+ "Cabin.HVAC.Station.Row2.Passenger.FanSpeed": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.HVAC.Station.Row2.Passenger.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.HVAC.Station.Row3.Driver.AirDistribution": {
+  "t": "str"
+ },
+ "Cabin.HVAC.Station.Row3.Driver.FanSpeed": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.HVAC.Station.Row3.Driver.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.HVAC.Station.Row3.Passenger.AirDistribution": {
+  "t": "str"
+ },
+ "Cabin.HVAC.Station.Row3.Passenger.FanSpeed": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.HVAC.Station.Row3.Passenger.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.HVAC.Station.Row4.Driver.AirDistribution": {
+  "t": "str"
+ },
+ "Cabin.HVAC.Station.Row4.Driver.FanSpeed": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.HVAC.Station.Row4.Driver.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.HVAC.Station.Row4.Passenger.AirDistribution": {
+  "t": "str"
+ },
+ "Cabin.HVAC.Station.Row4.Passenger.FanSpeed": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.HVAC.Station.Row4.Passenger.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Infotainment.HMI.Brightness": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Infotainment.HMI.CurrentLanguage": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.DateFormat": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.DayNightMode": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.DisplayOffDuration": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Infotainment.HMI.DistanceUnit": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.EVEconomyUnits": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.EVEnergyUnits": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.FontSize": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.FuelEconomyUnits": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.FuelVolumeUnit": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.IsScreenAlwaysOn": {
+  "t": "bool"
+ },
+ "Cabin.Infotainment.HMI.LastActionTime": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.SpeedUnit": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.TemperatureUnit": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.TimeFormat": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.HMI.TirePressureUnit": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.Action": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.DeclinedURI": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.Played.Album": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.Played.Artist": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.Played.Genre": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.Played.PlaybackRate": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Infotainment.Media.Played.Source": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.Played.Track": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.Played.URI": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.SelectedURI": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Media.Volume": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Infotainment.Navigation.DestinationSet.Latitude": {
+  "max": 90.0,
+  "min": -90.0,
+  "t": "float"
+ },
+ "Cabin.Infotainment.Navigation.DestinationSet.Longitude": {
+  "max": 180.0,
+  "min": -180.0,
+  "t": "float"
+ },
+ "Cabin.Infotainment.Navigation.GuidanceVoice": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Navigation.Map.IsAutoScaleModeUsed": {
+  "t": "bool"
+ },
+ "Cabin.Infotainment.Navigation.Mute": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.Navigation.Volume": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Infotainment.SmartphoneProjection.Active": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.SmartphoneProjection.Source": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.SmartphoneProjection.SupportedMode": {
+  "item": {
+   "t": "str"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Cabin.Infotainment.SmartphoneScreenMirroring.Active": {
+  "t": "str"
+ },
+ "Cabin.Infotainment.SmartphoneScreenMirroring.Source": {
+  "t": "str"
+ },
+ "Cabin.IsWindowChildLockEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Light.AmbientLight.Row1.DriverSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.AmbientLight.Row1.DriverSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.AmbientLight.Row1.DriverSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.AmbientLight.Row1.PassengerSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.AmbientLight.Row1.PassengerSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.AmbientLight.Row2.DriverSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.AmbientLight.Row2.DriverSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.AmbientLight.Row2.DriverSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.AmbientLight.Row2.PassengerSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.AmbientLight.Row2.PassengerSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.InteractiveLightBar.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.InteractiveLightBar.Effect": {
+  "t": "str"
+ },
+ "Cabin.Light.InteractiveLightBar.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.InteractiveLightBar.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.IsDomeOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.IsGloveBoxOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.PerceivedAmbientLight": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.Spotlight.Row1.DriverSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.Spotlight.Row1.DriverSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.Spotlight.Row1.DriverSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.Spotlight.Row1.PassengerSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.Spotlight.Row1.PassengerSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.Spotlight.Row1.PassengerSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.Spotlight.Row2.DriverSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.Spotlight.Row2.DriverSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.Spotlight.Row2.DriverSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.Spotlight.Row2.PassengerSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.Spotlight.Row2.PassengerSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.Spotlight.Row2.PassengerSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.Spotlight.Row3.DriverSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.Spotlight.Row3.DriverSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.Spotlight.Row3.DriverSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.Spotlight.Row3.PassengerSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.Spotlight.Row3.PassengerSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.Spotlight.Row3.PassengerSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.Spotlight.Row4.DriverSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.Spotlight.Row4.DriverSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.Spotlight.Row4.DriverSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.Light.Spotlight.Row4.PassengerSide.Color": {
+  "t": "str"
+ },
+ "Cabin.Light.Spotlight.Row4.PassengerSide.Intensity": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Light.Spotlight.Row4.PassengerSide.IsLightOn": {
+  "t": "bool"
+ },
+ "Cabin.RearShade.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.RearShade.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.RearShade.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.RearviewMirror.DimmingLevel": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.DriverSide.Airbag.IsDeployed": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Airbag.IsEnabled": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.BottomLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.IsLessLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.IsLessSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.IsLumbarDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.IsLumbarUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.IsMoreLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.IsMoreSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.IsReclineBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.IsReclineForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.LumbarHeight": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.LumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.MidLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.Recline": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.SideBolsterSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.TopLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Backrest.UpperShoulderSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Headrest.Angle": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Headrest.Height": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.DriverSide.Headrest.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Headrest.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Headrest.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Headrest.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Height": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsBelted": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsCoolerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsDecreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsIncreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsTiltBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsTiltForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.IsWarmerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Massage.IsAvailable": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Massage.Level": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.DriverSide.Massage.Status": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row1.DriverSide.Massage.SupportedTypes": {
+  "item": {
+   "t": "str"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Cabin.Seat.Row1.DriverSide.Massage.TypeActive": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row1.DriverSide.NeckScarf": {
+  "t": "branch"
+ },
+ "Cabin.Seat.Row1.DriverSide.OccupancyStatus": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row1.DriverSide.Position": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.DriverSide.SeatBeltHeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.DriverSide.Seating.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Seating.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.DriverSide.Seating.Length": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.DriverSide.Seating.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Seating.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.DriverSide.Tilt": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Airbag.IsDeployed": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Airbag.IsEnabled": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.BottomLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.IsLessLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.IsLessSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.IsLumbarDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.IsLumbarUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.IsMoreLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.IsMoreSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.IsReclineBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.IsReclineForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.LumbarHeight": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.LumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.MidLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.Recline": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.SideBolsterSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.TopLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Backrest.UpperShoulderSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Headrest.Angle": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Headrest.Height": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.Middle.Headrest.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Headrest.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Headrest.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Headrest.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Height": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.Middle.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsBelted": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsCoolerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsDecreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsIncreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsTiltBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsTiltForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.IsWarmerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Massage.IsAvailable": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Massage.Level": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.Middle.Massage.Status": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row1.Middle.Massage.SupportedTypes": {
+  "item": {
+   "t": "str"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Cabin.Seat.Row1.Middle.Massage.TypeActive": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row1.Middle.NeckScarf": {
+  "t": "branch"
+ },
+ "Cabin.Seat.Row1.Middle.OccupancyStatus": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row1.Middle.Position": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.Middle.SeatBeltHeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.Middle.Seating.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Seating.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.Middle.Seating.Length": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.Middle.Seating.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Seating.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.Middle.Tilt": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Airbag.IsDeployed": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Airbag.IsEnabled": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.BottomLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.IsLessLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.IsLessSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.IsLumbarDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.IsLumbarUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.IsMoreLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.IsMoreSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.IsReclineBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.IsReclineForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.LumbarHeight": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.LumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.MidLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.Recline": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.SideBolsterSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.TopLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Backrest.UpperShoulderSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Headrest.Angle": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Headrest.Height": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Headrest.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Headrest.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Headrest.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Headrest.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Height": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsBelted": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsCoolerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsDecreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsIncreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsTiltBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsTiltForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.IsWarmerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Massage.IsAvailable": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Massage.Level": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Massage.Status": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Massage.SupportedTypes": {
+  "item": {
+   "t": "str"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Massage.TypeActive": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row1.PassengerSide.NeckScarf": {
+  "t": "branch"
+ },
+ "Cabin.Seat.Row1.PassengerSide.OccupancyStatus": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Position": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.PassengerSide.SeatBeltHeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Seating.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Seating.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Seating.Length": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Seating.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Seating.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row1.PassengerSide.Tilt": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Airbag.IsDeployed": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Airbag.IsEnabled": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.BottomLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.IsLessLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.IsLessSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.IsLumbarDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.IsLumbarUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.IsMoreLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.IsMoreSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.IsReclineBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.IsReclineForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.LumbarHeight": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.LumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.MidLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.Recline": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.SideBolsterSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.TopLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Backrest.UpperShoulderSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Headrest.Angle": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Headrest.Height": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.DriverSide.Headrest.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Headrest.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Headrest.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Headrest.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Height": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsBelted": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsCoolerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsDecreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsIncreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsTiltBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsTiltForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.IsWarmerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Massage.IsAvailable": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Massage.Level": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.DriverSide.Massage.Status": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row2.DriverSide.Massage.SupportedTypes": {
+  "item": {
+   "t": "str"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Cabin.Seat.Row2.DriverSide.Massage.TypeActive": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row2.DriverSide.NeckScarf": {
+  "t": "branch"
+ },
+ "Cabin.Seat.Row2.DriverSide.OccupancyStatus": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row2.DriverSide.Position": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.DriverSide.SeatBeltHeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.DriverSide.Seating.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Seating.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.DriverSide.Seating.Length": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.DriverSide.Seating.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Seating.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.DriverSide.Tilt": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Airbag.IsDeployed": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Airbag.IsEnabled": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.BottomLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.IsLessLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.IsLessSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.IsLumbarDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.IsLumbarUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.IsMoreLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.IsMoreSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.IsReclineBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.IsReclineForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.LumbarHeight": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.LumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.MidLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.Recline": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.SideBolsterSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.TopLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Backrest.UpperShoulderSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Headrest.Angle": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Headrest.Height": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.Middle.Headrest.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Headrest.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Headrest.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Headrest.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Height": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.Middle.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsBelted": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsCoolerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsDecreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsIncreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsTiltBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsTiltForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.IsWarmerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Massage.IsAvailable": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Massage.Level": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.Middle.Massage.Status": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row2.Middle.Massage.SupportedTypes": {
+  "item": {
+   "t": "str"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Cabin.Seat.Row2.Middle.Massage.TypeActive": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row2.Middle.NeckScarf": {
+  "t": "branch"
+ },
+ "Cabin.Seat.Row2.Middle.OccupancyStatus": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row2.Middle.Position": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.Middle.SeatBeltHeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.Middle.Seating.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Seating.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.Middle.Seating.Length": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.Middle.Seating.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Seating.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.Middle.Tilt": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Airbag.IsDeployed": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Airbag.IsEnabled": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.BottomLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.IsLessLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.IsLessSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.IsLumbarDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.IsLumbarUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.IsMoreLumbarSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.IsMoreSideBolsterSupportSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.IsReclineBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.IsReclineForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.LumbarHeight": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.LumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.MidLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.Recline": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.SideBolsterSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.TopLumbarSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Backrest.UpperShoulderSupport": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Headrest.Angle": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Headrest.Height": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Headrest.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Headrest.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Headrest.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Headrest.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Height": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsBelted": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsCoolerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsDecreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsDownSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsIncreaseMassageLevelSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsTiltBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsTiltForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsUpSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.IsWarmerSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Massage.IsAvailable": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Massage.Level": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Massage.Status": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Massage.SupportedTypes": {
+  "item": {
+   "t": "str"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Massage.TypeActive": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row2.PassengerSide.NeckScarf": {
+  "t": "branch"
+ },
+ "Cabin.Seat.Row2.PassengerSide.OccupancyStatus": {
+  "t": "str"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Position": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.PassengerSide.SeatBeltHeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Seating.IsBackwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Seating.IsForwardSwitchEngaged": {
+  "t": "bool"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Seating.Length": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Seating.SideBolsterSupportLeft": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Seating.SideBolsterSupportRight": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.Seat.Row2.PassengerSide.Tilt": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Cabin.SeatPosCount": {
+  "item": {
+   "max": 255,
+   "min": 0,
+   "t": "int"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Cabin.SeatRowCount": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Sunroof.Position": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Cabin.Sunroof.Shade.IsOpen": {
+  "t": "bool"
+ },
+ "Cabin.Sunroof.Shade.Position": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Cabin.Sunroof.Shade.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "Cabin.Sunroof.Switch": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "CLOSE",
+   "OPEN",
+   "ONE_SHOT_CLOSE",
+   "ONE_SHOT_OPEN"
+  ]
+ },
+ "CargoVolume": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Accelerator.PedalPosition": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.AxleWidth": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.SteeringAngle": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.TireAspectRatio": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.TireDiameter": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.TireWidth": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.TrackWidth": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.TreadWidth": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.AngularSpeed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Brake.FluidLevel": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Brake.IsBrakesWorn": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Brake.IsFluidLevelLow": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Brake.PadWear": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Tire.AirTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Tire.IsPressureLow": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Tire.Pressure": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Tire.RubberTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Tire.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Tire.WinterStatus": {
+  "t": "str"
+ },
+ "Chassis.Axle.Row1.Wheel.Left.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.AngularSpeed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Brake.FluidLevel": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Brake.IsBrakesWorn": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Brake.IsFluidLevelLow": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Brake.PadWear": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Tire.AirTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Tire.IsPressureLow": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Tire.Pressure": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Tire.RubberTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Tire.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Tire.WinterStatus": {
+  "t": "str"
+ },
+ "Chassis.Axle.Row1.Wheel.Right.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.WheelCount": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row1.WheelDiameter": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row1.WheelWidth": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.AxleWidth": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.SteeringAngle": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.TireAspectRatio": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.TireDiameter": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.TireWidth": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.TrackWidth": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.TreadWidth": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.AngularSpeed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Brake.FluidLevel": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Brake.IsBrakesWorn": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Brake.IsFluidLevelLow": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Brake.PadWear": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Tire.AirTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Tire.IsPressureLow": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Tire.Pressure": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Tire.RubberTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Tire.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Tire.WinterStatus": {
+  "t": "str"
+ },
+ "Chassis.Axle.Row2.Wheel.Left.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.AngularSpeed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Brake.FluidLevel": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Brake.IsBrakesWorn": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Brake.IsFluidLevelLow": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Brake.PadWear": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Tire.AirTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Tire.IsPressureLow": {
+  "t": "bool"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Tire.Pressure": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Tire.RubberTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Tire.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Tire.WinterStatus": {
+  "t": "str"
+ },
+ "Chassis.Axle.Row2.Wheel.Right.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.WheelCount": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Axle.Row2.WheelDiameter": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.Axle.Row2.WheelWidth": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Chassis.AxleCount": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Brake.IsDriverEmergencyBrakingDetected": {
+  "t": "bool"
+ },
+ "Chassis.Brake.PedalPosition": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.ParkingBrake.IsAutoApplyEnabled": {
+  "t": "bool"
+ },
+ "Chassis.ParkingBrake.IsEngaged": {
+  "t": "bool"
+ },
+ "Chassis.SteeringWheel.Angle": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Chassis.SteeringWheel.Extension": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.SteeringWheel.Tilt": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Chassis.Wheelbase": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Connectivity.IsConnectivityAvailable": {
+  "t": "bool"
+ },
+ "ControlUnit.Central.Health.Network.CAN.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.Central.Health.Network.ETH.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.Central.Health.Resources.Power": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.Central.Health.Resources.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.Central.Health.Resources.Utilization.CPU": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.Central.Health.Resources.Utilization.Memory": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.Central.Health.SWSupervision.IsAliveTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.Central.Health.SWSupervision.IsDeadlineTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.Central.Health.SWSupervision.IsLogicalTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.Central.Health.SWSupervision.IsWatchdogTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.Central.ID": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "ControlUnit.FrontLeft.Health.Network.CAN.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontLeft.Health.Network.ETH.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontLeft.Health.Resources.Power": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.FrontLeft.Health.Resources.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.FrontLeft.Health.Resources.Utilization.CPU": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.FrontLeft.Health.Resources.Utilization.Memory": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.FrontLeft.Health.SWSupervision.IsAliveTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontLeft.Health.SWSupervision.IsDeadlineTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontLeft.Health.SWSupervision.IsLogicalTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontLeft.Health.SWSupervision.IsWatchdogTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontLeft.ID": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "ControlUnit.FrontRight.Health.Network.CAN.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontRight.Health.Network.ETH.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontRight.Health.Resources.Power": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.FrontRight.Health.Resources.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.FrontRight.Health.Resources.Utilization.CPU": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.FrontRight.Health.Resources.Utilization.Memory": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.FrontRight.Health.SWSupervision.IsAliveTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontRight.Health.SWSupervision.IsDeadlineTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontRight.Health.SWSupervision.IsLogicalTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontRight.Health.SWSupervision.IsWatchdogTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.FrontRight.ID": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "ControlUnit.RearLeft1.Health.Network.CAN.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft1.Health.Network.ETH.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft1.Health.Resources.Power": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.RearLeft1.Health.Resources.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.RearLeft1.Health.Resources.Utilization.CPU": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.RearLeft1.Health.Resources.Utilization.Memory": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.RearLeft1.Health.SWSupervision.IsAliveTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft1.Health.SWSupervision.IsDeadlineTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft1.Health.SWSupervision.IsLogicalTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft1.Health.SWSupervision.IsWatchdogTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft1.ID": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "ControlUnit.RearLeft2.Health.Network.CAN.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft2.Health.Network.ETH.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft2.Health.Resources.Power": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.RearLeft2.Health.Resources.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.RearLeft2.Health.Resources.Utilization.CPU": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.RearLeft2.Health.Resources.Utilization.Memory": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.RearLeft2.Health.SWSupervision.IsAliveTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft2.Health.SWSupervision.IsDeadlineTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft2.Health.SWSupervision.IsLogicalTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft2.Health.SWSupervision.IsWatchdogTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.RearLeft2.ID": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "ControlUnit.Trunk.Health.Network.CAN.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.Trunk.Health.Network.ETH.IsNetworkOK": {
+  "t": "bool"
+ },
+ "ControlUnit.Trunk.Health.Resources.Power": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.Trunk.Health.Resources.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.Trunk.Health.Resources.Utilization.CPU": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.Trunk.Health.Resources.Utilization.Memory": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "ControlUnit.Trunk.Health.SWSupervision.IsAliveTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.Trunk.Health.SWSupervision.IsDeadlineTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.Trunk.Health.SWSupervision.IsLogicalTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.Trunk.Health.SWSupervision.IsWatchdogTriggered": {
+  "t": "bool"
+ },
+ "ControlUnit.Trunk.ID": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "CurbWeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "CurrentLocation.Altitude": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "CurrentLocation.GNSSReceiver.FixType": {
+  "t": "str"
+ },
+ "CurrentLocation.GNSSReceiver.MountingPosition.X": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "CurrentLocation.GNSSReceiver.MountingPosition.Y": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "CurrentLocation.GNSSReceiver.MountingPosition.Z": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "CurrentLocation.Heading": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "CurrentLocation.HorizontalAccuracy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "CurrentLocation.Latitude": {
+  "max": 90.0,
+  "min": -90.0,
+  "t": "float"
+ },
+ "CurrentLocation.Longitude": {
+  "max": 180.0,
+  "min": -180.0,
+  "t": "float"
+ },
+ "CurrentLocation.Timestamp": {
+  "t": "str"
+ },
+ "CurrentLocation.VerticalAccuracy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "CurrentOverallWeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Diagnostics.DTCCount": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "Diagnostics.DTCList": {
+  "item": {
+   "t": "str"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Driver.AttentiveProbability": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Driver.DistractionLevel": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Driver.FatigueLevel": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Driver.HeartRate": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Driver.IsEyesOnRoad": {
+  "t": "bool"
+ },
+ "Driver.IsHandsOnWheel": {
+  "t": "bool"
+ },
+ "EmissionsCO2": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Exterior.AirPressure": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Exterior.AirTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Exterior.Humidity": {
+  "max": 100.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Exterior.LightIntensity": {
+  "max": 100.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Exterior.PrecipitationIntensity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Exterior.PrecipitationType": {
+  "t": "enumnum",
+  "vals": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5
+  ]
+ },
+ "Exterior.RoadObstruction": {
+  "t": "enumnum",
+  "vals": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10
+  ]
+ },
+ "Exterior.RoadSurfaceCondition": {
+  "t": "enumnum",
+  "vals": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ]
+ },
+ "Exterior.RoadSurfaceContaminant": {
+  "t": "enumnum",
+  "vals": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5
+  ]
+ },
+ "Exterior.VisibilityCondition": {
+  "t": "enumnum",
+  "vals": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ]
+ },
+ "Exterior.VisibilityDistance": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Exterior.WindDirection": {
+  "max": 360.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Exterior.WindSpeed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "GrossWeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Height": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "IsBrokenDown": {
+  "t": "bool"
+ },
+ "IsMoving": {
+  "t": "bool"
+ },
+ "Length": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "LowVoltageBattery.CurrentCurrent": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "LowVoltageBattery.CurrentVoltage": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "LowVoltageBattery.NominalCapacity": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "LowVoltageBattery.NominalVoltage": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "LowVoltageSystemState": {
+  "t": "str"
+ },
+ "MaxTowBallWeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MaxTowWeight": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.TorqueDistributionFrictionRightMaximum": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.TorqueDistributionFrictionRightMinimum": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.TorqueElectricMinimum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.TorqueFrictionDifferenceMaximum": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Left.OmegaLower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Left.OmegaUpper": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Left.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Left.TorqueArbitrated": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Left.TorqueFrictionMaximum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Left.TorqueFrictionMinimum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Right.OmegaLower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Right.OmegaUpper": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Right.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Right.TorqueArbitrated": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Right.TorqueFrictionMaximum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row1.Wheel.Right.TorqueFrictionMinimum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.TorqueDistributionFrictionRightMaximum": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.TorqueDistributionFrictionRightMinimum": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.TorqueElectricMinimum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.TorqueFrictionDifferenceMaximum": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Left.OmegaLower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Left.OmegaUpper": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Left.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Left.TorqueArbitrated": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Left.TorqueFrictionMaximum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Left.TorqueFrictionMinimum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Right.OmegaLower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Right.OmegaUpper": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Right.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Right.TorqueArbitrated": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Right.TorqueFrictionMaximum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Brake.Axle.Row2.Wheel.Right.TorqueFrictionMinimum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.RotationalSpeed": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.RotationalSpeedMaximumLimit": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.RotationalSpeedMinimumLimit": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.RotationalSpeedTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.TorqueMaximum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.TorqueMaximumLimit": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.TorqueMinimum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.TorqueMinimumLimit": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row1.TorqueTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.RotationalSpeed": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.RotationalSpeedMaximumLimit": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.RotationalSpeedMinimumLimit": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.RotationalSpeedTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.TorqueMaximum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.TorqueMaximumLimit": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.TorqueMinimum": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.TorqueMinimumLimit": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.ElectricAxle.Row2.TorqueTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row1.PositionOffsetTargetMode": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row1.PositionTargetMode": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row1.RackPosition": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row1.RackPositionOffsetTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row1.RackPositionTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row1.SteerAngle": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row1.SteerAngleOffsetTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row1.SteerAngleTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row2.SteerAngle": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row2.SteerAngleTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.Axle.Row2.SteerAngleVelocityTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.SteeringWheel.Angle": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.SteeringWheel.AngleTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.SteeringWheel.AngleTargetMode": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Steering.SteeringWheel.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.SteeringWheel.TorqueOffsetTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.SteeringWheel.TorqueOffsetTargetMode": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Steering.SteeringWheel.TorqueTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Steering.SteeringWheel.TorqueTargetMode": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row1.RollTorque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row1.Wheel.Left.DampingForce": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row1.Wheel.Left.DampingForceTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row1.Wheel.Left.DampingRate": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row1.Wheel.Left.DampingRateTarget": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row1.Wheel.Right.DampingForce": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row1.Wheel.Right.DampingForceTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row1.Wheel.Right.DampingRate": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row1.Wheel.Right.DampingRateTarget": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row2.RollTorque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row2.Wheel.Left.DampingForce": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row2.Wheel.Left.DampingForceTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row2.Wheel.Left.DampingRate": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row2.Wheel.Left.DampingRateTarget": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row2.Wheel.Right.DampingForce": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row2.Wheel.Right.DampingForceTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row2.Wheel.Right.DampingRate": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.Axle.Row2.Wheel.Right.DampingRateTarget": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.DampingPrioTarget": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.RollPrioTarget": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.RollTorqueDistributionFrontMaximum": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.RollTorqueDistributionFrontMinimum": {
+  "max": 255,
+  "min": 0,
+  "t": "int"
+ },
+ "MotionManagement.Suspension.RollTorqueTarget": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.DriverSide.HeadPosition.Pitch": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.DriverSide.HeadPosition.Roll": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.DriverSide.HeadPosition.X": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.DriverSide.HeadPosition.Y": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.DriverSide.HeadPosition.Yaw": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.DriverSide.HeadPosition.Z": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.DriverSide.Identifier.Issuer": {
+  "t": "str"
+ },
+ "Occupant.Row1.DriverSide.Identifier.Subject": {
+  "t": "str"
+ },
+ "Occupant.Row1.DriverSide.MidEyeGaze.Azimuth": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.DriverSide.MidEyeGaze.Elevation": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.Middle.HeadPosition.Pitch": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.Middle.HeadPosition.Roll": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.Middle.HeadPosition.X": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.Middle.HeadPosition.Y": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.Middle.HeadPosition.Yaw": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.Middle.HeadPosition.Z": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.Middle.Identifier.Issuer": {
+  "t": "str"
+ },
+ "Occupant.Row1.Middle.Identifier.Subject": {
+  "t": "str"
+ },
+ "Occupant.Row1.Middle.MidEyeGaze.Azimuth": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.Middle.MidEyeGaze.Elevation": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.PassengerSide.HeadPosition.Pitch": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.PassengerSide.HeadPosition.Roll": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.PassengerSide.HeadPosition.X": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.PassengerSide.HeadPosition.Y": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.PassengerSide.HeadPosition.Yaw": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.PassengerSide.HeadPosition.Z": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row1.PassengerSide.Identifier.Issuer": {
+  "t": "str"
+ },
+ "Occupant.Row1.PassengerSide.Identifier.Subject": {
+  "t": "str"
+ },
+ "Occupant.Row1.PassengerSide.MidEyeGaze.Azimuth": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row1.PassengerSide.MidEyeGaze.Elevation": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.DriverSide.HeadPosition.Pitch": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.DriverSide.HeadPosition.Roll": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.DriverSide.HeadPosition.X": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row2.DriverSide.HeadPosition.Y": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row2.DriverSide.HeadPosition.Yaw": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.DriverSide.HeadPosition.Z": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row2.DriverSide.Identifier.Issuer": {
+  "t": "str"
+ },
+ "Occupant.Row2.DriverSide.Identifier.Subject": {
+  "t": "str"
+ },
+ "Occupant.Row2.DriverSide.MidEyeGaze.Azimuth": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.DriverSide.MidEyeGaze.Elevation": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.Middle.HeadPosition.Pitch": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.Middle.HeadPosition.Roll": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.Middle.HeadPosition.X": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row2.Middle.HeadPosition.Y": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row2.Middle.HeadPosition.Yaw": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.Middle.HeadPosition.Z": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row2.Middle.Identifier.Issuer": {
+  "t": "str"
+ },
+ "Occupant.Row2.Middle.Identifier.Subject": {
+  "t": "str"
+ },
+ "Occupant.Row2.Middle.MidEyeGaze.Azimuth": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.Middle.MidEyeGaze.Elevation": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.PassengerSide.HeadPosition.Pitch": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.PassengerSide.HeadPosition.Roll": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.PassengerSide.HeadPosition.X": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row2.PassengerSide.HeadPosition.Y": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row2.PassengerSide.HeadPosition.Yaw": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.PassengerSide.HeadPosition.Z": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Occupant.Row2.PassengerSide.Identifier.Issuer": {
+  "t": "str"
+ },
+ "Occupant.Row2.PassengerSide.Identifier.Subject": {
+  "t": "str"
+ },
+ "Occupant.Row2.PassengerSide.MidEyeGaze.Azimuth": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Occupant.Row2.PassengerSide.MidEyeGaze.Elevation": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Orientation.Pitch": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Orientation.Roll": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Orientation.Yaw": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.AccumulatedBrakingEnergy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.AspirationType": {
+  "t": "enum",
+  "vals": [
+   "UNKNOWN",
+   "NATURAL",
+   "SUPERCHARGER",
+   "TURBOCHARGER"
+  ]
+ },
+ "Powertrain.CombustionEngine.Bore": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.CompressionRatio": {
+  "t": "str"
+ },
+ "Powertrain.CombustionEngine.Configuration": {
+  "t": "enum",
+  "vals": [
+   "UNKNOWN",
+   "STRAIGHT",
+   "V",
+   "BOXER",
+   "W",
+   "ROTARY",
+   "RADIAL",
+   "SQUARE",
+   "H",
+   "U",
+   "OPPOSED",
+   "X"
+  ]
+ },
+ "Powertrain.CombustionEngine.DieselExhaustFluid.Capacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.DieselExhaustFluid.IsLevelLow": {
+  "t": "bool"
+ },
+ "Powertrain.CombustionEngine.DieselExhaustFluid.Level": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.DieselExhaustFluid.Range": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.DieselParticulateFilter.DeltaPressure": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.DieselParticulateFilter.InletTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.DieselParticulateFilter.OutletTemperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.Displacement": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.EOP": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.EngineCode": {
+  "t": "str"
+ },
+ "Powertrain.CombustionEngine.EngineCoolant.Capacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.EngineCoolant.Level": {
+  "t": "str"
+ },
+ "Powertrain.CombustionEngine.EngineCoolant.LifeRemaining": {
+  "max": 2147483647,
+  "min": -2147483648,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.EngineCoolant.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.EngineHours": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.EngineOil.Capacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.EngineOil.Level": {
+  "t": "enum",
+  "vals": [
+   "CRITICALLY_LOW",
+   "LOW",
+   "NORMAL",
+   "HIGH",
+   "CRITICALLY_HIGH"
+  ]
+ },
+ "Powertrain.CombustionEngine.EngineOil.LifeRemaining": {
+  "max": 2147483647,
+  "min": -2147483648,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.EngineOil.PressureStatus": {
+  "t": "enum",
+  "vals": [
+   "NORMAL",
+   "WARNING",
+   "ALERT",
+   "ERROR"
+  ]
+ },
+ "Powertrain.CombustionEngine.EngineOil.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.IdleHours": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.IsRunning": {
+  "t": "bool"
+ },
+ "Powertrain.CombustionEngine.MAF": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.MAP": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.MaxPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.MaxTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.NumberOfCylinders": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.NumberOfValvesPerCylinder": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.Power": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.StrokeLength": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.CombustionEngine.TPS": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.CombustionEngine.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Front.EngineCode": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.Front.EngineCoolant.Capacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Front.EngineCoolant.Level": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.Front.EngineCoolant.LifeRemaining": {
+  "max": 2147483647,
+  "min": -2147483648,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Front.EngineCoolant.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Front.MaxPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Front.MaxRegenPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Front.MaxRegenTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Front.MaxTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Front.Power": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Front.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Front.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Front.TimeInUse": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Front.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.EngineCode": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.EngineCoolant.Capacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.EngineCoolant.Level": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.EngineCoolant.LifeRemaining": {
+  "max": 2147483647,
+  "min": -2147483648,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.EngineCoolant.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.MaxPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.MaxRegenPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.MaxRegenTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.MaxTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.Power": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.TimeInUse": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontLeft.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontRight.EngineCode": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.FrontRight.EngineCoolant.Capacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontRight.EngineCoolant.Level": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.FrontRight.EngineCoolant.LifeRemaining": {
+  "max": 2147483647,
+  "min": -2147483648,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontRight.EngineCoolant.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontRight.MaxPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontRight.MaxRegenPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontRight.MaxRegenTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontRight.MaxTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontRight.Power": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.FrontRight.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontRight.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontRight.TimeInUse": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.FrontRight.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Rear.EngineCode": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.Rear.EngineCoolant.Capacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Rear.EngineCoolant.Level": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.Rear.EngineCoolant.LifeRemaining": {
+  "max": 2147483647,
+  "min": -2147483648,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Rear.EngineCoolant.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Rear.MaxPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Rear.MaxRegenPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Rear.MaxRegenTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Rear.MaxTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Rear.Power": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.Rear.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Rear.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Rear.TimeInUse": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.Rear.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearLeft.EngineCode": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.RearLeft.EngineCoolant.Capacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearLeft.EngineCoolant.Level": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.RearLeft.EngineCoolant.LifeRemaining": {
+  "max": 2147483647,
+  "min": -2147483648,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearLeft.EngineCoolant.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearLeft.MaxPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearLeft.MaxRegenPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearLeft.MaxRegenTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearLeft.MaxTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearLeft.Power": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearLeft.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearLeft.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearLeft.TimeInUse": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearLeft.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearRight.EngineCode": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.RearRight.EngineCoolant.Capacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearRight.EngineCoolant.Level": {
+  "t": "str"
+ },
+ "Powertrain.ElectricMotor.RearRight.EngineCoolant.LifeRemaining": {
+  "max": 2147483647,
+  "min": -2147483648,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearRight.EngineCoolant.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearRight.MaxPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearRight.MaxRegenPower": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearRight.MaxRegenTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearRight.MaxTorque": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearRight.Power": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.ElectricMotor.RearRight.Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearRight.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearRight.TimeInUse": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.ElectricMotor.RearRight.Torque": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Powertrain.FuelSystem.AbsoluteLevel": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.AfterRefuelingFuelEconomy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.AverageConsumption": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.ConsumptionSinceLastRefuel": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.ConsumptionSinceStart": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.CumulativeFuelEconomy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.DriveFuelEconomy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.HybridType": {
+  "t": "enum",
+  "vals": [
+   "UNKNOWN",
+   "NOT_APPLICABLE",
+   "STOP_START",
+   "BELT_ISG",
+   "CIMG",
+   "PHEV"
+  ]
+ },
+ "Powertrain.FuelSystem.InstantConsumption": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.InstantFuelEconomy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.InstantantFuelEconomy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.IsEngineStopStartEnabled": {
+  "t": "bool"
+ },
+ "Powertrain.FuelSystem.IsFuelLevelEmpty": {
+  "t": "bool"
+ },
+ "Powertrain.FuelSystem.IsFuelLevelLow": {
+  "t": "bool"
+ },
+ "Powertrain.FuelSystem.IsFuelPortFlapOpen": {
+  "t": "bool"
+ },
+ "Powertrain.FuelSystem.Range": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.FuelSystem.RefuelPortPosition": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "FRONT_LEFT",
+    "FRONT_MIDDLE",
+    "FRONT_RIGHT",
+    "REAR_LEFT",
+    "REAR_MIDDLE",
+    "REAR_RIGHT",
+    "LEFT_FRONT",
+    "LEFT_MIDDLE",
+    "LEFT_REAR",
+    "RIGHT_FRONT",
+    "RIGHT_MIDDLE",
+    "RIGHT_REAR"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.FuelSystem.RelativeLevel": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.FuelSystem.SupportedFuel": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "E5_95",
+    "E5_98",
+    "E10_95",
+    "E10_98",
+    "E85",
+    "B7",
+    "B10",
+    "B20",
+    "B30",
+    "B100",
+    "XTL",
+    "LPG",
+    "CNG",
+    "LNG",
+    "H2",
+    "OTHER"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.FuelSystem.SupportedFuelTypes": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "GASOLINE",
+    "DIESEL",
+    "E85",
+    "LPG",
+    "CNG",
+    "LNG",
+    "H2",
+    "OTHER"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.FuelSystem.TankCapacity": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.FuelSystem.TimeRemaining": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.Range": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.RangeExtender.ChargeDepleting.EnergyConsumption": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.RangeExtender.ChargeDepleting.Range": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.RangeExtender.ChargeSustaining.FuelEconomy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.RangeExtender.ChargeSustaining.Range": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.RangeExtender.CombinedFuelEconomy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.RangeExtender.OperatingMode": {
+  "t": "enum",
+  "vals": [
+   "CHARGE_DEPLETING",
+   "CHARGE_SUSTAINING",
+   "BLENDED"
+  ]
+ },
+ "Powertrain.TimeRemaining": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.AccumulatedChargedEnergy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.AccumulatedChargedThroughput": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.AccumulatedConsumedEnergy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.AccumulatedConsumedThroughput": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.CellVoltage.CellVoltages": {
+  "item": {
+   "max": 1000.0,
+   "min": 0.0,
+   "t": "float"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.CellVoltage.IdMax": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.CellVoltage.IdMin": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.CellVoltage.Max": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.CellVoltage.Min": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.AveragePower": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeCurrent.DC": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeCurrent.Phase1": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeCurrent.Phase2": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeCurrent.Phase3": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeLimit": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeRate": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeVoltage.DC": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeVoltage.Phase1": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeVoltage.Phase2": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargeVoltage.Phase3": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.AnyPosition.IsChargingCableConnected": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.AnyPosition.IsChargingCableLocked": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.AnyPosition.IsFlapOpen": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.AnyPosition.SupportedInletTypes": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "IEC_TYPE_1_AC",
+    "IEC_TYPE_2_AC",
+    "IEC_TYPE_3_AC",
+    "IEC_TYPE_4_DC",
+    "IEC_TYPE_1_CCS_DC",
+    "IEC_TYPE_2_CCS_DC",
+    "TESLA_ROADSTER",
+    "TESLA_HPWC",
+    "TESLA_SUPERCHARGER",
+    "GBT_AC",
+    "GBT_DC",
+    "OTHER"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontLeft.IsChargingCableConnected": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontLeft.IsChargingCableLocked": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontLeft.IsFlapOpen": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontLeft.SupportedInletTypes": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "IEC_TYPE_1_AC",
+    "IEC_TYPE_2_AC",
+    "IEC_TYPE_3_AC",
+    "IEC_TYPE_4_DC",
+    "IEC_TYPE_1_CCS_DC",
+    "IEC_TYPE_2_CCS_DC",
+    "TESLA_ROADSTER",
+    "TESLA_HPWC",
+    "TESLA_SUPERCHARGER",
+    "GBT_AC",
+    "GBT_DC",
+    "OTHER"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontMiddle.IsChargingCableConnected": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontMiddle.IsChargingCableLocked": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontMiddle.IsFlapOpen": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontMiddle.SupportedInletTypes": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "IEC_TYPE_1_AC",
+    "IEC_TYPE_2_AC",
+    "IEC_TYPE_3_AC",
+    "IEC_TYPE_4_DC",
+    "IEC_TYPE_1_CCS_DC",
+    "IEC_TYPE_2_CCS_DC",
+    "TESLA_ROADSTER",
+    "TESLA_HPWC",
+    "TESLA_SUPERCHARGER",
+    "GBT_AC",
+    "GBT_DC",
+    "OTHER"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontRight.IsChargingCableConnected": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontRight.IsChargingCableLocked": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontRight.IsFlapOpen": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.FrontRight.SupportedInletTypes": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "IEC_TYPE_1_AC",
+    "IEC_TYPE_2_AC",
+    "IEC_TYPE_3_AC",
+    "IEC_TYPE_4_DC",
+    "IEC_TYPE_1_CCS_DC",
+    "IEC_TYPE_2_CCS_DC",
+    "TESLA_ROADSTER",
+    "TESLA_HPWC",
+    "TESLA_SUPERCHARGER",
+    "GBT_AC",
+    "GBT_DC",
+    "OTHER"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearLeft.IsChargingCableConnected": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearLeft.IsChargingCableLocked": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearLeft.IsFlapOpen": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearLeft.SupportedInletTypes": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "IEC_TYPE_1_AC",
+    "IEC_TYPE_2_AC",
+    "IEC_TYPE_3_AC",
+    "IEC_TYPE_4_DC",
+    "IEC_TYPE_1_CCS_DC",
+    "IEC_TYPE_2_CCS_DC",
+    "TESLA_ROADSTER",
+    "TESLA_HPWC",
+    "TESLA_SUPERCHARGER",
+    "GBT_AC",
+    "GBT_DC",
+    "OTHER"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearMiddle.IsChargingCableConnected": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearMiddle.IsChargingCableLocked": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearMiddle.IsFlapOpen": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearMiddle.SupportedInletTypes": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "IEC_TYPE_1_AC",
+    "IEC_TYPE_2_AC",
+    "IEC_TYPE_3_AC",
+    "IEC_TYPE_4_DC",
+    "IEC_TYPE_1_CCS_DC",
+    "IEC_TYPE_2_CCS_DC",
+    "TESLA_ROADSTER",
+    "TESLA_HPWC",
+    "TESLA_SUPERCHARGER",
+    "GBT_AC",
+    "GBT_DC",
+    "OTHER"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearRight.IsChargingCableConnected": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearRight.IsChargingCableLocked": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearRight.IsFlapOpen": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.ChargingPort.RearRight.SupportedInletTypes": {
+  "item": {
+   "t": "enum",
+   "vals": [
+    "IEC_TYPE_1_AC",
+    "IEC_TYPE_2_AC",
+    "IEC_TYPE_3_AC",
+    "IEC_TYPE_4_DC",
+    "IEC_TYPE_1_CCS_DC",
+    "IEC_TYPE_2_CCS_DC",
+    "TESLA_ROADSTER",
+    "TESLA_HPWC",
+    "TESLA_SUPERCHARGER",
+    "GBT_AC",
+    "GBT_DC",
+    "OTHER"
+   ]
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.Charging.EvseId": {
+  "t": "str"
+ },
+ "Powertrain.TractionBattery.Charging.IsCharging": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.IsDischarging": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.Charging.Location.Altitude": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.Location.Latitude": {
+  "max": 90.0,
+  "min": -90.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.Location.Longitude": {
+  "max": 180.0,
+  "min": -180.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.MaxPower": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.MaximumChargingCurrent.DC": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.MaximumChargingCurrent.Phase1": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.MaximumChargingCurrent.Phase2": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.MaximumChargingCurrent.Phase3": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.PowerLoss": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.StartStopCharging": {
+  "t": "enum",
+  "vals": [
+   "START",
+   "STOP"
+  ]
+ },
+ "Powertrain.TractionBattery.Charging.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Charging.TimeToComplete": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.Charging.Timer.Mode": {
+  "t": "enum",
+  "vals": [
+   "INACTIVE",
+   "START_TIME",
+   "END_TIME"
+  ]
+ },
+ "Powertrain.TractionBattery.Charging.Timer.Time": {
+  "t": "str"
+ },
+ "Powertrain.TractionBattery.CurrentCurrent": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.CurrentPower": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.CurrentVoltage": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.DCDC.PowerLoss": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.DCDC.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.ErrorCodes": {
+  "item": {
+   "t": "str"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.GrossCapacity": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.Id": {
+  "t": "str"
+ },
+ "Powertrain.TractionBattery.IsGroundConnected": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.IsPowerConnected": {
+  "t": "bool"
+ },
+ "Powertrain.TractionBattery.MaxVoltage": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.NetCapacity": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.NominalVoltage": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.PowerLoss": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.ProductionDate": {
+  "t": "str"
+ },
+ "Powertrain.TractionBattery.Range": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.TractionBattery.StateOfCharge.Current": {
+  "max": 100.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.StateOfCharge.CurrentEnergy": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.StateOfCharge.Displayed": {
+  "max": 100.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.StateOfHealth": {
+  "max": 100.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Temperature.Average": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Temperature.CellTemperature": {
+  "item": {
+   "max": 1000.0,
+   "min": 0.0,
+   "t": "float"
+  },
+  "max": 3,
+  "min": 1,
+  "t": "arr"
+ },
+ "Powertrain.TractionBattery.Temperature.Max": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.Temperature.Min": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.TractionBattery.TimeRemaining": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.Transmission.ClutchEngagement": {
+  "max": 100.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.Transmission.ClutchWear": {
+  "max": 100,
+  "min": 0,
+  "t": "int"
+ },
+ "Powertrain.Transmission.CurrentGear": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Powertrain.Transmission.DiffLockFrontEngagement": {
+  "max": 100.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.Transmission.DiffLockRearEngagement": {
+  "max": 100.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.Transmission.DriveType": {
+  "t": "enum",
+  "vals": [
+   "UNKNOWN",
+   "FORWARD_WHEEL_DRIVE",
+   "REAR_WHEEL_DRIVE",
+   "ALL_WHEEL_DRIVE"
+  ]
+ },
+ "Powertrain.Transmission.GearChangeMode": {
+  "t": "enum",
+  "vals": [
+   "MANUAL",
+   "AUTOMATIC"
+  ]
+ },
+ "Powertrain.Transmission.GearCount": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Powertrain.Transmission.IsElectricalPowertrainEngaged": {
+  "t": "bool"
+ },
+ "Powertrain.Transmission.IsLowRangeEngaged": {
+  "t": "bool"
+ },
+ "Powertrain.Transmission.IsParkLockEngaged": {
+  "t": "bool"
+ },
+ "Powertrain.Transmission.PerformanceMode": {
+  "t": "enum",
+  "vals": [
+   "NORMAL",
+   "SPORT",
+   "ECONOMY",
+   "SNOW",
+   "RAIN"
+  ]
+ },
+ "Powertrain.Transmission.SelectedGear": {
+  "max": 127,
+  "min": -128,
+  "t": "int"
+ },
+ "Powertrain.Transmission.Temperature": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.Transmission.TorqueDistribution": {
+  "max": 100.0,
+  "min": -100.0,
+  "t": "float"
+ },
+ "Powertrain.Transmission.TravelledDistance": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Powertrain.Transmission.Type": {
+  "t": "enum",
+  "vals": [
+   "UNKNOWN",
+   "SEQUENTIAL",
+   "H",
+   "AUTOMATIC",
+   "DSG",
+   "CVT"
+  ]
+ },
+ "Powertrain.Type": {
+  "t": "enum",
+  "vals": [
+   "COMBUSTION",
+   "HYBRID",
+   "ELECTRIC"
+  ]
+ },
+ "RoofLoad": {
+  "max": 32767,
+  "min": -32768,
+  "t": "int"
+ },
+ "Safety.IsFire": {
+  "t": "bool"
+ },
+ "Safety.IsSubmersed": {
+  "t": "bool"
+ },
+ "Safety.RoadIcingState": {
+  "t": "str"
+ },
+ "Safety.Rollover": {
+  "t": "str"
+ },
+ "Safety.VisibilityImpairment": {
+  "t": "str"
+ },
+ "Service.DistanceToService": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "Service.IsServiceDue": {
+  "t": "bool"
+ },
+ "Service.TimeToService": {
+  "max": 2147483647,
+  "min": -2147483648,
+  "t": "int"
+ },
+ "Speed": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "StartTime": {
+  "t": "str"
+ },
+ "Trailer.IsConnected": {
+  "t": "bool"
+ },
+ "TraveledDistance": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "TraveledDistanceSinceStart": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "TripDuration": {
+  "max": 1000.0,
+  "min": 0.0,
+  "t": "float"
+ },
+ "TripMeterReading": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "TurningDiameter": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "VersionVSS.Label": {
+  "t": "str"
+ },
+ "VersionVSS.Major": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "VersionVSS.Minor": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "VersionVSS.Patch": {
+  "max": 4294967295,
+  "min": 0,
+  "t": "int"
+ },
+ "WidthExcludingMirrors": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "WidthFoldedMirrors": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ },
+ "WidthIncludingMirrors": {
+  "max": 65535,
+  "min": 0,
+  "t": "int"
+ }
+}

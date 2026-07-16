@@ -1,774 +1,360 @@
-/* Car Dashboard UI - MongoDB + ObjectBox Theme */
+/* ── Car Cockpit UI — MongoDB + ObjectBox ──────────────────────────────────── */
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-    /* MongoDB Colors */
-    --mongodb-green: #00ED64;
-    --mongodb-dark-green: #00684A;
-    --mongodb-slate: #001E2B;
-    
-    /* Car Dashboard Theme */
-    --dashboard-bg: #0a0e1a;
-    --dashboard-accent: #1a2332;
-    --touchscreen-bg: #0d1520;
-    --touchscreen-border: #2a3f5f;
-    --user-bubble: #00684A;
-    --assistant-bubble: #1e2838;
-    --text-primary: #FFFFFF;
-    --text-secondary: #B8C5D0;
-    --accent: var(--mongodb-green);
-    --accent-glow: rgba(0, 237, 100, 0.4);
+    --green:      #00ED64;
+    --green-dim:  #00b34c;
+    --green-dark: #00684A;
+    --amber:      #F5A623;
+    --red:        #E82020;
+
+    --bg-0:       #0e1a16;
+    --bg-1:       #0a1210;
+    --panel:      rgba(18, 32, 26, 0.92);
+    --panel-brd:  rgba(0, 237, 100, 0.18);
+    --hair:       rgba(120, 160, 140, 0.25);
+
+    --text:       #E8F1EE;
+    --text-2:     #a8c4bc;
+    --text-3:     #7a9990;
+
+    --accent:      var(--green);
+    --accent-glow: rgba(0, 237, 100, 0.45);
+}
+
+html, body { height: 100%; }
+
+/* Offline mode — thick, pulsing/"waving" orange highlight around the whole screen */
+body.offline-mode::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    border: 7px solid var(--amber);
+    z-index: 9999;
+    animation: offlineWave 1.8s ease-in-out infinite;
+}
+@keyframes offlineWave {
+    0%, 100% {
+        border-color: rgba(245, 166, 35, 0.65);
+        box-shadow: inset 0 0 25px 2px rgba(245, 166, 35, 0.28);
+    }
+    50% {
+        border-color: rgba(245, 166, 35, 1);
+        box-shadow: inset 0 0 80px 14px rgba(245, 166, 35, 0.6);
+    }
 }
 
 body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: linear-gradient(180deg, var(--dashboard-bg) 0%, #050810 100%);
-    color: var(--text-primary);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem;
+    color: var(--text);
+    background:
+        radial-gradient(ellipse 80% 60% at 20% 50%, rgba(0, 80, 50, 0.18), transparent 60%),
+        radial-gradient(ellipse 80% 60% at 80% 50%, rgba(0, 80, 50, 0.18), transparent 60%),
+        linear-gradient(180deg, #111c17 0%, #0a1210 100%);
     overflow: hidden;
 }
 
-/* Car Dashboard Container */
-.car-dashboard {
+/* ── Cockpit grid ───────────────────────────────────────────────────────────── */
+.cockpit {
+    height: 100vh;
     display: grid;
-    grid-template-columns: clamp(160px, 14vw, 220px) 1fr clamp(160px, 14vw, 220px);
-    gap: clamp(0.6rem, 1.4vw, 2rem);
-    max-width: 1600px;
-    width: 100%;
-    height: 85vh;
-    align-items: stretch;
+    grid-template-rows: auto auto 1fr auto;
+    gap: clamp(0.4rem, 1vh, 0.9rem);
+    padding: clamp(0.5rem, 1.4vh, 1rem) clamp(0.8rem, 2vw, 2rem);
 }
 
-/* Dashboard Side Panels — unified instrument panel */
-.dashboard-left,
-.dashboard-right {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    height: 100%;
-    justify-content: flex-start;
-    overflow: hidden;
-    scrollbar-width: none;
-    background: var(--dashboard-accent);
-    border: 1px solid var(--touchscreen-border);
-    border-radius: 16px;
-    box-shadow: 0 0 24px rgba(0, 0, 0, 0.45), inset 0 0 20px rgba(0, 0, 0, 0.25);
-}
-.dashboard-left::-webkit-scrollbar,
-.dashboard-right::-webkit-scrollbar { display: none; }
-
-/* Gauge Styling */
-.gauge {
-    background: linear-gradient(135deg, var(--dashboard-accent) 0%, #0f1620 100%);
-    border: 3px solid var(--touchscreen-border);
-    border-radius: 50%;
-    width: 160px;
-    height: 160px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 30px rgba(42, 63, 95, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5);
-}
-
-.gauge-label {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 0.5rem;
-}
-
-.gauge-value {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: var(--accent);
-    text-shadow: 0 0 10px var(--accent-glow);
-}
-
-.indicator {
+/* ── Top bar ────────────────────────────────────────────────────────────────── */
+.cockpit-top {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: var(--dashboard-accent);
-    border-radius: 12px;
-    border: 1px solid var(--touchscreen-border);
-}
-
-.indicator-icon {
-    font-size: 1.5rem;
-}
-
-.indicator-text {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--accent);
-}
-
-/* Touchscreen Container */
-.touchscreen {
-    background: var(--touchscreen-bg);
-    border: 6px solid var(--touchscreen-border);
-    border-radius: 24px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 
-        0 0 50px rgba(42, 63, 95, 0.6),
-        inset 0 0 30px rgba(0, 0, 0, 0.8);
-    overflow: hidden;
-}
-
-/* Touchscreen Header */
-.touchscreen-header {
-    display: flex;
     justify-content: space-between;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--hair);
+}
+.top-center {
+    font-size: 0.7rem;
+    letter-spacing: 0.35em;
+    color: var(--text-3);
+    text-transform: uppercase;
+}
+.top-right { display: flex; align-items: center; gap: 0.9rem; }
+.veh-name { font-size: 0.8rem; letter-spacing: 0.15em; color: var(--text-2); font-weight: 600; }
+
+.sim-btn, .conn-toggle {
+    display: inline-flex;
     align-items: center;
-    padding: 0.9rem 1.5rem;
-    border-bottom: 1px solid rgba(42, 63, 95, 0.4);
-}
-
-.header-left {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.mongodb-leaf {
-    font-size: 1.8rem;
-    filter: drop-shadow(0 0 8px var(--accent-glow));
-}
-
-.header-title h1 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--accent);
-    margin: 0;
-}
-
-.header-subtitle {
-    font-size: 0.72rem;
-    color: var(--text-secondary);
-    margin: 0;
-}
-
-.header-stats {
-    display: flex;
-    align-items: center;
-    gap: 0;
-}
-
-.stat-badge {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.2rem 0.75rem;
-    border-right: 1px solid rgba(42, 63, 95, 0.5);
-}
-
-.stat-icon {
-    font-size: 0.85rem;
-    opacity: 0.7;
-}
-
-.stat-text {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--accent);
-}
-
-/* Network mode toggle */
-.network-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.75rem;
+    gap: 0.45rem;
+    padding: 0.4rem 0.9rem;
     background: transparent;
-    border: 1px solid rgba(42, 63, 95, 0.6);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    margin-left: 0.75rem;
-    transition: border-color 0.2s, color 0.2s;
-}
-.network-toggle:hover {
-    border-color: var(--touchscreen-border);
-    color: var(--text-primary);
-}
-.network-toggle.online {
-    border-color: var(--accent);
-    color: var(--accent);
-    box-shadow: 0 0 6px var(--accent-glow);
-}
-.network-toggle-icon {
-    font-size: 0.85rem;
-}
-.network-toggle-label {
+    border: 1px solid var(--panel-brd);
+    border-radius: 999px;
+    color: var(--text-2);
     font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: border-color .2s, color .2s, box-shadow .2s, background .2s;
+}
+.sim-btn:hover, .conn-toggle:hover { color: var(--text); border-color: var(--green-dim); }
+.sim-btn .sim-dot { color: var(--green); font-size: 0.7rem; }
+.sim-btn.running {
+    color: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 12px var(--accent-glow);
+    background: rgba(0, 237, 100, 0.08);
+}
+.sim-btn:disabled { opacity: 0.5; cursor: default; }
+
+.conn-toggle .conn-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-3);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+}
+.conn-toggle.online { color: var(--green); border-color: var(--green); }
+.conn-toggle.online .conn-dot { background: var(--green); box-shadow: 0 0 8px var(--accent-glow); }
+/* Offline — mark with the same orange outline as the screen frame */
+.conn-toggle:not(.online) {
+    color: var(--amber);
+    border-color: var(--amber);
+    box-shadow: 0 0 10px rgba(245, 166, 35, 0.35);
+}
+.conn-toggle:not(.online) .conn-dot { background: var(--amber); box-shadow: 0 0 8px rgba(245, 166, 35, 0.6); }
+
+/* ── Status row ─────────────────────────────────────────────────────────────── */
+.cockpit-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-2);
+}
+.status-left, .status-right { display: flex; align-items: center; gap: 0.5rem; min-width: 210px; }
+.status-right { justify-content: flex-end; }
+.status-left #clock { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+.sep { color: var(--text-3); }
+
+.telltales { display: flex; align-items: center; gap: 0.5rem; }
+.tt {
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    width: 52px; padding: 0.25rem 0;
+    border-radius: 10px;
+    transition: background .25s;
+}
+.tt span { display: flex; align-items: center; justify-content: center; line-height: 1; }
+.tt span svg { width: 22px; height: 22px; color: var(--text-3); opacity: 0.4; transition: color .25s, opacity .25s; }
+.tt label { font-size: 0.52rem; font-weight: 700; letter-spacing: 0.06em; color: var(--text-3); transition: color .25s; }
+.tt.amber span svg, .tt.red span svg { opacity: 1; }
+.tt.amber span svg { color: var(--amber); }
+.tt.red   span svg { color: var(--red); }
+.tt.amber { background: rgba(245,166,35,0.10); } .tt.amber label { color: var(--amber); }
+.tt.red   { background: rgba(255,75,75,0.12); }  .tt.red label { color: var(--red); }
+.tt.red   { animation: ttblink 1.1s steps(1) infinite; }
+@keyframes ttblink { 50% { background: rgba(255,75,75,0.03); } }
+
+/* ── Main area ──────────────────────────────────────────────────────────────── */
+.cockpit-main {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) minmax(340px, 1.15fr) minmax(240px, 1fr);
+    gap: clamp(0.6rem, 1.6vw, 2rem);
+    align-items: center;
+    min-height: 0;
 }
 
-/* Chat Container */
-.chat-container {
-    flex: 1;
+/* ── Gauges ─────────────────────────────────────────────────────────────────── */
+.gauge-wrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: visible; }
+.gauge { width: 100%; max-width: 380px; max-height: 100%; aspect-ratio: 1; overflow: visible; }
+
+.g-track   { fill: none; stroke: rgba(255,255,255,0.18); stroke-width: 2; stroke-linecap: butt; }
+.g-fill    { fill: none; stroke: var(--green); stroke-width: 3; stroke-linecap: butt; opacity: 0.80; transition: d .3s ease; }
+.g-redline { fill: none; stroke: var(--red); stroke-width: 3; stroke-linecap: butt; opacity: 0.90; }
+.g-needle  { stroke: var(--red); stroke-width: 2.5; stroke-linecap: round; transition: x2 .3s ease, y2 .3s ease; }
+.g-pivot   { fill: #0e1a16; stroke: var(--red); stroke-width: 2; }
+.g-ticks text { fill: #e8e8e8; font-size: 14px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+.g-ticks line { stroke: rgba(255,255,255,0.70); stroke-width: 2; }
+.g-tick-minor { stroke: rgba(255,255,255,0.38); stroke-width: 1.2; }
+
+.gauge-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; pointer-events: none;
+}
+.gauge-center--bottom {
+    justify-content: flex-end;
+    padding-bottom: 8%;
+}
+.g-value { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 800; color: var(--text); line-height: 1; }
+.g-value-lg { font-size: clamp(2.8rem, 5vw, 4.2rem); }
+.g-unit { font-size: 0.62rem; letter-spacing: 0.15em; color: var(--text-3); margin-top: 0.25rem; text-transform: uppercase; }
+.g-cap  { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.14em; color: var(--green); margin-top: 0.9rem; }
+.g-sub  { font-size: 0.6rem; letter-spacing: 0.05em; color: var(--text-3); margin-top: 0.15rem; }
+
+/* ── Copilot chat panel ─────────────────────────────────────────────────────── */
+.copilot {
+    height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
+    background: rgba(18, 34, 26, 0.95);
+    border: 1px solid rgba(0, 237, 100, 0.20);
+    border-radius: 18px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(0,237,100,0.06);
     overflow: hidden;
-    padding: 1.5rem;
+    position: relative;
+}
+.copilot-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--hair);
+}
+.copilot-title { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; }
+.copilot-title .leaf { filter: drop-shadow(0 0 6px var(--accent-glow)); }
+.copilot-live { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; color: var(--text-3);
+    padding: 0.2rem 0.55rem; border: 1px solid transparent; border-radius: 999px; }
+.copilot-live.on { color: var(--green); }
+/* Offline — same orange outline */
+.copilot-live:not(.on) {
+    color: var(--amber);
+    border-color: var(--amber);
+    box-shadow: 0 0 10px rgba(245, 166, 35, 0.3);
 }
 
 .chat-messages {
-    flex: 1;
+    flex: 1; min-height: 0;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding-right: 1rem;
-}
-
-/* Custom Scrollbar */
-.chat-messages::-webkit-scrollbar {
-    width: 8px;
-}
-
-.chat-messages::-webkit-scrollbar-track {
-    background: var(--dashboard-accent);
-    border-radius: 4px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb {
-    background: var(--touchscreen-border);
-    border-radius: 4px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb:hover {
-    background: var(--accent);
-}
-
-/* Chat Messages */
-.message {
-    display: flex;
-    gap: 0.75rem;
-    animation: messageSlide 0.4s ease-out;
-}
-
-@keyframes messageSlide {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.user-message {
-    flex-direction: row-reverse;
-    align-self: flex-end;
-    max-width: 70%;
-}
-
-.assistant-message {
-    flex-direction: row;
-    align-self: flex-start;
-    max-width: 85%;
-}
-
-.message-avatar {
-    font-size: 2rem;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.message-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.user-message .message-content {
-    align-items: flex-end;
-}
-
-.message-text {
-    padding: 1rem 1.25rem;
-    border-radius: 18px;
-    font-size: 1rem;
-    line-height: 1.6;
-    word-wrap: break-word;
-}
-
-.user-message .message-text {
-    background: linear-gradient(135deg, var(--user-bubble) 0%, #004d36 100%);
-    color: var(--text-primary);
-    border-bottom-right-radius: 4px;
-}
-
-.assistant-message .message-text {
-    background: linear-gradient(135deg, var(--assistant-bubble) 0%, #151d2a 100%);
-    color: var(--text-primary);
-    border-bottom-left-radius: 4px;
-    border-left: 3px solid var(--accent);
-}
-
-.message-time {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    padding: 0 0.5rem;
-}
-
-/* Sources in Message */
-.message-sources {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-}
-
-.source-chip {
-    background: var(--dashboard-accent);
-    padding: 0.75rem;
-    border-radius: 10px;
-    border-left: 3px solid var(--accent);
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
-.source-chip-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
-    font-size: 0.75rem;
-    color: var(--accent);
-}
-
-/* Chat Status */
-.chat-status {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    display: flex; flex-direction: column; gap: 1rem;
     padding: 1rem;
-    margin-top: 1rem;
-    background: var(--dashboard-accent);
-    border-radius: 12px;
-    opacity: 0;
-    transition: opacity 0.3s;
 }
+.chat-messages::-webkit-scrollbar { width: 6px; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 3px; }
+.chat-messages::-webkit-scrollbar-thumb:hover { background: var(--green-dim); }
 
-.chat-status.active {
-    opacity: 1;
+.message { display: flex; gap: 0.6rem; animation: slideIn .35s ease-out; max-width: 92%; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.message-avatar {
+    width: 30px; height: 30px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,237,100,0.08); border-radius: 50%; font-size: 0.9rem;
 }
-
-.status-dots {
-    display: flex;
-    gap: 0.4rem;
+.message-content { display: flex; flex-direction: column; gap: 0.2rem; }
+.message-text {
+    background: rgba(10, 22, 17, 0.85);
+    border: 1px solid rgba(120,160,140,0.12);
+    padding: 0.6rem 0.85rem; border-radius: 12px 12px 12px 4px;
+    font-size: 0.88rem; line-height: 1.45; color: var(--text);
 }
+.message-time { font-size: 0.6rem; color: var(--text-3); padding: 0 0.3rem; }
 
-.status-dots span {
-    width: 8px;
-    height: 8px;
-    background: var(--accent);
-    border-radius: 50%;
-    animation: dotPulse 1.4s infinite ease-in-out;
+.user-message { align-self: flex-end; flex-direction: row-reverse; }
+.user-message .message-avatar { background: rgba(0,237,100,0.16); }
+.user-message .message-text { background: var(--green-dark); color: #eafff4; border-radius: 12px 12px 4px 12px; }
+.user-message .message-time { text-align: right; }
+
+.message-sources { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.source-chip { background: rgba(0,0,0,0.25); border-left: 3px solid var(--green-dim); border-radius: 6px; padding: 0.4rem 0.5rem; font-size: 0.7rem; color: var(--text-2); }
+.source-chip-header { display: flex; justify-content: space-between; font-weight: 600; color: var(--text); margin-bottom: 0.2rem; }
+
+.tool-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; }
+.tool-badge { font-size: 0.62rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: rgba(0,237,100,0.1); color: var(--green); border: 1px solid var(--panel-brd); }
+
+.chat-status { display: none; align-items: center; gap: 0.5rem; padding: 0 1rem 0.4rem; font-size: 0.72rem; color: var(--text-2); }
+.chat-status.active { display: flex; }
+.status-dots { display: inline-flex; gap: 3px; }
+.status-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: pulse 1.2s infinite; }
+.status-dots span:nth-child(2) { animation-delay: .2s; } .status-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+.thinking-bubble .message-text { display: flex; align-items: center; gap: 0.4rem; }
+
+.copilot-input {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.7rem; border-top: 1px solid var(--hair);
 }
-
-.status-dots span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.status-dots span:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes dotPulse {
-    0%, 60%, 100% {
-        transform: scale(0.8);
-        opacity: 0.5;
-    }
-    30% {
-        transform: scale(1.2);
-        opacity: 1;
-    }
-}
-
-.status-text {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-/* Touchscreen Controls */
-.touchscreen-controls {
-    padding: 0.75rem 1.5rem 1.1rem;
-    border-top: 1px solid rgba(42, 63, 95, 0.4);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.6rem;
-}
-
-.chat-input-row {
-    display: flex;
-    width: 100%;
-    gap: 0.5rem;
-    align-items: center;
-}
-
 .chat-input {
-    flex: 1;
+    flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--hair);
+    border-radius: 999px; padding: 0.6rem 1rem; color: var(--text); font-size: 0.85rem; outline: none;
+}
+.chat-input:focus { border-color: var(--green-dim); }
+.chat-input::placeholder { color: var(--text-3); }
+.mic-button, .send-btn {
+    width: 38px; height: 38px; flex-shrink: 0; border: none; border-radius: 50%;
+    cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+    transition: transform .15s, box-shadow .2s, background .2s;
+}
+.mic-button { background: rgba(0,237,100,0.1); color: var(--text); border: 1px solid var(--panel-brd); }
+.mic-button:hover { background: rgba(0,237,100,0.18); }
+.mic-button.listening { background: var(--red); color: #fff; animation: micpulse 1s infinite; }
+@keyframes micpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,75,75,0.5); } 50% { box-shadow: 0 0 0 8px rgba(255,75,75,0); } }
+.send-btn { background: var(--green); color: #04140d; font-weight: 700; }
+.send-btn:hover { box-shadow: 0 0 12px var(--accent-glow); }
+.send-btn:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+
+/* ── Bottom bar ─────────────────────────────────────────────────────────────── */
+.cockpit-bottom {
+    border-top: 1px solid var(--hair);
+    padding-top: 0.55rem;
+    display: flex; flex-direction: column; gap: 0.5rem;
+}
+.dtc-ticker { display: flex; align-items: center; gap: 0.8rem; font-size: 0.66rem; overflow: hidden; }
+.dtc-ticker-label { color: var(--text-3); letter-spacing: 0.18em; font-weight: 700; white-space: nowrap; }
+.dtc-ticker-list { display: flex; gap: 1rem; flex-wrap: wrap; overflow: hidden; }
+.dtc-none { color: var(--text-3); }
+.dtc-chip2 { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--amber); font-weight: 600; letter-spacing: 0.05em; }
+.dtc-chip2::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px rgba(245,166,35,0.6); }
+.dtc-chip2.chassis { color: var(--red); } .dtc-chip2.chassis::before { background: var(--red); box-shadow: 0 0 6px rgba(255,75,75,0.6); }
+
+.bottom-metrics { display: flex; align-items: center; gap: clamp(1rem, 3vw, 3rem); }
+.metric { display: flex; flex-direction: column; gap: 0.15rem; }
+.metric-range { min-width: 180px; }
+.m-label { font-size: 0.58rem; letter-spacing: 0.14em; color: var(--text-3); font-weight: 700; }
+.m-val { font-size: 1.15rem; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+.m-val.econ { color: var(--green); }
+.m-bar { margin-top: 0.35rem; height: 5px; border-radius: 3px; background: rgba(120,160,150,0.15); overflow: hidden; }
+.m-bar-fill { height: 100%; width: 0%; border-radius: 3px; background: linear-gradient(90deg, var(--green-dim), var(--green)); transition: width .4s; }
+
+.gear-select { display: flex; gap: 0.35rem; margin-left: auto; }
+.gear-select span {
+    width: 32px; height: 40px; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 1rem; color: var(--text-3);
+    border: 1px solid transparent; border-radius: 8px; transition: all .2s;
+}
+.gear-select span.active {
+    color: var(--green); border-color: var(--green);
+    background: rgba(0,237,100,0.08); box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* ── Navigation map overlay — covers the full cockpit-main area ──────────────── */
+.nav-panel {
+    position: absolute; inset: 0; z-index: 20;
+    background: var(--bg-0);
+    display: flex; flex-direction: column;
+    animation: navSlideIn 0.3s ease-out;
+}
+@keyframes navSlideIn {
+    from { opacity: 0; transform: scale(0.98); }
+    to   { opacity: 1; transform: scale(1); }
+}
+.nav-panel.hidden { display: none; }
+.nav-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.7rem 1.2rem;
     background: var(--dashboard-accent);
-    border: 1px solid var(--touchscreen-border);
-    border-radius: 50px;
-    color: var(--text-primary);
-    padding: 0.75rem 1.25rem;
-    font-size: 0.95rem;
-    outline: none;
-    transition: border-color 0.2s;
-    min-width: 0;
-    font-family: inherit;
-}
-
-.chat-input::placeholder {
-    color: var(--text-secondary);
-    opacity: 0.7;
-}
-
-.chat-input:focus {
-    border-color: var(--accent);
-}
-
-.send-btn {
-    background: var(--accent);
-    border: none;
-    border-radius: 50%;
-    width: 44px;
-    height: 44px;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--mongodb-slate);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: opacity 0.2s, transform 0.1s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.send-btn:hover { opacity: 0.85; }
-.send-btn:active { transform: scale(0.93); }
-.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.mic-button {
-    background: linear-gradient(135deg, var(--accent) 0%, var(--mongodb-dark-green) 100%);
-    border: none;
-    border-radius: 12px;
-    padding: 0.7rem 2.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    cursor: pointer;
-    transition: all 0.3s;
-    box-shadow: 0 2px 12px var(--accent-glow);
-    width: 100%;
-    justify-content: center;
-}
-
-.mic-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 30px var(--accent-glow);
-}
-
-.mic-button:active {
-    transform: translateY(0);
-}
-
-.mic-button.listening {
-    animation: micPulse 1.5s infinite;
-}
-
-@keyframes micPulse {
-    0%, 100% {
-        box-shadow: 0 4px 20px var(--accent-glow);
-    }
-    50% {
-        box-shadow: 0 8px 40px var(--accent-glow), 0 0 30px var(--accent);
-    }
-}
-
-.mic-icon {
-    font-size: 1.2rem;
-}
-
-.mic-label {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-/* Tech Footer */
-.tech-footer {
-    display: flex;
-    justify-content: center;
-    gap: 1.5rem;
-    margin-top: 1.5rem;
-    flex-wrap: wrap;
-}
-
-.tech-badge {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    padding: 0.5rem 1rem;
-    background: var(--dashboard-accent);
-    border-radius: 20px;
-    border: 1px solid var(--touchscreen-border);
-}
-
-/* Responsive */
-@media (max-width: 1200px) {
-    .car-dashboard {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-    
-    .dashboard-left,
-    .dashboard-right {
-        display: none;
-    }
-}
-
-@media (max-width: 768px) {
-    .touchscreen-header {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .user-message,
-    .assistant-message {
-        max-width: 90%;
-    }
-}
-
-/* Thinking bubble — shown in-chat while waiting for the agent */
-.thinking-bubble .message-text {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    color: var(--text-secondary);
-    font-style: italic;
-    font-size: 0.88rem;
-}
-
-.thinking-bubble .status-dots {
-    display: flex;
-    gap: 0.4rem;
-}
-
-/* Tool badges */
-.tool-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    padding: 0 0.25rem;
-}
-
-.tool-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.2rem 0.65rem;
-    background: var(--dashboard-accent);
-    border: 1px solid var(--touchscreen-border);
-    border-radius: 20px;
-    font-size: 0.72rem;
-    color: var(--accent);
-    letter-spacing: 0.3px;
-    white-space: nowrap;
-}
-
-/* ── Telemetry Widgets ───────────────────────────────────────────────────── */
-
-/* Arc gauge — fixed height, never shrinks */
-.telem-gauge {
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.5rem 0.5rem 0;
-    border-bottom: 1px solid rgba(42, 63, 95, 0.4);
-}
-.arc-svg { width: 100%; height: auto; overflow: visible; }
-
-/* Arc track / fill */
-.arc-track {
-    fill: none;
-    stroke: rgba(42, 63, 95, 0.7);
-    stroke-width: 7;
-    stroke-dasharray: 272.27 136.14;
-    stroke-linecap: round;
-}
-.arc-fill {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 7;
-    stroke-dasharray: 0 408.41;
-    stroke-linecap: round;
-    transition: stroke-dasharray 0.6s cubic-bezier(.4,0,.2,1), stroke 0.3s ease;
-}
-
-/* Arc text */
-.arc-num    { fill: var(--text-primary) !important;   font-size: 22px; font-weight: 700;
-              font-family: 'Segoe UI', system-ui, sans-serif; text-anchor: middle; }
-.arc-lbl    { fill: var(--text-secondary) !important; font-size: 9px; letter-spacing: 1px;
-              font-family: 'Segoe UI', system-ui, sans-serif; text-anchor: middle; text-transform: uppercase; }
-.arc-minmax { fill: var(--text-secondary) !important; font-size: 9px; opacity: 0.5;
-              font-family: 'Segoe UI', system-ui, sans-serif; text-anchor: middle; }
-
-/* Gauge footer — two stat cells flush below the arc */
-.gauge-footer {
-    flex-shrink: 0;
-    display: flex;
-    width: 100%;
-    border-top: 1px solid rgba(42, 63, 95, 0.4);
-    margin-top: 0.2rem;
-}
-.gauge-stat {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.25rem 0.2rem;
-    border-right: 1px solid rgba(42, 63, 95, 0.4);
-}
-.gauge-stat:last-child { border-right: none; }
-.gauge-stat-label {
-    font-size: 0.55rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    opacity: 0.75;
-}
-.gauge-stat-val {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--accent);
-    white-space: nowrap;
-    transition: color 0.3s ease;
-}
-
-/* Panel sections — each grows to fill its share of remaining panel height */
-.telem-group {
-    flex: 1;
-    min-height: 0;
-    border-bottom: 1px solid rgba(42, 63, 95, 0.4);
-    padding: 0.45rem 0.6rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-.telem-group:last-child { border-bottom: none; }
-
-/* Section title: NAME ───────── */
-.telem-group-title {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-size: 0.62rem;
-    font-weight: 800;
-    letter-spacing: 2px;
-    color: var(--accent);
-    text-transform: uppercase;
-    padding-bottom: 0.2rem;
-    margin-bottom: 0.1rem;
-    border-bottom: 1px solid rgba(42, 63, 95, 0.35);
-}
-.telem-group-title::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: rgba(42, 63, 95, 0.4);
-}
-
-/* Stat rows — each row expands to fill its share of the section */
-.stat-row {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.3rem;
-    border-top: 1px solid rgba(42, 63, 95, 0.15);
-    padding: 0 0.05rem;
-}
-.stat-row:first-of-type { border-top: none; }
-
-.stat-label {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
+    border-bottom: 1px solid var(--hair);
     flex-shrink: 0;
 }
-.stat-val {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--accent);
-    white-space: nowrap;
-    text-align: right;
-    transition: color 0.3s ease;
+.nav-panel-title { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: var(--accent); }
+.nav-panel-close {
+    background: none; border: 1px solid var(--touchscreen-border);
+    border-radius: 6px; color: var(--text-2); font-size: 0.85rem;
+    padding: 0.2rem 0.65rem; cursor: pointer; transition: color 0.2s, border-color 0.2s;
 }
-.stat-val-sm {
-    font-size: 0.68rem;
-}
+.nav-panel-close:hover { color: var(--text); border-color: var(--text-2); }
+#mapContainer { flex: 1; min-height: 0; }
 
-/* Tire SVG — fills the remaining section height */
-.tire-svg {
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-    display: block;
-}
-.car-body  { fill: var(--dashboard-accent); stroke: rgba(42, 63, 95, 0.8); stroke-width: 1.5; }
-.car-glass { fill: rgba(42, 63, 95, 0.6); }
-.tire-rect {
-    fill: rgba(0, 0, 0, 0.45);
-    stroke: var(--accent);
-    stroke-width: 1.5;
-    transition: stroke 0.3s ease, fill 0.3s ease;
-}
-.tire-pos-lbl {
-    fill: var(--text-secondary);
-    font-size: 8px;
-    font-weight: 600;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    text-anchor: middle;
-    letter-spacing: 0.5px;
-    opacity: 0.75;
-}
-.tire-psi-val {
-    fill: var(--accent);
-    font-size: 10px;
-    font-weight: 700;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    text-anchor: middle;
-    transition: fill 0.3s ease;
+/* ── Small screens ──────────────────────────────────────────────────────────── */
+@media (max-width: 1050px) {
+    .cockpit-main { grid-template-columns: 1fr; grid-auto-rows: minmax(0, auto); }
+    .gauge-wrap { max-height: 240px; }
+    .telltales .tt { width: 44px; }
 }

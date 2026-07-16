@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 # Copy source files including schema
-COPY search_service_cpp_highlevel.cpp schema.obx.cpp schema.obx.hpp CMakeLists.txt objectbox-model.json ./
+COPY search_service_cpp_highlevel.cpp schema.obx.cpp schema.obx.hpp CMakeLists.txt ./
 
 # Build
 RUN cmake -DCMAKE_BUILD_TYPE=Release . && \
@@ -33,7 +33,6 @@ WORKDIR /app
 # Copy binary and library from builder
 COPY --from=builder /build/search_service /app/
 COPY --from=builder /build/_deps/objectbox-sync-download-src/lib/libobjectbox.so /usr/local/lib/
-COPY --from=builder /build/objectbox-model.json /app/
 
 # Update library cache
 RUN ldconfig

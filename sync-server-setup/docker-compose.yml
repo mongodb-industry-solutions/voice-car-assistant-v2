@@ -23,6 +23,7 @@ services:
           --unsecured-no-authentication \
           --admin-bind 0.0.0.0:9980 \
           --log-level debug \
+          --mongo-initial-import \
           --mongo-url "mongodb+srv://$${MONGODB_USER}:$${MONGODB_PASS}@$${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true" \
           --mongo-db "$${MONGODB_DATABASE}"
 

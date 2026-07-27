@@ -59,19 +59,6 @@ OBX_model* create_obx_model() {
     obx_model_property(model, "syncClock", OBXPropertyType_Long, 6, 1234567890123456789ULL);
     obx_model_entity_last_property_id(model, 6, 1234567890123456789ULL);
 
-    // Entity 2: manuals
-    obx_model_entity(model, "manuals", 2, 3456789012345678901ULL);
-    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 2345678901234567890ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "filename", OBXPropertyType_String, 2, 3456789012345678902ULL);
-    obx_model_property(model, "make", OBXPropertyType_String, 3, 4567890123456789013ULL);
-    obx_model_property(model, "model", OBXPropertyType_String, 4, 5678901234567890124ULL);
-    obx_model_property(model, "total_chunks", OBXPropertyType_Int, 5, 6789012345678901235ULL);
-    obx_model_property(model, "status", OBXPropertyType_String, 6, 7890123456789012346ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 7, 9876543210987654321ULL);
-    obx_model_entity_last_property_id(model, 7, 9876543210987654321ULL);
-
     // Entity 3: conversations
     obx_model_entity(model, "conversations", 3, 1111222233334444555ULL);
     obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
@@ -94,46 +81,6 @@ OBX_model* create_obx_model() {
     obx_model_property(model, "tools_used", OBXPropertyType_String, 9, 9099888877776666555ULL);
     obx_model_property_external_type(model, OBXExternalPropertyType_JsonToNative);  // JSON array → native array in Atlas
     obx_model_entity_last_property_id(model, 9, 9099888877776666555ULL);
-
-    // Entity 4: telemetry_snapshots
-    obx_model_entity(model, "telemetry_snapshots", 4, 2222333344445555777ULL);
-    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 2222333344445555778ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "timestamp", OBXPropertyType_Long, 2, 3333444455556666888ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_INDEXED);
-    obx_model_property_index_id(model, 5, 5555555555555555555ULL);
-    obx_model_property(model, "vehicle_id", OBXPropertyType_String, 3, 4444555566667777999ULL);
-    obx_model_property(model, "driving_mode", OBXPropertyType_String, 4, 5555666677778888000ULL);
-    obx_model_property(model, "anomaly_count", OBXPropertyType_Int, 5, 6666777788889999222ULL);
-    obx_model_property(model, "engine_data", OBXPropertyType_String, 6, 7777888899990000333ULL);
-    obx_model_property(model, "tire_data", OBXPropertyType_String, 7, 8888999900001111444ULL);
-    obx_model_property(model, "battery_data", OBXPropertyType_String, 8, 9999000011112222555ULL);
-    obx_model_property(model, "fuel_data", OBXPropertyType_String, 9, 1111222233334444666ULL);
-    obx_model_property(model, "transmission_data", OBXPropertyType_String, 10, 2222333344445555888ULL);
-    obx_model_property(model, "brake_data", OBXPropertyType_String, 11, 3333444455556666999ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 12, 4444555566668888111ULL);
-    obx_model_entity_last_property_id(model, 12, 4444555566668888111ULL);
-
-    // Entity 11: SignalDefinition
-    obx_model_entity(model, "SignalDefinition", 11, 6011000000000000ULL);
-    obx_model_entity_flags(model, OBXEntityFlags_SYNC_ENABLED);
-    obx_model_property(model, "id", OBXPropertyType_Long, 1, 6011000000000001ULL);
-    obx_model_property_flags(model, OBXPropertyFlags_ID);
-    obx_model_property(model, "vssPath", OBXPropertyType_String, 2, 6011000000000002ULL);
-    obx_model_property(model, "component", OBXPropertyType_String, 3, 6011000000000003ULL);
-    obx_model_property(model, "signalKind", OBXPropertyType_String, 4, 6011000000000004ULL);
-    obx_model_property(model, "valueType", OBXPropertyType_String, 5, 6011000000000005ULL);
-    obx_model_property(model, "unit", OBXPropertyType_String, 6, 6011000000000006ULL);
-    obx_model_property(model, "writable", OBXPropertyType_Bool, 7, 6011000000000007ULL);
-    obx_model_property(model, "latestGroup", OBXPropertyType_String, 8, 6011000000000008ULL);
-    obx_model_property(model, "historyGroup", OBXPropertyType_String, 9, 6011000000000009ULL);
-    obx_model_property(model, "historyMode", OBXPropertyType_String, 10, 6011000000000010ULL);
-    obx_model_property(model, "samplePeriodMs", OBXPropertyType_Int, 11, 6011000000000011ULL);
-    obx_model_property(model, "retainHours", OBXPropertyType_Int, 12, 6011000000000012ULL);
-    obx_model_property(model, "enabled", OBXPropertyType_Bool, 13, 6011000000000013ULL);
-    obx_model_property(model, "syncClock", OBXPropertyType_Long, 14, 6011000000000014ULL);
-    obx_model_entity_last_property_id(model, 14, 6011000000000014ULL);
 
     // Entity 26: objectbox_telemetry
     obx_model_entity(model, "objectbox_telemetry", 26, 6030000000000000ULL);

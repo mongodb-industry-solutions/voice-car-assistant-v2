@@ -1,16 +1,12 @@
 FROM python:3.11-slim-bookworm
 
 # System dependencies:
-#   portaudio19-dev + gcc  → build PyAudio
-#   espeak-ng              → pyttsx3 TTS engine on Linux
-#   ffmpeg                 → Whisper audio processing
+#   ffmpeg     → Whisper audio decoding (accepts browser webm/ogg)
+#   libsndfile → soundfile
+#   wget       → fetch the Piper binary + voice model at build time
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    portaudio19-dev \
-    espeak-ng \
     libsndfile1 \
     ffmpeg \
-    gcc \
-    g++ \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
@@ -49,10 +45,8 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser \
 ENV HOME=/app
 USER appuser
 
-EXPOSE 5000
+EXPOSE 8080
 
-# NOTE: Voice input (microphone) and TTS audio output require the host's
-# audio devices to be passed through to the container, which is not
-# supported on Windows Docker Desktop. The web UI, map navigation, and
-# telemetry dashboard all work without audio.
-CMD ["python", "web_server.py"]
+# STT (Whisper) transcribes browser-uploaded audio; TTS (Piper) synthesizes
+# answers server-side. No host audio devices needed — the mic lives in the browser.
+CMD ["python", "app.py"]

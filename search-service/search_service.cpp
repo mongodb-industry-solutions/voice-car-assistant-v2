@@ -15,6 +15,7 @@
 #include <memory>
 #include <thread>
 #include <chrono>
+#include <cstdlib>
 
 // ObjectBox C++ High-Level API (built from source)
 #include "objectbox.hpp"
@@ -201,9 +202,13 @@ int main(int argc, char* argv[]) {
     // Parse config
     Config config;
     config.db_path = argc > 1 ? argv[1] : "/app/search-service-db";
-    config.sync_url = argc > 2 ? argv[2] : "ws://sync-server:9999";
+    // SYNC_SERVER_URL / PORT env override args+defaults (single-pod deploy sets these);
+    // local/compose leaves them unset and keeps the argv defaults below.
+    const char* sync_env = std::getenv("SYNC_SERVER_URL");
+    config.sync_url = sync_env ? std::string(sync_env) : (argc > 2 ? argv[2] : "ws://sync-server:9999");
     config.enable_sync = argc > 3 ? (std::string(argv[3]) == "true") : true;
-    config.port = 8080;
+    const char* port_env = std::getenv("PORT");
+    config.port = port_env ? std::stoi(port_env) : 8080;
     
     // Initialize ObjectBox
     if (!init_objectbox(config)) {

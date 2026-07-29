@@ -17,6 +17,7 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include <cstdlib>
 #include "objectbox.hpp"
 #include "objectbox-sync.hpp"
 #include "schema.obx.hpp"
@@ -147,6 +148,9 @@ int main(int argc, char* argv[]) {
     if (argc > 1) config.db_path = argv[1];
     if (argc > 2) config.sync_server_url = argv[2];
     if (argc > 3) config.enable_sync = (std::string(argv[3]) == "true");
+    // Env overrides for the single-pod deploy (unset locally → keep args/defaults).
+    if (const char* s = std::getenv("SYNC_SERVER_URL")) config.sync_server_url = s;
+    if (const char* p = std::getenv("PORT")) config.port = std::stoi(p);
 
     std::cout << "📂 Database: " << config.db_path << "\n";
     std::cout << "🔄 Sync URL: " << config.sync_server_url << "\n";

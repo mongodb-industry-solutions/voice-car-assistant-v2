@@ -1,83 +1,208 @@
+security:
+  dataClassification: "Internal"
+  dataDesignation: ["MI"]
+
+ownership:
+  driEmail: dorottya.nyarady@mongodb.com
+
+# ── Main container = frontend (Next.js). Only this one gets the ingress. ────────
+# Everything else runs as a sidecar in the SAME pod, so all inter-service calls
+# are over localhost and never cross the Istio mesh.
 env:
   NODE_ENV: staging
-  # AWS region for IRSA (no credentials needed)
-  AWS_REGION: us-east-1
-  # Backend API URL for frontend to connect to backend health check - get <service-name> using kubectl get services
-  BACKEND_URL: http://mobile-edge-in-car-voice-assistant-backend-web-app:80   # or http://localhost:8000 if multicontainer pod is setup and backend is running on 8000
-  #COLLECTION_NAME: test-collection
-  
-  # GCP Workload Identity Configuration
-  # GOOGLE_APPLICATION_CREDENTIALS: /etc/gcp/credential-configuration.json
-  # GCP_PROJECT_ID: manufacturing-project-425012
-  # GCP_LOCATION: us-central1
+  BACKEND_URL: http://localhost:8000
 
-## Single Pod Containers
+# Secret group holding all values (helm ksec group name). Injected into the main
+# (frontend) container; sidecars pull what they need via secretKeyRef below.
 envSecrets:
-  # MongoDB Configuration
   MONGODB_URI: mobile-edge-in-car-voice-assistant-staging
-  DATABASE_NAME: mobile-edge-in-car-voice-assistant-staging  
-  AGENT_MODEL_ID: mobile-edge-in-car-voice-assistant-staging
+  DATABASE_NAME: mobile-edge-in-car-voice-assistant-staging
+  GROVE_API_KEY: mobile-edge-in-car-voice-assistant-staging
+  GROVE_MODEL_ID: mobile-edge-in-car-voice-assistant-staging
+  GROVE_BASE_URL: mobile-edge-in-car-voice-assistant-staging
 
-## should be used in case of multiple sidecar containers
-# sidecarContainers:
-#   - name: backend
-#     image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/mobile-edge-in-car-voice-assistant-backend:latest
-#     env:
-#       # MongoDB connection (from Kubernetes secret)
-#       - name: MONGODB_URI
-#         valueFrom:
-#           secretKeyRef:
-#             name: session-temp-kanopy
-#             key: MONGODB_URI
+# ── Sidecars ────────────────────────────────────────────────────────────────
+# Order matters: .drone.yaml overrides sidecarContainers[i].image by index for the
+# BUILT images (0–8). Index 9 (objectbox-sync-server) is a prebuilt licensed image
+# and is NOT overridden by Drone.
+#   0 backend · 1 agent · 2 navigation · 3 mongodb-search · 4 telemetry-api
+#   5 search-service · 6 conversation-service · 7 vss-telemetry-service · 8 simulator
+#   9 objectbox-sync-server (prebuilt)
+sidecarContainers:
+  - name: backend
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend:latest
+    ports:
+      - containerPort: 8000
+    env:
+      - name: PORT
+        value: "8000"
+      - name: SEARCH_SERVICE_URL
+        value: http://localhost:8083
+      - name: CONVERSATION_SERVICE_URL
+        value: http://localhost:8081
+      - name: NAVIGATION_SERVICE_URL
+        value: http://localhost:5001
+      - name: AGENT_SERVICE_URL
+        value: http://localhost:5002
+      - name: VSS_TELEMETRY_SERVICE_URL
+        value: http://localhost:8086
+      - name: VSS_SIMULATOR_URL
+        value: http://localhost:8087
 
-#       - name: DATABASE_NAME
-#         valueFrom:
-#           secretKeyRef:
-#             name: session-temp-kanopy
-#             key: DATABASE_NAME
+  - name: agent
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent:latest
+    ports:
+      - containerPort: 5002
+    env:
+      - name: LLM_PROVIDER
+        value: grove
+      - name: EMBEDDING_MODEL
+        value: voyageai/voyage-4-nano
+      - name: SEARCH_SERVICE_URL
+        value: http://localhost:8083
+      - name: MONGODB_SEARCH_SERVICE_URL
+        value: http://localhost:8085
+      - name: NAVIGATION_SERVICE_URL
+        value: http://localhost:5001
+      - name: VSS_TELEMETRY_API_URL
+        value: http://localhost:3002
+      - name: GROVE_API_KEY
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_API_KEY } }
+      - name: GROVE_MODEL_ID
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_MODEL_ID } }
+      - name: GROVE_BASE_URL
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_BASE_URL } }
 
-#       # Voyage AI API Key (embeddings)
-#       - name: VOYAGE_API_KEY
-#         valueFrom:
-#           secretKeyRef:
-#             name: session-temp-kanopy
-#             key: VOYAGE_API_KEY
-    
-## ----------------------------- Cloud Specific Configurations -----------------------------
+  - name: navigation
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-navigation:latest
+    ports:
+      - containerPort: 5001
+    env:
+      - name: LLM_PROVIDER
+        value: grove
+      - name: GROVE_API_KEY
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_API_KEY } }
+      - name: GROVE_MODEL_ID
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_MODEL_ID } }
+      - name: GROVE_BASE_URL
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_BASE_URL } }
 
-# Add IRSA configuration here, role here gives access to bedrock, s3, aws secrets manager
+  - name: mongodb-search
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search:latest
+    ports:
+      - containerPort: 8085
+    env:
+      - name: PORT
+        value: "8085"
+      - name: VECTOR_INDEX_NAME
+        value: manual_chunks_vector_index
+      - name: MONGODB_URI
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: MONGODB_URI } }
+      - name: DATABASE_NAME
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: DATABASE_NAME } }
+
+  - name: telemetry-api
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api:latest
+    ports:
+      - containerPort: 3002
+    env:
+      - name: PORT
+        value: "3002"
+      - name: VEHICLE_ID
+        value: VSS-DEMO-VIN-001
+      - name: MONGODB_URI
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: MONGODB_URI } }
+      - name: DATABASE_NAME
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: DATABASE_NAME } }
+
+  - name: search-service
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-search-service:latest
+    ports:
+      - containerPort: 8083
+    env:
+      - name: PORT
+        value: "8083"
+      - name: SYNC_SERVER_URL
+        value: ws://localhost:9999
+    volumeMounts:
+      - name: search-data
+        mountPath: /app/search-service-db
+
+  - name: conversation-service
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service:latest
+    ports:
+      - containerPort: 8081
+    env:
+      - name: SYNC_SERVER_URL
+        value: ws://localhost:9999
+    volumeMounts:
+      - name: conversation-data
+        mountPath: /app/conversation-db
+
+  - name: vss-telemetry-service
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service:latest
+    ports:
+      - containerPort: 8086
+    env:
+      - name: SYNC_SERVER_URL
+        value: ws://localhost:9999
+    volumeMounts:
+      - name: vss-data
+        mountPath: /app/vss-db
+
+  - name: simulator
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-simulator:latest
+    ports:
+      - containerPort: 8087
+    env:
+      - name: VSS_TELEMETRY_SERVICE_URL
+        value: http://localhost:8086
+
+  - name: objectbox-sync-server
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-objectbox-sync:2026-07-14
+    args:
+      - --model
+      - /model/objectbox-model.json
+      - --unsecured-no-authentication
+      - --admin-bind
+      - 0.0.0.0:9980
+      - --mongo-url
+      - $(MONGODB_URI)
+      - --mongo-db
+      - $(DATABASE_NAME)
+      - --mongo-initial-import
+    env:
+      - name: MONGODB_URI
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: MONGODB_URI } }
+      - name: DATABASE_NAME
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: DATABASE_NAME } }
+    volumeMounts:
+      - name: sync-server-data
+        mountPath: /data
+      - name: objectbox-model
+        mountPath: /model
+        readOnly: true
+
+# Ephemeral stores (rehydrate from Atlas on start) + the model file via ConfigMap.
+# Create the ConfigMap by hand before first deploy; recreate it when the schema changes:
+#   kubectl create configmap mobile-edge-in-car-voice-assistant-objectbox-model \
+#     --from-file=objectbox-model.json=sync-server-setup/objectbox-model.json -n industrysolutions
+extraVolumes:
+  - name: search-data
+    emptyDir: {}
+  - name: conversation-data
+    emptyDir: {}
+  - name: vss-data
+    emptyDir: {}
+  - name: sync-server-data
+    emptyDir: {}
+  - name: objectbox-model
+    configMap:
+      name: mobile-edge-in-car-voice-assistant-objectbox-model
+
+# Kept from the template; Grove needs no AWS, so IRSA is optional here (harmless).
 serviceAccount:
   enabled: true
   irsa:
     accountId: "275662791714"
     roleName: "kanopy-staging-cicd-irsa"
-
-## For GCP this, example setup here is for manufacturing
-
-# serviceAccount:
-#   enabled: true
-#   annotations:
-#     iam.gke.io/gcp-service-account: "manufacturing-kanopy-sa@manufacturing-project-425012.iam.gserviceaccount.com"
-
-
-# # Mount GCP credential config and service account token
-# extraVolumes:
-#  - name: gcp-creds
-#    configMap:
-#      name: gcp-wif-config
-#  - name: gcp-token
-#    projected:
-#      sources:
-#      - serviceAccountToken:
-#          path: token
-#          expirationSeconds: 3600
-#          audience: "//iam.googleapis.com/projects/362614368442/locations/global/workloadIdentityPools/kanopy-manufacturing-wif-pool/providers/kanopy-manufacturing-provider"
-
-
-# extraVolumeMounts:
-#  - name: gcp-creds
-#    mountPath: /etc/gcp
-#    readOnly: true
-#  - name: gcp-token
-#    mountPath: /var/run/service-account
-#    readOnly: true

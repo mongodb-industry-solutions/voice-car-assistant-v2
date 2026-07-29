@@ -3,6 +3,7 @@ flask-cors>=4.0.0
 gunicorn>=22.0.0
 langchain-core>=0.3.0
 langchain-ollama>=0.2.0
+langchain-anthropic>=0.2.0  # cloud provider: Grove-hosted Claude (LLM_PROVIDER=grove)
 langgraph>=0.2.0
 requests>=2.31.0
 pydantic>=2.0.0

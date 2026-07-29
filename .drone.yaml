@@ -1,198 +1,314 @@
 ---
 kind: pipeline
 type: kubernetes
-name: staging
+name: staging-combined
 
 trigger:
   branch:
     - staging
+  event:
+    - push
 
-# replace mobile-edge-in-car-voice-assistant with your demo name for eg.: financial-news-vector-search
+# ── Build & publish images to ECR (one per built service). ────────────────────
+# The objectbox-sync-server is a prebuilt licensed image (pushed to ECR once by
+# hand) and is therefore NOT built here.
 steps:
-  - name: publish-backend
-    image: plugins/kaniko-ecr
-    settings:
-      create_repository: true
-      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com ## keep same for all demos < - aws ecr registry used to store docker image
-      repo: industrysolutions/mobile-edge-in-car-voice-assistant-backend ## NEED TO CHANGE - based on your demo name for eg.: financial-news-vector-search
-      tags:
-        - git-${DRONE_COMMIT_SHA:0:7}
-        - latest
-      dockerfile: Dockerfile.backend
-      access_key:
-        from_secret: ecr_access_key ## set in drone web ui
-      secret_key:
-        from_secret: ecr_secret_key ## set in drone web ui
-    when:
-      event:
-        - push
-
   - name: publish-frontend
     image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
     settings:
+      compressed_caching: false
+      snapshot_mode: redo
       create_repository: true
       registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
-      repo: industrysolutions/mobile-edge-in-car-voice-assistant-frontend ## NEED TO CHANGE - based on your demo name for eg.: financial-news-vector-search
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-frontend
+      dockerfile: voice-assistant-frontend/Dockerfile
+      context: voice-assistant-frontend
       tags:
-        - git-${DRONE_COMMIT_SHA:0:7}
+        - "git-${DRONE_COMMIT_SHA:0:7}"
         - latest
-      # build_args:
-      #   - NEXT_BACKEND_URL: http://mobile-edge-in-car-voice-assistant-backend-web-app:80
-      dockerfile: Dockerfile.frontend
       access_key:
-        from_secret: ecr_access_key ## set in drone web ui
+        from_secret: ecr_access_key
       secret_key:
-        from_secret: ecr_secret_key ## set in drone web ui
-    when:
-      event:
-        - push
+        from_secret: ecr_secret_key
 
-  - name: deploy-backend-staging
+  - name: publish-backend
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-backend
+      dockerfile: voice-assistant-backend/Dockerfile
+      context: voice-assistant-backend
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-agent
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-agent
+      dockerfile: langchain-agent-service/Dockerfile
+      context: langchain-agent-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-navigation
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-navigation
+      dockerfile: navigation-service/Dockerfile
+      context: navigation-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-mongodb-search
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search
+      dockerfile: mongodb-search-service/Dockerfile
+      context: mongodb-search-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-telemetry-api
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api
+      dockerfile: vss-telemetry-api/Dockerfile
+      context: vss-telemetry-api
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  # C++ ObjectBox services build from source (slow) → enable a build cache.
+  - name: publish-search-service
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      cache: true
+      cache_repo: industrysolutions/mobile-edge-in-car-voice-assistant-search-service-cache
+      cache_ttl: 168
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-search-service
+      dockerfile: search-service/Dockerfile
+      context: search-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-conversation-service
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      cache: true
+      cache_repo: industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service-cache
+      cache_ttl: 168
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service
+      dockerfile: conversation-service/Dockerfile
+      context: conversation-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-vss-telemetry-service
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      cache: true
+      cache_repo: industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service-cache
+      cache_ttl: 168
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service
+      dockerfile: vss-telemetry-service/Dockerfile
+      context: vss-telemetry-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-simulator
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-simulator
+      dockerfile: vss-telemetry-simulator/Dockerfile
+      context: vss-telemetry-simulator
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  # ── One combined deploy: frontend as main container, everything else a sidecar.
+  # sidecarContainers indices follow environment/staging.yaml:
+  #   0 backend · 1 agent · 2 navigation · 3 mongodb-search · 4 telemetry-api
+  #   5 search-service · 6 conversation-service · 7 vss-telemetry-service · 8 simulator
+  #   9 objectbox-sync-server (prebuilt — image NOT set here)
+  - name: deploy-combined-staging
     image: public.ecr.aws/kanopy/drone-helm:v3
     settings:
       chart: mongodb/web-app
-      chart_version: 4.25.0
-      add_repos: [mongodb=https://10gen.github.io/helm-charts]
-      namespace: industrysolutions
-      release: mobile-edge-in-car-voice-assistant-backend ## NEED TO CHANGE - based on your demo name for eg.: financial-news-vector-search
-      values:
-        - "image.tag=git-${DRONE_COMMIT_SHA:0:7}"
-        - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend" ## NEED TO CHANGE replace mobile-edge-in-car-voice-assistant with your backend pod name from above
-        - "ingress.enabled=true"
-        - "ingress.hosts[0]=mobile-edge-in-car-voice-assistant-backend.industrysolutions.staging.corp.mongodb.com" ## NEED TO CHANGE replace mobile-edge-in-car-voice-assistant with your demo name for eg.: financial-news-vector-search
-        - "mesh.enabled=true"
-        - "resources.limits.cpu=1000m"
-        - "resources.limits.memory=1024Mi"
-        - "resources.requests.cpu=250m"
-        - "resources.requests.memory=256Mi"
-      api_server: https://api.staging.corp.mongodb.com
-      kubernetes_token:
-        from_secret: staging_kubernetes_token ## set in drone web ui
-      values_files: [ "environment/staging.yaml" ]
-    when:
-      event:
-        - push
-
-  - name: deploy-frontend-staging
-    image: public.ecr.aws/kanopy/drone-helm:v3
-    settings:
-      chart: mongodb/web-app
-      chart_version: 4.25.0
+      chart_version: 4.30.0
       add_repos: [mongodb=https://10gen.github.io/helm-charts]
       namespace: industrysolutions
       release: mobile-edge-in-car-voice-assistant-frontend
+      values_files: ["environment/staging.yaml"]
       values:
+        - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-frontend"
         - "image.tag=git-${DRONE_COMMIT_SHA:0:7}"
-        - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-frontend" ## NEED TO CHANGE replace mobile-edge-in-car-voice-assistant
+        - "sidecarContainers[0].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[1].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[2].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-navigation:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[3].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[4].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[5].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-search-service:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[6].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[7].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[8].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-simulator:git-${DRONE_COMMIT_SHA:0:7}"
         - "ingress.enabled=true"
-        - "ingress.hosts[0]=mobile-edge-in-car-voice-assistant-frontend.industrysolutions.staging.corp.mongodb.com" ## NEED TO CHANGE replace mobile-edge-in-car-voice-assistant with your demo name for eg.: financial-news-vector-search
+        - "ingress.hosts[0]=mobile-edge-in-car-voice-assistant.industrysolutions.staging.corp.mongodb.com"
         - "mesh.enabled=true"
-        - "resources.limits.cpu=1000m"
-        - "resources.limits.memory=1024Mi"
-        - "resources.requests.cpu=250m"
+        - "resources.limits.cpu=500m"
+        - "resources.limits.memory=512Mi"
+        - "resources.requests.cpu=100m"
         - "resources.requests.memory=256Mi"
+        - "sidecarContainers[0].resources.limits.cpu=1000m"
+        - "sidecarContainers[0].resources.limits.memory=2048Mi"
+        - "sidecarContainers[0].resources.requests.cpu=200m"
+        - "sidecarContainers[0].resources.requests.memory=512Mi"
+        - "sidecarContainers[1].resources.limits.cpu=1000m"
+        - "sidecarContainers[1].resources.limits.memory=2048Mi"
+        - "sidecarContainers[1].resources.requests.cpu=200m"
+        - "sidecarContainers[1].resources.requests.memory=512Mi"
+        - "sidecarContainers[2].resources.limits.cpu=500m"
+        - "sidecarContainers[2].resources.limits.memory=512Mi"
+        - "sidecarContainers[2].resources.requests.cpu=100m"
+        - "sidecarContainers[2].resources.requests.memory=128Mi"
+        - "sidecarContainers[3].resources.limits.cpu=500m"
+        - "sidecarContainers[3].resources.limits.memory=512Mi"
+        - "sidecarContainers[3].resources.requests.cpu=100m"
+        - "sidecarContainers[3].resources.requests.memory=128Mi"
+        - "sidecarContainers[4].resources.limits.cpu=500m"
+        - "sidecarContainers[4].resources.limits.memory=256Mi"
+        - "sidecarContainers[4].resources.requests.cpu=100m"
+        - "sidecarContainers[4].resources.requests.memory=128Mi"
+        - "sidecarContainers[5].resources.limits.cpu=500m"
+        - "sidecarContainers[5].resources.limits.memory=512Mi"
+        - "sidecarContainers[5].resources.requests.cpu=100m"
+        - "sidecarContainers[5].resources.requests.memory=256Mi"
+        - "sidecarContainers[6].resources.limits.cpu=500m"
+        - "sidecarContainers[6].resources.limits.memory=512Mi"
+        - "sidecarContainers[6].resources.requests.cpu=100m"
+        - "sidecarContainers[6].resources.requests.memory=256Mi"
+        - "sidecarContainers[7].resources.limits.cpu=500m"
+        - "sidecarContainers[7].resources.limits.memory=512Mi"
+        - "sidecarContainers[7].resources.requests.cpu=100m"
+        - "sidecarContainers[7].resources.requests.memory=256Mi"
+        - "sidecarContainers[8].resources.limits.cpu=500m"
+        - "sidecarContainers[8].resources.limits.memory=256Mi"
+        - "sidecarContainers[8].resources.requests.cpu=100m"
+        - "sidecarContainers[8].resources.requests.memory=128Mi"
+        - "sidecarContainers[9].resources.limits.cpu=500m"
+        - "sidecarContainers[9].resources.limits.memory=1024Mi"
+        - "sidecarContainers[9].resources.requests.cpu=100m"
+        - "sidecarContainers[9].resources.requests.memory=256Mi"
       api_server: https://api.staging.corp.mongodb.com
       kubernetes_token:
-        from_secret: staging_kubernetes_token ## set in drone web ui
-      values_files: [ "environment/staging.yaml" ]
-    when:
-      event:
-        - push
+        from_secret: staging_kubernetes_token
 
----
-# kind: pipeline
-# type: kubernetes
-# name: production
-
-# trigger:
-#   branch:
-#     - main  # or master, depending on your main branch name
-
-# steps:
-#   - name: publish-backend-prod
-#     image: plugins/kaniko-ecr
-#     settings:
-#       create_repository: true
-#       registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com # keep same for all demos < - aws ecr registry used to store docker image
-#       repo: industrysolutions/mobile-edge-in-car-voice-assistant-backend-prod ## NEED TO CHANGE - based on your demo name for eg.: financial-news-vector-search-backend-prod
-#       tags:
-#         - git-${DRONE_COMMIT_SHA:0:7}-prod
-#         - prod-latest
-#       dockerfile: Dockerfile.backend
-#       access_key:
-#         from_secret: ecr_access_key
-#       secret_key:
-#         from_secret: ecr_secret_key
-#     when:
-#       event:
-#         - push
-
-#   - name: publish-frontend-prod
-#     image: plugins/kaniko-ecr
-#     settings:
-#       create_repository: true
-#       registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
-#       repo: industrysolutions/mobile-edge-in-car-voice-assistant-frontend-prod ## NEED TO CHANGE - based on your demo name for eg.: financial-news-vector-search-frontend
-#       tags:
-#         - git-${DRONE_COMMIT_SHA:0:7}-prod
-#         - prod-latest
-#       dockerfile: Dockerfile.frontend
-#       access_key:
-#         from_secret: ecr_access_key
-#       secret_key:
-#         from_secret: ecr_secret_key
-#     when:
-#       event:
-#         - push
-
-#   - name: deploy-backend-production
-#     image: public.ecr.aws/kanopy/drone-helm:v3
-#     settings:
-#       chart: mongodb/web-app
-#       chart_version: 4.25.0
-#       add_repos: [mongodb=https://10gen.github.io/helm-charts]
-#       namespace: industrysolutions
-#       release: mobile-edge-in-car-voice-assistant-backend-prod ## NEED TO CHANGE - based on your demo name for eg.: financial-news-vector-search-backend-prod
-#       values:
-#         - "image.tag=git-${DRONE_COMMIT_SHA:0:7}-prod"
-#         - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend-prod" ## NEED TO CHANGE replace mobile-edge-in-car-voice-assistant with your backend pod name from above
-#         - "ingress.enabled=true"
-#         - "ingress.hosts[0]=mobile-edge-in-car-voice-assistant-backend.industrysolutions.prod.corp.mongodb.com"
-#         - "mesh.enabled=true"
-#         - "resources.limits.cpu=1000m"
-#         - "resources.limits.memory=1024Mi"
-#         - "resources.requests.cpu=250m"
-#         - "resources.requests.memory=256Mi"
-#       api_server: https://api.prod.corp.mongodb.com
-#       kubernetes_token:
-#         from_secret: production_kubernetes_token
-#       values_files: [ "environment/production.yaml" ]
-#     when:
-#       event:
-#         - push
-
-#   - name: deploy-frontend-production
-#     image: public.ecr.aws/kanopy/drone-helm:v3
-#     settings:
-#       chart: mongodb/web-app
-#       chart_version: 4.25.0
-#       add_repos: [mongodb=https://10gen.github.io/helm-charts]
-#       namespace: industrysolutions
-#       release: mobile-edge-in-car-voice-assistant-frontend-prod
-#       values:
-#         - "image.tag=git-${DRONE_COMMIT_SHA:0:7}-prod"
-#         - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-frontend-prod"
-#         - "ingress.enabled=true"
-#         - "ingress.hosts[0]=mobile-edge-in-car-voice-assistant-frontend.industrysolutions.prod.corp.mongodb.com"
-#         - "mesh.enabled=true"
-#         - "resources.limits.cpu=1000m"
-#         - "resources.limits.memory=1024Mi"
-#         - "resources.requests.cpu=250m"
-#         - "resources.requests.memory=256Mi"
-#       api_server: https://api.prod.corp.mongodb.com
-#       kubernetes_token:
-#         from_secret: production_kubernetes_token
-#       values_files: [ "environment/production.yaml" ]
-#     when:
-#       event:
-#         - push
+# ── Production pipeline: add once staging is verified (mirror the above with
+#    -prod repos/tags, branch main, api.prod.corp.mongodb.com, prod_kubernetes_token). ──

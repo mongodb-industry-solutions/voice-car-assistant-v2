@@ -36,6 +36,9 @@ sidecarContainers:
     env:
       - name: PORT
         value: "8000"
+      # Loopback-only: reachable by the frontend over in-pod localhost, not via the pod IP.
+      - name: HOST
+        value: "127.0.0.1"
       - name: SEARCH_SERVICE_URL
         value: http://localhost:8083
       - name: CONVERSATION_SERVICE_URL

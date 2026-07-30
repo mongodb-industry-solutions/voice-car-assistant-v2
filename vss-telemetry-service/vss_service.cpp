@@ -157,7 +157,12 @@ int main(int argc, char* argv[]) {
     if (argc > 3) cfg.enable_sync      = (std::string(argv[3]) == "true");
     // Env overrides for the single-pod deploy (unset locally → keep args/defaults).
     if (const char* s = std::getenv("SYNC_SERVER_URL")) cfg.sync_server_url = s;
-    if (const char* p = std::getenv("PORT")) cfg.port = std::stoi(p);
+    if (const char* p = std::getenv("PORT")) {
+        try { cfg.port = std::stoi(p); }
+        catch (const std::exception&) {
+            std::cerr << "Invalid PORT='" << p << "'; using default " << cfg.port << std::endl;
+        }
+    }
 
     std::cout << "📂 DB: " << cfg.db_path << "\n";
     std::cout << "🔄 Sync: " << cfg.sync_server_url << "\n\n";

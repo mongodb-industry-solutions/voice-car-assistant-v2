@@ -11,9 +11,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 # Standalone bundle (server.js + minimal node_modules), static assets, and public/.
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Files are owned by the built-in non-root `node` user (uid 1000) so the server
+# does not run as root.
+COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+USER node
 
 EXPOSE 8080
 # The chart health probe hits "/", which Next serves.

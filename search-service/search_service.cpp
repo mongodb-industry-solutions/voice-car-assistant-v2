@@ -207,8 +207,13 @@ int main(int argc, char* argv[]) {
     const char* sync_env = std::getenv("SYNC_SERVER_URL");
     config.sync_url = sync_env ? std::string(sync_env) : (argc > 2 ? argv[2] : "ws://sync-server:9999");
     config.enable_sync = argc > 3 ? (std::string(argv[3]) == "true") : true;
-    const char* port_env = std::getenv("PORT");
-    config.port = port_env ? std::stoi(port_env) : 8080;
+    config.port = 8080;
+    if (const char* port_env = std::getenv("PORT")) {
+        try { config.port = std::stoi(port_env); }
+        catch (const std::exception&) {
+            std::cerr << "Invalid PORT='" << port_env << "'; using default " << config.port << std::endl;
+        }
+    }
     
     // Initialize ObjectBox
     if (!init_objectbox(config)) {

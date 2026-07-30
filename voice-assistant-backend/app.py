@@ -301,5 +301,9 @@ def api_navigate():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
-    print(f"Voice Assistant Backend on :{port}", flush=True)
-    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+    # Bind host is configurable so the single-pod deploy can restrict this internal
+    # API to loopback (HOST=127.0.0.1) — the frontend proxies over localhost in-pod.
+    # Default 0.0.0.0 keeps cross-container docker-compose working.
+    host = os.getenv("HOST", "0.0.0.0")
+    print(f"Voice Assistant Backend on {host}:{port}", flush=True)
+    app.run(host=host, port=port, debug=False, threaded=True)

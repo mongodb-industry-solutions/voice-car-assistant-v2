@@ -22,7 +22,7 @@ steps:
       compressed_caching: false
       snapshot_mode: redo
       create_repository: true
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-frontend
       dockerfile: voice-assistant-frontend/Dockerfile
       context: voice-assistant-frontend
@@ -43,7 +43,7 @@ steps:
       compressed_caching: false
       snapshot_mode: redo
       create_repository: true
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-backend
       dockerfile: voice-assistant-backend/Dockerfile
       context: voice-assistant-backend
@@ -64,7 +64,7 @@ steps:
       compressed_caching: false
       snapshot_mode: redo
       create_repository: true
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-agent
       dockerfile: langchain-agent-service/Dockerfile
       context: langchain-agent-service
@@ -85,7 +85,7 @@ steps:
       compressed_caching: false
       snapshot_mode: redo
       create_repository: true
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-navigation
       dockerfile: navigation-service/Dockerfile
       context: navigation-service
@@ -106,7 +106,7 @@ steps:
       compressed_caching: false
       snapshot_mode: redo
       create_repository: true
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search
       dockerfile: mongodb-search-service/Dockerfile
       context: mongodb-search-service
@@ -127,7 +127,7 @@ steps:
       compressed_caching: false
       snapshot_mode: redo
       create_repository: true
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api
       dockerfile: vss-telemetry-api/Dockerfile
       context: vss-telemetry-api
@@ -152,7 +152,7 @@ steps:
       cache: true
       cache_repo: industrysolutions/mobile-edge-in-car-voice-assistant-search-service-cache
       cache_ttl: 168
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-search-service
       dockerfile: search-service/Dockerfile
       context: search-service
@@ -176,7 +176,7 @@ steps:
       cache: true
       cache_repo: industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service-cache
       cache_ttl: 168
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service
       dockerfile: conversation-service/Dockerfile
       context: conversation-service
@@ -200,7 +200,7 @@ steps:
       cache: true
       cache_repo: industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service-cache
       cache_ttl: 168
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service
       dockerfile: vss-telemetry-service/Dockerfile
       context: vss-telemetry-service
@@ -221,7 +221,7 @@ steps:
       compressed_caching: false
       snapshot_mode: redo
       create_repository: true
-      registry: 275662791714.dkr.ecr.us-east-1.amazonaws.com
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
       repo: industrysolutions/mobile-edge-in-car-voice-assistant-simulator
       dockerfile: vss-telemetry-simulator/Dockerfile
       context: vss-telemetry-simulator
@@ -248,17 +248,17 @@ steps:
       release: mobile-edge-in-car-voice-assistant-frontend
       values_files: ["environment/staging.yaml"]
       values:
-        - "image.repository=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-frontend"
+        - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-frontend"
         - "image.tag=git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[0].image=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend:git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[1].image=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent:git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[2].image=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-navigation:git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[3].image=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search:git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[4].image=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api:git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[5].image=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-search-service:git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[6].image=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service:git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[7].image=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service:git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[8].image=275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-simulator:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[0].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[1].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[2].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-navigation:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[3].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[4].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[5].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-search-service:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[6].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[7].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[8].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-simulator:git-${DRONE_COMMIT_SHA:0:7}"
         - "ingress.enabled=true"
         - "ingress.hosts[0]=mobile-edge-in-car-voice-assistant.industrysolutions.staging.corp.mongodb.com"
         - "mesh.enabled=true"

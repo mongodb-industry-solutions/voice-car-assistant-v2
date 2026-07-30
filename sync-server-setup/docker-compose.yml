@@ -172,6 +172,7 @@ services:
       timeout: 5s
       retries: 3
 
+  # REST/SSE API + server-side STT (Whisper) / TTS (Piper). No UI, no WebSocket.
   voice-assistant-backend:
     build:
       context: ../voice-assistant-backend
@@ -179,10 +180,8 @@ services:
     container_name: voice-assistant-backend
     restart: always
     ports:
-      - "5000:5000"  # Web UI
+      - "8000:8080"  # API (internal; exposed for debugging)
     depends_on:
-      ollama:
-        condition: service_healthy
       search-service:
         condition: service_started
       conversation-service:
@@ -198,9 +197,29 @@ services:
       - AGENT_SERVICE_URL=http://langchain-agent-service:5002
       - VSS_TELEMETRY_SERVICE_URL=http://vss-telemetry-service:8086
       - VSS_SIMULATOR_URL=http://vss-telemetry-simulator:8087
-      - OLLAMA_HOST=http://ollama:11434
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Next.js cockpit UI — open http://localhost:5000. Talks to the backend only
+  # through its own same-origin /api/* proxy routes (BACKEND_URL, server-side).
+  voice-assistant-frontend:
+    build:
+      context: ../voice-assistant-frontend
+      dockerfile: Dockerfile
+    container_name: voice-assistant-frontend
+    restart: always
+    ports:
+      - "5000:8080"  # Web UI
+    depends_on:
+      voice-assistant-backend:
+        condition: service_started
+    environment:
+      - BACKEND_URL=http://voice-assistant-backend:8080
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -22,6 +22,7 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <cstdlib>
 #include "objectbox.hpp"
 #include "objectbox-sync.hpp"
 #include "schema_vss.obx.hpp"
@@ -77,17 +78,6 @@ OBX_model* create_obx_model() {
     PROP_L("syncClock",    6, 1234567890123456789ULL);
     LAST_PROP(6, 1234567890123456789ULL);
 
-    // Entity 2: manuals
-    DEF_ENTITY("manuals", 2, 3456789012345678901ULL);
-    PROP_ID("id",          1, 2345678901234567890ULL);
-    PROP_S("filename",     2, 3456789012345678902ULL);
-    PROP_S("make",         3, 4567890123456789013ULL);
-    PROP_S("model",        4, 5678901234567890124ULL);
-    PROP_I("total_chunks", 5, 6789012345678901235ULL);
-    PROP_S("status",       6, 7890123456789012346ULL);
-    PROP_L("syncClock",    7, 9876543210987654321ULL);
-    LAST_PROP(7, 9876543210987654321ULL);
-
     // Entity 3: conversations
     DEF_ENTITY("conversations", 3, 1111222233334444555ULL);
     PROP_ID("id",              1, 1111222233334444556ULL);
@@ -102,40 +92,6 @@ OBX_model* create_obx_model() {
     PROP_S("tools_used",       9, 9099888877776666555ULL);
     obx_model_property_external_type(m, OBXExternalPropertyType_JsonToNative);  // JSON array → native array in Atlas
     LAST_PROP(9, 9099888877776666555ULL);
-
-    // Entity 4: telemetry_snapshots (legacy, kept for shared-model compatibility)
-    DEF_ENTITY("telemetry_snapshots", 4, 2222333344445555777ULL);
-    PROP_ID("id",                 1, 2222333344445555778ULL);
-    PROP_L("timestamp",           2, 3333444455556666888ULL); PROP_IDX(5, 5555555555555555555ULL);
-    PROP_S("vehicle_id",          3, 4444555566667777999ULL);
-    PROP_S("driving_mode",        4, 5555666677778888000ULL);
-    PROP_I("anomaly_count",       5, 6666777788889999222ULL);
-    PROP_S("engine_data",         6, 7777888899990000333ULL);
-    PROP_S("tire_data",           7, 8888999900001111444ULL);
-    PROP_S("battery_data",        8, 9999000011112222555ULL);
-    PROP_S("fuel_data",           9, 1111222233334444666ULL);
-    PROP_S("transmission_data",  10, 2222333344445555888ULL);
-    PROP_S("brake_data",         11, 3333444455556666999ULL);
-    PROP_L("syncClock",          12, 4444555566668888111ULL);
-    LAST_PROP(12, 4444555566668888111ULL);
-
-    // Entity 11: SignalDefinition
-    DEF_ENTITY("SignalDefinition", 11, 6011000000000000);
-    PROP_ID("id",              1, 6011000000000001);
-    PROP_S("vssPath",          2, 6011000000000002);
-    PROP_S("component",        3, 6011000000000003);
-    PROP_S("signalKind",       4, 6011000000000004);
-    PROP_S("valueType",        5, 6011000000000005);
-    PROP_S("unit",             6, 6011000000000006);
-    PROP_B("writable",         7, 6011000000000007);
-    PROP_S("latestGroup",      8, 6011000000000008);
-    PROP_S("historyGroup",     9, 6011000000000009);
-    PROP_S("historyMode",     10, 6011000000000010);
-    PROP_I("samplePeriodMs",  11, 6011000000000011);
-    PROP_I("retainHours",     12, 6011000000000012);
-    PROP_B("enabled",         13, 6011000000000013);
-    PROP_L("syncClock",       14, 6011000000000014);
-    LAST_PROP(14, 6011000000000014);
 
     // Entity 26: objectbox_telemetry — whole snapshot stored as JSON in `data`.
     // `data` is JsonToNative so the connector expands it to a nested Atlas document.
@@ -199,6 +155,14 @@ int main(int argc, char* argv[]) {
     if (argc > 1) cfg.db_path         = argv[1];
     if (argc > 2) cfg.sync_server_url  = argv[2];
     if (argc > 3) cfg.enable_sync      = (std::string(argv[3]) == "true");
+    // Env overrides for the single-pod deploy (unset locally → keep args/defaults).
+    if (const char* s = std::getenv("SYNC_SERVER_URL")) cfg.sync_server_url = s;
+    if (const char* p = std::getenv("PORT")) {
+        try { cfg.port = std::stoi(p); }
+        catch (const std::exception&) {
+            std::cerr << "Invalid PORT='" << p << "'; using default " << cfg.port << std::endl;
+        }
+    }
 
     std::cout << "📂 DB: " << cfg.db_path << "\n";
     std::cout << "🔄 Sync: " << cfg.sync_server_url << "\n\n";

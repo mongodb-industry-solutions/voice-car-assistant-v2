@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 # Copy source files including schema
-COPY search_service_cpp_highlevel.cpp schema.obx.cpp schema.obx.hpp CMakeLists.txt ./
+COPY search_service.cpp schema.obx.cpp schema.obx.hpp CMakeLists.txt ./
 
 # Build
 RUN cmake -DCMAKE_BUILD_TYPE=Release . && \

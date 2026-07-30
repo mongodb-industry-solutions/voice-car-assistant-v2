@@ -3,7 +3,7 @@ LangChain Agent Service — Unified car assistant
 Combines: car manual RAG, vehicle telemetry (via VSS Telemetry API), navigation.
 
 Uses a LangGraph ReAct agent (create_react_agent) with:
-  - ChatOllama as the LLM
+  - a chat model chosen by LLM_PROVIDER (local Ollama, or Grove-hosted Claude) via llm_provider.make_chat_llm
   - MemorySaver checkpointer for per-conversation history
   - Two agents pre-compiled at startup: _OFFLINE_AGENT and _ONLINE_AGENT
     Selected per-request by network_mode; graph compilation cost is zero per request.
@@ -23,7 +23,6 @@ from requests.adapters import HTTPAdapter
 from sentence_transformers import SentenceTransformer
 from flask import Flask, jsonify, request, stream_with_context, Response
 from flask_cors import CORS
-from langchain_ollama import ChatOllama
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import AIMessageChunk, HumanMessage, SystemMessage, ToolMessage, trim_messages
 from langchain_core.runnables import RunnableLambda, RunnableConfig
@@ -31,6 +30,8 @@ from langchain_core.tools import StructuredTool
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel, Field
+
+from llm_provider import make_chat_llm
 
 app = Flask(__name__)
 CORS(app)
@@ -58,18 +59,10 @@ print(f"Loading embedding model: {EMBEDDING_MODEL} @ {EMBED_DIM} dims", flush=Tr
 _embed_model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True, truncate_dim=EMBED_DIM)
 print("Embedding model ready", flush=True)
 
-# LLM — stateless; safe to share across gthread workers
-# num_ctx=1536: fits ~350 tokens of system+tools + 600-char tool result (~150 tok) + history with margin
-# num_predict=400: qwen2.5:3b emits ~50-100 tokens of preamble before the tool call JSON even without
-#   explicit thinking; 200 was cut off mid-tool-call causing silent fallback to direct answers
-_llm = ChatOllama(
-    model=LLM_MODEL,
-    base_url=OLLAMA_HOST,
-    temperature=0,
-    keep_alive=-1,
-    num_ctx=1536,
-    num_predict=400,
-)
+# LLM — stateless; safe to share across gthread workers.
+# Provider selected by LLM_PROVIDER (default "ollama" local; "grove" = hosted Claude
+# on Kanopy). Ollama params (num_ctx/num_predict) live in llm_provider.make_chat_llm.
+_llm = make_chat_llm()
 
 # Conversation memory — keyed by conversation_id as thread_id
 _checkpointer = MemorySaver()

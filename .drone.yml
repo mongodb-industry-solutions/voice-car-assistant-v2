@@ -245,7 +245,9 @@ steps:
       chart_version: 4.30.0
       add_repos: [mongodb=https://10gen.github.io/helm-charts]
       namespace: industrysolutions
-      release: mobile-edge-in-car-voice-assistant-frontend
+      # Release name kept ≤38 chars: the chart's gateway label is
+      # "<release>-web-app.industrysolutions" and must stay ≤63 (gatekeeper).
+      release: mobile-edge-car-assistant
       values_files: ["environment/staging.yaml"]
       values:
         - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-frontend"

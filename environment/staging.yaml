@@ -30,7 +30,7 @@ envSecrets:
 #   9 objectbox-sync-server (prebuilt)
 sidecarContainers:
   - name: backend
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend:latest
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend:latest
     ports:
       - containerPort: 8000
     env:
@@ -50,7 +50,7 @@ sidecarContainers:
         value: http://localhost:8087
 
   - name: agent
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent:latest
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent:latest
     ports:
       - containerPort: 5002
     env:
@@ -74,7 +74,7 @@ sidecarContainers:
         valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_BASE_URL } }
 
   - name: navigation
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-navigation:latest
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-navigation:latest
     ports:
       - containerPort: 5001
     env:
@@ -88,7 +88,7 @@ sidecarContainers:
         valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_BASE_URL } }
 
   - name: mongodb-search
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search:latest
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search:latest
     ports:
       - containerPort: 8085
     env:
@@ -102,7 +102,7 @@ sidecarContainers:
         valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: DATABASE_NAME } }
 
   - name: telemetry-api
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api:latest
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api:latest
     ports:
       - containerPort: 3002
     env:
@@ -116,7 +116,7 @@ sidecarContainers:
         valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: DATABASE_NAME } }
 
   - name: search-service
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-search-service:latest
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-search-service:latest
     ports:
       - containerPort: 8083
     env:
@@ -129,7 +129,7 @@ sidecarContainers:
         mountPath: /app/search-service-db
 
   - name: conversation-service
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service:latest
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service:latest
     ports:
       - containerPort: 8081
     env:
@@ -140,7 +140,7 @@ sidecarContainers:
         mountPath: /app/conversation-db
 
   - name: vss-telemetry-service
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service:latest
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service:latest
     ports:
       - containerPort: 8086
     env:
@@ -151,7 +151,7 @@ sidecarContainers:
         mountPath: /app/vss-db
 
   - name: simulator
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-simulator:latest
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-simulator:latest
     ports:
       - containerPort: 8087
     env:
@@ -159,7 +159,7 @@ sidecarContainers:
         value: http://localhost:8086
 
   - name: objectbox-sync-server
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-objectbox-sync:2026-07-14
+    image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-objectbox-sync:2026-07-14
     args:
       - --model
       - /model/objectbox-model.json

@@ -21,7 +21,7 @@ const log = (...a) => { if (DIAG) console.log("[assembleTelemetry]", ...a); };
 exports = async function (changeEvent) {
   try {
     // Resolve DB + linked data source first (needed for both trigger + manual test).
-    const dbName = context.values.get("DATABASE_NAME");
+    const dbName = context.values.get("DATABASE_NAME") || (changeEvent && changeEvent.ns && changeEvent.ns.db);
     const service = context.services.get("mongodb-atlas");
     log("DATABASE_NAME:", dbName || "(NOT SET)",
         "| data source 'mongodb-atlas':", service ? "resolved" : "(NOT FOUND — rename linked cluster)");

@@ -179,6 +179,30 @@ def _validate_coord(value: Any, name: str) -> Optional[float]:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _content_to_text(content) -> str:
+    """
+    Normalise a LangChain message's content to plain text.
+
+    Ollama returns a string; Anthropic/Claude (langchain_anthropic) returns a list
+    of content blocks (e.g. [{"type": "text", "text": "..."}], plus tool_use blocks).
+    Concatenate the text blocks and ignore non-text ones so downstream string ops
+    (streaming accumulation, think-tag stripping) never see a list.
+    """
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and isinstance(block.get("text"), str):
+                parts.append(block["text"])
+        return "".join(parts)
+    return str(content)
+
+
 def _strip_think_tags(text: str) -> str:
     """Remove <think>...</think> blocks that some models embed in their output."""
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
@@ -592,7 +616,7 @@ def run_agent(
     print(f"[timing] agent total: {time.time() - t0:.2f}s", flush=True)
 
     final_message = result["messages"][-1]
-    answer = _strip_think_tags(final_message.content or "")
+    answer = _strip_think_tags(_content_to_text(final_message.content))
     if not answer:
         answer = "I couldn't generate a response."
 
@@ -714,10 +738,12 @@ def stream_agent(
                             label = _TOOL_STATUS.get(name, f"Calling {name}…")
                             yield f"data: {json.dumps({'status': label})}\n\n"
                 elif chunk.content:
-                    full_content += chunk.content
+                    # Claude streams a list of content blocks; coerce to text.
+                    piece = _content_to_text(chunk.content)
+                    full_content += piece
                     # Filter <think>...</think> blocks so the UI never shows raw reasoning.
                     # Tags may span chunk boundaries; _in_think carries state across iterations.
-                    token = chunk.content
+                    token = piece
                     if _in_think:
                         close = token.find("</think>")
                         if close != -1:

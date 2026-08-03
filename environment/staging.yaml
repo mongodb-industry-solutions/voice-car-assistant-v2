@@ -98,7 +98,7 @@ sidecarContainers:
       - name: PORT
         value: "8085"
       - name: VECTOR_INDEX_NAME
-        value: manual_chunks_vector_index
+        value: manual_chunks_vector_index_staging
       - name: MONGODB_URI
         valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: MONGODB_URI } }
       - name: DATABASE_NAME

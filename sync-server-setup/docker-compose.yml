@@ -166,6 +166,7 @@ services:
       - MONGODB_SEARCH_SERVICE_URL=http://mongodb-search-service:8085
       - NAVIGATION_SERVICE_URL=http://navigation-service:5001
       - VSS_TELEMETRY_API_URL=http://vss-telemetry-api:3002
+      - VSS_TELEMETRY_SERVICE_URL=http://vss-telemetry-service:8086
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:5002/health"]
       interval: 30s
@@ -197,6 +198,7 @@ services:
       - AGENT_SERVICE_URL=http://langchain-agent-service:5002
       - VSS_TELEMETRY_SERVICE_URL=http://vss-telemetry-service:8086
       - VSS_SIMULATOR_URL=http://vss-telemetry-simulator:8087
+      - VSS_TELEMETRY_API_URL=http://vss-telemetry-api:3002
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
       interval: 30s

@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import InfoWizard from "@/components/InfoWizard";
+import SyncPanel from "@/components/SyncPanel";
+import DataModelPanel from "@/components/DataModelPanel";
+import Walkthrough from "@/components/Walkthrough";
 
 // ── Gauge geometry (270° sweep, gap at bottom) ────────────────────────────────
 const G = { cx: 130, cy: 130, r: 100, rTick: 128, rTickInner: 85, a0: 225, span: 270 };
@@ -195,6 +199,9 @@ export default function Cockpit() {
   const [cockpit, setCockpit] = useState(null);
   const [navRoute, setNavRoute] = useState(null); // {destination, route}
   const [input, setInput] = useState("");
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [sceneOpen, setSceneOpen] = useState(false);
+  const [runTour, setRunTour] = useState(false);
 
   const messagesRef = useRef(null);
   const coordsRef = useRef({ lat: null, lon: null });
@@ -214,6 +221,16 @@ export default function Cockpit() {
     t();
     const id = setInterval(t, 1000);
     return () => clearInterval(id);
+  }, []);
+
+  // First-run guided tour (once per browser)
+  useEffect(() => {
+    try { if (!localStorage.getItem("vca_tour_done")) setRunTour(true); } catch {}
+  }, []);
+
+  const endTour = useCallback(() => {
+    setRunTour(false);
+    try { localStorage.setItem("vca_tour_done", "1"); } catch {}
   }, []);
 
   // DTC catalog + stats + geolocation (once)
@@ -423,6 +440,9 @@ export default function Cockpit() {
           <span className="brand-tag">EDGE COCKPIT</span>
         </div>
         <div className="top-right">
+          <button className="hdr-btn" onClick={() => setInfoOpen(true)} title="How it works">ⓘ How it works</button>
+          <button className="hdr-btn hdr-sync" onClick={() => setSceneOpen(true)} title="Live sync & data model">⧉ Sync &amp; Data</button>
+          <button className="hdr-btn hdr-tour" onClick={() => setRunTour(true)} title="Guided tour">?</button>
           <button className={`conn-toggle${online ? " online" : ""}`} onClick={() => setOnline((o) => !o)} title="Switch online / offline">
             <span className="conn-dot" />
             <span>{online ? "ONLINE" : "OFFLINE"}</span>
@@ -533,6 +553,25 @@ export default function Cockpit() {
           </div>
         </div>
       </footer>
+
+      <InfoWizard open={infoOpen} onClose={() => setInfoOpen(false)} />
+
+      {sceneOpen && (
+        <div className="overlay" onClick={() => setSceneOpen(false)}>
+          <div className="scene-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="iw-head">
+              <span className="iw-title">🔄 Sync &amp; Data Model</span>
+              <button className="overlay-close" onClick={() => setSceneOpen(false)}>✕</button>
+            </div>
+            <div className="scene-body">
+              <SyncPanel />
+              <DataModelPanel />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Walkthrough run={runTour} onClose={endTour} />
     </div>
   );
 }

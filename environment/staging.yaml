@@ -51,6 +51,8 @@ sidecarContainers:
         value: http://localhost:8086
       - name: VSS_SIMULATOR_URL
         value: http://localhost:8087
+      - name: VSS_TELEMETRY_API_URL
+        value: http://localhost:3002
 
   - name: agent
     image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent:latest
@@ -69,6 +71,8 @@ sidecarContainers:
         value: http://localhost:5001
       - name: VSS_TELEMETRY_API_URL
         value: http://localhost:3002
+      - name: VSS_TELEMETRY_SERVICE_URL
+        value: http://localhost:8086
       - name: GROVE_API_KEY
         valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_API_KEY } }
       - name: GROVE_MODEL_ID

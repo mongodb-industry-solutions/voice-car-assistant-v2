@@ -45,6 +45,8 @@ SEARCH_SERVICE_URL         = os.getenv("SEARCH_SERVICE_URL",         "http://loc
 MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://localhost:8085")
 NAVIGATION_SERVICE_URL     = os.getenv("NAVIGATION_SERVICE_URL",     "http://localhost:5001")
 TELEMETRY_SERVICE_URL      = os.getenv("VSS_TELEMETRY_API_URL",      "http://localhost:3002")
+# Local on-edge ObjectBox telemetry service (used OFFLINE — no Atlas dependency).
+VSS_TELEMETRY_LOCAL_URL    = os.getenv("VSS_TELEMETRY_SERVICE_URL",  "http://localhost:8086")
 
 # ── Module-level singletons (shared across all Gunicorn threads) ──────────────
 
@@ -323,9 +325,9 @@ def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
     messages = input_["messages"] if isinstance(input_, dict) else input_
     cfg = config.get("configurable", {})
     lat = cfg.get("lat")
-    # Mode hint: live telemetry is Atlas-only, so it is unavailable offline. Tell the
-    # LLM its current mode and to refuse (state the mode) rather than guess when the
-    # requested capability isn't available in this mode.
+    # Mode hint: both modes have car manual, live telemetry and navigation. Online reads
+    # telemetry from Atlas; offline reads it from the on-edge ObjectBox store. Either way
+    # the LLM must call the tools and never guess values.
     network_mode = cfg.get("network_mode", "offline")
     if network_mode == "online":
         mode_hint = (
@@ -334,12 +336,10 @@ def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
         )
     else:
         mode_hint = (
-            "MODE: You are OFFLINE. Live vehicle telemetry (overall car status, battery, "
-            "fuel, tyres, powertrain, cabin, location, fault-code/diagnostics readings) "
-            "needs an online connection "
-            "and is NOT available now. If the user asks for any live vehicle reading, tell "
-            "them you are offline and cannot access live vehicle data right now — do not "
-            "guess values. Car-manual questions and navigation still work."
+            "MODE: You are OFFLINE, but live vehicle telemetry is STILL available, served "
+            "from the on-edge database (overall status, powertrain, fuel, battery, tyres, "
+            "diagnostics). Car manual and navigation also work. Always call the tools for "
+            "live readings — never guess values."
         )
     loc_hint = (
         "The user's GPS location is known. "
@@ -484,6 +484,106 @@ def _call_telemetry(name: str, args: dict | None = None) -> str:
         return f"Telemetry service unavailable: {e}"
 
 
+# ── Local (on-edge) telemetry ──────────────────────────────────────────────────
+# Reads the ObjectBox store directly (vss-telemetry-service /vss/latest), so live
+# readings work OFFLINE with no Atlas dependency. The online tools above read the
+# Atlas copy via the telemetry API; these read the same signals straight from the edge.
+
+def _vpick(d, path):
+    cur = d
+    for k in path.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(k)
+    return cur
+
+
+def _local_snapshot() -> dict:
+    try:
+        resp = _http.get(f"{VSS_TELEMETRY_LOCAL_URL}/vss/latest", timeout=5)
+        return resp.json() if resp.ok else {}
+    except Exception:
+        return {}
+
+
+def _f(v, unit=""):
+    if v is None:
+        return "N/A"
+    if isinstance(v, (int, float)):
+        return f"{round(v, 1)}{unit}"
+    return f"{v}{unit}"
+
+
+def _local_vehicle_status() -> str:
+    d = _local_snapshot()
+    if not d:
+        return "Live telemetry is not available right now."
+    codes = (_vpick(d, "Diagnostics") or {}).get("DTCList") or []
+    return (
+        "Live vehicle status (on-edge ObjectBox): "
+        f"speed {_f(_vpick(d, 'Speed'), ' km/h')}, "
+        f"engine {_f(_vpick(d, 'Powertrain.CombustionEngine.Speed'), ' rpm')}, "
+        f"coolant {_f(_vpick(d, 'Powertrain.CombustionEngine.EngineCoolant.Temperature'), '°C')}, "
+        f"fuel {_f(_vpick(d, 'Powertrain.FuelSystem.RelativeLevel'), '%')}, "
+        f"battery SoC {_f(_vpick(d, 'Powertrain.TractionBattery.StateOfCharge.Current'), '%')}, "
+        f"range {_f(_vpick(d, 'Powertrain.TractionBattery.Range'), ' km')}. "
+        f"Active fault codes: {', '.join(map(str, codes)) if codes else 'none'}."
+    )
+
+
+def _local_powertrain() -> str:
+    d = _local_snapshot()
+    return (
+        "Powertrain (live, on-edge): "
+        f"speed {_f(_vpick(d, 'Speed'), ' km/h')}, "
+        f"RPM {_f(_vpick(d, 'Powertrain.CombustionEngine.Speed'))}, "
+        f"coolant {_f(_vpick(d, 'Powertrain.CombustionEngine.EngineCoolant.Temperature'), '°C')}, "
+        f"gear {_f(_vpick(d, 'Powertrain.Transmission.CurrentGear'))}."
+    )
+
+
+def _local_fuel() -> str:
+    d = _local_snapshot()
+    pct = _vpick(d, "Powertrain.FuelSystem.RelativeLevel")
+    cap = _vpick(d, "meta.fuelTankCapacityL")
+    litres = round(pct / 100 * cap, 1) if isinstance(pct, (int, float)) and isinstance(cap, (int, float)) else None
+    tail = f" of {cap} L" if isinstance(cap, (int, float)) else ""
+    return (
+        "Fuel (live, on-edge): "
+        f"level {_f(pct, '%')}, {_f(litres, ' L')} remaining{tail}, "
+        f"consumption {_f(_vpick(d, 'Powertrain.FuelSystem.InstantConsumption'), ' L/100km')}."
+    )
+
+
+def _local_battery() -> str:
+    d = _local_snapshot()
+    return (
+        "Battery (live, on-edge): "
+        f"SoC {_f(_vpick(d, 'Powertrain.TractionBattery.StateOfCharge.Current'), '%')}, "
+        f"range {_f(_vpick(d, 'Powertrain.TractionBattery.Range'), ' km')}."
+    )
+
+
+def _local_chassis() -> str:
+    d = _local_snapshot()
+    tp = lambda p: _f(_vpick(d, p), " kPa")
+    return (
+        "Chassis (live, on-edge) tire pressures — "
+        f"FL {tp('Chassis.Axle.Row1.Wheel.Left.Tire.Pressure')}, "
+        f"FR {tp('Chassis.Axle.Row1.Wheel.Right.Tire.Pressure')}, "
+        f"RL {tp('Chassis.Axle.Row2.Wheel.Left.Tire.Pressure')}, "
+        f"RR {tp('Chassis.Axle.Row2.Wheel.Right.Tire.Pressure')}."
+    )
+
+
+def _local_diagnostics() -> str:
+    d = _local_snapshot()
+    codes = (_vpick(d, "Diagnostics") or {}).get("DTCList") or []
+    if not codes:
+        return "Diagnostics (live, on-edge): no active fault codes."
+    return f"Diagnostics (live, on-edge): {len(codes)} active fault code(s): {', '.join(map(str, codes))}."
+
+
 # ── Pydantic schemas ──────────────────────────────────────────────────────────
 
 class ManualSearchInput(BaseModel):
@@ -565,6 +665,25 @@ _TELEMETRY_TOOLS = [
 # get_cabin_status, get_location, get_adas_status, get_driving_history removed to reduce
 # tool schema token count; restoring them adds ~160 tokens to every LLM call prefill.
 
+# Offline telemetry — same tool names/descriptions as above, but sourced from the
+# on-edge ObjectBox store instead of Atlas, so live readings work with no connection.
+_TELEMETRY_TOOLS_LOCAL = [
+    StructuredTool.from_function(func=lambda: _local_vehicle_status(), name="get_vehicle_status",
+        description="LIVE READING: full car snapshot in ONE call — speed, fuel, battery, tires. Use for general 'how is my car' / overall status questions instead of calling several tools.",
+        args_schema=_NoInput),
+    StructuredTool.from_function(func=lambda: _local_powertrain(), name="get_powertrain_status",
+        description="LIVE READING: current speed, RPM, coolant temp, gear.", args_schema=_NoInput),
+    StructuredTool.from_function(func=lambda: _local_fuel(), name="get_fuel_status",
+        description="LIVE READING: current fuel level %, litres remaining, consumption rate.", args_schema=_NoInput),
+    StructuredTool.from_function(func=lambda: _local_battery(), name="get_battery_status",
+        description="LIVE READING: current battery SOC%, range.", args_schema=_NoInput),
+    StructuredTool.from_function(func=lambda: _local_chassis(), name="get_chassis_status",
+        description="LIVE READING: current tire pressures (all four).", args_schema=_NoInput),
+    StructuredTool.from_function(func=lambda: _local_diagnostics(), name="get_diagnostics",
+        description="LIVE READING: active fault codes (DTCs) and how many are set right now. Use for 'any faults?', 'check engine', 'warning lights', 'error codes'.",
+        args_schema=_NoInput),
+]
+
 
 # ── Pre-compiled agents ───────────────────────────────────────────────────────
 # Compiled once at startup; .invoke() is called per-request with different configs.
@@ -573,7 +692,7 @@ _TELEMETRY_TOOLS = [
 print("Compiling offline agent...", flush=True)
 _OFFLINE_AGENT = create_react_agent(
     model=_llm,
-    tools=[_SEARCH_MANUAL_OFFLINE_TOOL, _NAVIGATE_TOOL],
+    tools=[_SEARCH_MANUAL_OFFLINE_TOOL, _NAVIGATE_TOOL] + _TELEMETRY_TOOLS_LOCAL,
     prompt=_PROMPT_RUNNABLE,
     checkpointer=_checkpointer,
 )

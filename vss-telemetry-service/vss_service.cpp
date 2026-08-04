@@ -23,6 +23,7 @@
 #include <thread>
 #include <chrono>
 #include <cstdlib>
+#include <atomic>
 #include "objectbox.hpp"
 #include "objectbox-sync.hpp"
 #include "schema_vss.obx.hpp"
@@ -303,6 +304,46 @@ int main(int argc, char* argv[]) {
             res.status = 500;
             res.set_content(json{{"error",e.what()}}.dump(), "application/json");
         }
+    });
+
+    // ── Sync control (demo: really pause/resume replication to the Sync Server) ──
+    // Pausing stops the ObjectBox sync client, so local snapshots keep accumulating
+    // in the on-edge store but do NOT reach the Sync Server / Atlas until resumed —
+    // then the backlog syncs up (the offline-first "buffer then catch-up" story).
+    // `syncPaused` is our own source of truth for status (deterministic, thread-safe).
+    static std::atomic<bool> syncPaused{false};
+    svr.Post("/sync/pause", [&](const Request&, Response& res) {
+        try {
+            if (syncClient) syncClient->stop();
+            syncPaused = true;
+            res.set_content(json{{"success", true}, {"paused", true}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500; res.set_content(json{{"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    svr.Post("/sync/resume", [&](const Request&, Response& res) {
+        try {
+            if (syncClient) syncClient->start();
+            syncPaused = false;
+            res.set_content(json{{"success", true}, {"paused", false}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500; res.set_content(json{{"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    // GET /sync/status → { available, paused, connected, local_count }
+    svr.Get("/sync/status", [&](const Request&, Response& res) {
+        bool available = (bool)syncClient;
+        bool paused = syncPaused.load();
+        res.set_content(json{
+            {"available", available},
+            {"paused", paused},
+            {"connected", available && !paused},
+            {"local_count", (int64_t)obt_box.count()}
+        }.dump(), "application/json");
+    });
+    // GET /vss/count → local objectbox_telemetry row count (edge side of the sync)
+    svr.Get("/vss/count", [&](const Request&, Response& res) {
+        res.set_content(json{{"count", (int64_t)obt_box.count()}}.dump(), "application/json");
     });
 
     // ── GET /health ───────────────────────────────────────────────────────────

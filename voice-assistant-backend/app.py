@@ -32,6 +32,7 @@ NAVIGATION_SERVICE_URL    = os.getenv("NAVIGATION_SERVICE_URL",    "http://local
 AGENT_SERVICE_URL         = os.getenv("AGENT_SERVICE_URL",         "http://localhost:5002")
 VSS_TELEMETRY_SERVICE_URL = os.getenv("VSS_TELEMETRY_SERVICE_URL", "http://localhost:8086")
 VSS_SIMULATOR_URL         = os.getenv("VSS_SIMULATOR_URL",         "http://localhost:8087")
+VSS_TELEMETRY_API_URL     = os.getenv("VSS_TELEMETRY_API_URL",     "http://localhost:3002")
 
 WHISPER_MODEL    = os.getenv("WHISPER_MODEL", "small")
 WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "en")
@@ -280,6 +281,41 @@ def api_sim_status():
         return jsonify({"error": "VSS simulator unavailable", "running": False}), 503
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/sync/state")
+def api_sync_state():
+    """Edge (ObjectBox) sync status + counts, and cloud (Atlas) doc counts — for the live sync panel."""
+    edge, cloud = {}, {}
+    try:
+        edge = http_requests.get(f"{VSS_TELEMETRY_SERVICE_URL}/sync/status", timeout=3).json()
+    except Exception as e:
+        edge = {"error": str(e)}
+    try:
+        cloud = http_requests.get(f"{VSS_TELEMETRY_API_URL}/cloud/counts", timeout=5).json()
+    except Exception as e:
+        cloud = {"error": str(e)}
+    return jsonify({"edge": edge, "cloud": cloud})
+
+
+@app.route("/api/sync/pause", methods=["POST"])
+def api_sync_pause():
+    """Really pause ObjectBox replication (edge keeps writing locally; Atlas stops)."""
+    try:
+        r = http_requests.post(f"{VSS_TELEMETRY_SERVICE_URL}/sync/pause", timeout=10)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 503
+
+
+@app.route("/api/sync/resume", methods=["POST"])
+def api_sync_resume():
+    """Resume replication; the buffered local backlog syncs up to Atlas."""
+    try:
+        r = http_requests.post(f"{VSS_TELEMETRY_SERVICE_URL}/sync/resume", timeout=10)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 503
 
 
 @app.route("/api/navigate", methods=["POST"])

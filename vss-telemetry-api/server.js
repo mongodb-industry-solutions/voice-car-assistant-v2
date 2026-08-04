@@ -396,6 +396,22 @@ app.post("/tools/:toolName", express.json(), async (req, res) => {
   }
 });
 
+// Cloud-side document counts — the Atlas end of the sync, for the live sync panel.
+app.get("/cloud/counts", async (req, res) => {
+  try {
+    const db = await getDb();
+    const [objectbox, tsData, tsStatus] = await Promise.all([
+      // exact count so it converges visibly with the edge count in the sync panel
+      db.collection("objectbox_telemetry").countDocuments(),
+      db.collection("telemetry-data").estimatedDocumentCount().catch(() => null),
+      db.collection("telemetry-status").estimatedDocumentCount().catch(() => null),
+    ]);
+    res.json({ objectbox_telemetry: objectbox, "telemetry-data": tsData, "telemetry-status": tsStatus });
+  } catch (e) {
+    res.status(503).json({ error: e.message });
+  }
+});
+
 app.get("/health", async (req, res) => {
   let dbStatus    = "unknown";
   let dbLatencyMs = null;

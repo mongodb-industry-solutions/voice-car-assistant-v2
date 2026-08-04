@@ -123,7 +123,7 @@ bool init_objectbox(const Config& config) {
         // Create store with model
         obx::Options options(model);
         options.directory(config.db_path.c_str());
-        options.maxDbSizeInKByte(1572864);  // 1.5 GiB (default is 1 GiB)
+        options.maxDbSizeInKb(1572864);  // 1.5 GiB (default is 1 GiB)
         store = std::make_shared<obx::Store>(options);
         std::cout << "✓ Store opened" << std::endl;
         

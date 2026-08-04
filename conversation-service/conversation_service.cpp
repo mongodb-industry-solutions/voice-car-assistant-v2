@@ -118,7 +118,7 @@ std::shared_ptr<obx::Store> init_store(const Config& config) {
     try {
         obx::Options options(model);
         options.directory(config.db_path.c_str());
-        options.maxDbSizeInKByte(1572864);  // 1.5 GiB (default is 1 GiB)
+        options.maxDbSizeInKb(1572864);  // 1.5 GiB (default is 1 GiB)
         return std::make_shared<obx::Store>(options);
     } catch (const std::exception& e) {
         std::cerr << "Failed to open store: " << e.what() << std::endl;

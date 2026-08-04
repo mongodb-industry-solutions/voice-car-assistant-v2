@@ -130,7 +130,7 @@ std::shared_ptr<obx::Store> init_store(const Config& cfg) {
     try {
         obx::Options opts(m);
         opts.directory(cfg.db_path.c_str());
-        opts.maxDbSizeInKByte(1572864);  // 1.5 GiB (default is 1 GiB)
+        opts.maxDbSizeInKb(1572864);  // 1.5 GiB (default is 1 GiB)
         return std::make_shared<obx::Store>(opts);
     } catch (const std::exception& e) {
         std::cerr << "Store init failed: " << e.what() << "\n";

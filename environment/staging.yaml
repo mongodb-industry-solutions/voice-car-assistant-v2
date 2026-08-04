@@ -192,13 +192,17 @@ sidecarContainers:
 #     --from-file=objectbox-model.json=sync-server-setup/objectbox-model.json -n industrysolutions
 extraVolumes:
   - name: search-data
-    emptyDir: {}
+    emptyDir:
+      sizeLimit: 2Gi
   - name: conversation-data
-    emptyDir: {}
+    emptyDir:
+      sizeLimit: 2Gi
   - name: vss-data
-    emptyDir: {}
+    emptyDir:
+      sizeLimit: 2Gi
   - name: sync-server-data
-    emptyDir: {}
+    emptyDir:
+      sizeLimit: 2Gi
   - name: objectbox-model
     configMap:
       name: mobile-edge-in-car-voice-assistant-objectbox-model

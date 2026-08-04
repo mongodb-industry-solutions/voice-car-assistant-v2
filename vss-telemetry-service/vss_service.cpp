@@ -38,7 +38,7 @@ struct Config {
     std::string sync_server_url= "ws://sync-server:9999";
     bool        enable_sync    = true;
     int         port           = 8086;
-    int         retain_hours   = 24;
+    int         retain_hours   = 8;   // telemetry retention; override with RETAIN_HOURS
 };
 
 static int64_t now_ms() {
@@ -130,6 +130,7 @@ std::shared_ptr<obx::Store> init_store(const Config& cfg) {
     try {
         obx::Options opts(m);
         opts.directory(cfg.db_path.c_str());
+        opts.maxDbSizeInKByte(1572864);  // 1.5 GiB (default is 1 GiB)
         return std::make_shared<obx::Store>(opts);
     } catch (const std::exception& e) {
         std::cerr << "Store init failed: " << e.what() << "\n";
@@ -161,6 +162,12 @@ int main(int argc, char* argv[]) {
         try { cfg.port = std::stoi(p); }
         catch (const std::exception&) {
             std::cerr << "Invalid PORT='" << p << "'; using default " << cfg.port << std::endl;
+        }
+    }
+    if (const char* rh = std::getenv("RETAIN_HOURS")) {
+        try { cfg.retain_hours = std::stoi(rh); }
+        catch (const std::exception&) {
+            std::cerr << "Invalid RETAIN_HOURS='" << rh << "'; using default " << cfg.retain_hours << std::endl;
         }
     }
 

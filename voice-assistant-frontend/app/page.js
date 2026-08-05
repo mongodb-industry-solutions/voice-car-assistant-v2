@@ -192,7 +192,7 @@ export default function Cockpit() {
   const [statusText, setStatusText] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
-  const [online, setOnline] = useState(false);
+  const [online, setOnline] = useState(true);
   const [simRunning, setSimRunning] = useState(false);
   const [chunkCount, setChunkCount] = useState("--");
   const [clock, setClock] = useState("--:--");
@@ -206,7 +206,7 @@ export default function Cockpit() {
   const messagesRef = useRef(null);
   const coordsRef = useRef({ lat: null, lon: null });
   const dtcCatalogRef = useRef({});
-  const onlineRef = useRef(false);
+  const onlineRef = useRef(true);
   const audioRef = useRef(null);
   const mediaRef = useRef(null);
   const mapRef = useRef(null);
@@ -214,6 +214,19 @@ export default function Cockpit() {
   const mapObjectsRef = useRef({});
 
   useEffect(() => { onlineRef.current = online; }, [online]);
+
+  // Online/offline toggle. Beyond switching the manual-search source, going OFFLINE
+  // really pauses ObjectBox↔Atlas replication (edge keeps buffering); ONLINE resumes it,
+  // so the backlog catches up. Optimistically flip the UI, then roll back if the pause/
+  // resume request fails — otherwise `online` (which also drives chat network_mode) would
+  // drift out of sync with the real backend state the SyncPanel polls.
+  const toggleOnline = () => {
+    const next = !online;
+    setOnline(next);
+    fetch(next ? "/api/sync/resume" : "/api/sync/pause", { method: "POST" })
+      .then((r) => { if (!r.ok) setOnline(!next); })   // roll back on 409/500
+      .catch(() => setOnline(!next));                   // roll back on network error
+  };
 
   // Clock
   useEffect(() => {
@@ -443,7 +456,7 @@ export default function Cockpit() {
           <button className="hdr-btn" onClick={() => setInfoOpen(true)} title="How it works">ⓘ How it works</button>
           <button className="hdr-btn hdr-sync" onClick={() => setSceneOpen(true)} title="Live sync & data model">⧉ Sync &amp; Data</button>
           <button className="hdr-btn hdr-tour" onClick={() => setRunTour(true)} title="Guided tour">?</button>
-          <button className={`conn-toggle${online ? " online" : ""}`} onClick={() => setOnline((o) => !o)} title="Switch online / offline">
+          <button className={`conn-toggle${online ? " online" : ""}`} onClick={toggleOnline} title="Switch online / offline — also pauses/resumes Atlas sync">
             <span className="conn-dot" />
             <span>{online ? "ONLINE" : "OFFLINE"}</span>
           </button>

@@ -186,10 +186,15 @@ int main(int argc, char* argv[]) {
     // that if a client existed at boot, resume always attempts the rebuild and any
     // real failure surfaces as a 500 with the actual error — never a misleading 409.
     const bool syncConfigured = cfg.enable_sync && obx::Sync::isAvailable();
+    // Real "is the client running" flag: set only after start() succeeds, cleared on
+    // stop()/failure. `connected` in /sync/status derives from THIS (not from syncPaused),
+    // so a failed start() never reports connected=true. Declared here so startup can set it.
+    static std::atomic<bool> syncRunning{false};
     if (syncConfigured) {
         try {
             syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
             syncClient->start();
+            syncRunning = true;
             std::this_thread::sleep_for(std::chrono::seconds(2));
             std::cout << "✅ Sync client started\n\n";
         } catch (const std::exception& e) {
@@ -331,6 +336,7 @@ int main(int argc, char* argv[]) {
         }
         try {
             syncClient->stop();
+            syncRunning = false;
             syncPaused = true;
             std::cout << "⏸  Sync paused\n";
             res.set_content(json{{"success", true}, {"paused", true}}.dump(), "application/json");
@@ -347,42 +353,38 @@ int main(int argc, char* argv[]) {
                 {"error", "sync not available in this deployment"}}.dump(), "application/json");
             return;
         }
-        // start() after stop() doesn't reliably reconnect on every ObjectBox build, so
-        // resume rebuilds a fresh sync client for the store — the same call startup uses,
-        // which is known to work. reset() first so there's only ever one client per store.
+        // ObjectBox allows only ONE sync client per store for its whole lifetime, so we
+        // must NOT destroy + recreate on resume ("Only one sync client can be active for a
+        // store"). We keep the single client created at startup and just start()/stop() it.
+        // (If a prior failure ever left us with no client, create one — the only time that
+        // slot is actually free.)
         std::lock_guard<std::mutex> lk(syncMutex);
         try {
-            // Release the old (stopped) client first — ObjectBox allows only one sync
-            // client per store, so the fresh client can't be created while it lives.
-            syncClient.reset();
-            auto fresh = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
-            fresh->start();
-            syncClient = fresh;          // only publish on success
+            if (!syncClient)
+                syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
+            syncClient->start();
+            syncRunning = true;
             syncPaused = false;
-            std::cout << "▶  Sync resumed (fresh client)\n";
+            std::cout << "▶  Sync resumed\n";
             res.set_content(json{{"success", true}, {"paused", false}}.dump(), "application/json");
         } catch (const std::exception& e) {
-            // syncClient stays null here; syncPaused is left untouched (whatever it was
-            // before this attempt). Either way `available` still reports syncConfigured,
-            // so status never collapses to "no sync" and the Resume button stays enabled
-            // for a retry — it just shows connected=false until a resume succeeds.
+            // start() failed: the client is NOT running. syncRunning stays false so status
+            // reports connected=false; `available` still reports syncConfigured, so status
+            // never collapses to "no sync" and the Resume button stays enabled for a retry.
+            syncRunning = false;
             std::cerr << "Sync resume failed: " << e.what() << "\n";
             res.status = 500; res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
         }
     });
     // GET /sync/status → { available, paused, connected, local_count }
     svr.Get("/sync/status", [&](const Request&, Response& res) {
-        bool hasClient;
-        {
-            std::lock_guard<std::mutex> lk(syncMutex);
-            hasClient = (bool)syncClient;
-        }
         // "available" reflects whether this deployment configured sync at all — it stays
-        // true across a pause (client stopped) or a failed resume (client transiently null),
-        // so the Resume button never disables itself. "connected" needs a live, running client.
-        bool isPaused  = syncPaused.load();   // single snapshot — derive both from it
-        bool paused    = syncConfigured && isPaused;
-        bool connected = hasClient && !isPaused;
+        // true across a pause (client stopped) or a failed resume, so the Resume button
+        // never disables itself. "connected" derives from syncRunning, the real started
+        // state (only true after a successful start()), so a failed start() never reports
+        // connected=true even though syncPaused may still be false.
+        bool paused    = syncConfigured && syncPaused.load();
+        bool connected = syncRunning.load();
         res.set_content(json{
             {"available", syncConfigured},
             {"paused", paused},

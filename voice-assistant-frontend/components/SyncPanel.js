@@ -49,6 +49,7 @@ export default function SyncPanel() {
   const cloud = state?.cloud || {};
   const edgeCount = edge.local_count;
   const cloudCount = cloud.objectbox_telemetry;
+  const available = edge.available !== false; // false only when the service reports no sync client
   const connected = !!edge.connected;
   const buffered = edgeCount != null && cloudCount != null ? Math.max(0, edgeCount - cloudCount) : null;
 
@@ -56,9 +57,9 @@ export default function SyncPanel() {
     <div className="sync-panel">
       <div className="sync-head">
         <span className={`sync-badge${connected ? " on" : " off"}`}>
-          {connected ? "● SYNC LIVE" : paused ? "● SYNC PAUSED" : "● OFFLINE"}
+          {!available ? "● NO SYNC" : connected ? "● SYNC LIVE" : paused ? "● SYNC PAUSED" : "● OFFLINE"}
         </span>
-        <button className="sync-toggle" onClick={toggle} disabled={busy}>
+        <button className="sync-toggle" onClick={toggle} disabled={busy || !available} title={!available ? "Sync not available in this deployment" : ""}>
           {paused ? "▶ Resume sync" : "⏸ Pause sync"}
         </button>
       </div>
@@ -88,7 +89,9 @@ export default function SyncPanel() {
         </div>
         <div className={`sc-gap${buffered ? " buffering" : ""}`}>
           {buffered != null ? `${buffered} buffered` : "—"}
-          <div className="sc-gap-arrow">{connected ? "→ syncing →" : "⇢ paused ⇢"}</div>
+          <div className="sc-gap-arrow">
+            {!available ? "⇢ no sync ⇢" : connected ? "→ syncing →" : paused ? "⇢ paused ⇢" : "⇢ offline ⇢"}
+          </div>
         </div>
         <div className="sc-card">
           <div className="sc-label">🍃 Cloud · Atlas</div>

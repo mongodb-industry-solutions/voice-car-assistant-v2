@@ -11,6 +11,7 @@ export const TOUR_STEPS = [
   { selector: ".chat-input", title: "Ask the assistant", text: "Try “What does the check-engine light mean?” or “What’s my fuel level?”." },
   { selector: ".mic-button", title: "Talk to it", text: "Tap to speak — Whisper transcribes server-side, Piper speaks the reply." },
   { selector: ".conn-toggle", title: "Online / offline", text: "Switch the manual search between edge ObjectBox and Atlas Vector Search." },
+  { selector: ".status-right", title: "Car-manual embeddings", text: "The 📚 count is the number of car-manual chunks embedded (voyage-4-nano, 1024-d) and indexed for vector search — in ObjectBox HNSW on the edge, and Atlas Vector Search in the cloud." },
   { selector: ".dtc-ticker", title: "Active fault codes", text: "Live DTCs decoded from the telemetry stream." },
   { selector: ".hdr-sync", title: "See the sync", text: "Open Sync & Data to watch ObjectBox ⇄ Atlas replication live — and pause it." },
 ];

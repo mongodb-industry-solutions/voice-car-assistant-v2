@@ -313,27 +313,51 @@ int main(int argc, char* argv[]) {
     // `syncPaused` is our own source of truth for status (deterministic, thread-safe).
     static std::atomic<bool> syncPaused{false};
     svr.Post("/sync/pause", [&](const Request&, Response& res) {
+        if (!syncClient) {
+            res.status = 409;
+            res.set_content(json{{"success", false}, {"available", false},
+                {"error", "sync not available — nothing to pause"}}.dump(), "application/json");
+            return;
+        }
         try {
-            if (syncClient) syncClient->stop();
+            syncClient->stop();
             syncPaused = true;
+            std::cout << "⏸  Sync paused\n";
             res.set_content(json{{"success", true}, {"paused", true}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500; res.set_content(json{{"error", e.what()}}.dump(), "application/json");
         }
     });
     svr.Post("/sync/resume", [&](const Request&, Response& res) {
+        // Only resume if sync was actually configured/available — don't fabricate a
+        // client where the deployment never intended one.
+        if (!cfg.enable_sync || !obx::Sync::isAvailable()) {
+            res.status = 409;
+            res.set_content(json{{"success", false}, {"available", false},
+                {"error", "sync not available in this deployment"}}.dump(), "application/json");
+            return;
+        }
+        // start() after stop() doesn't reliably reconnect on every ObjectBox build, so
+        // resume rebuilds a fresh sync client for the store — the same call startup uses,
+        // which is known to work. reset() first so there's only ever one client per store.
         try {
-            if (syncClient) syncClient->start();
+            syncClient.reset();
+            syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
+            syncClient->start();
             syncPaused = false;
+            std::cout << "▶  Sync resumed (fresh client)\n";
             res.set_content(json{{"success", true}, {"paused", false}}.dump(), "application/json");
         } catch (const std::exception& e) {
+            std::cerr << "Sync resume failed: " << e.what() << "\n";
             res.status = 500; res.set_content(json{{"error", e.what()}}.dump(), "application/json");
         }
     });
     // GET /sync/status → { available, paused, connected, local_count }
     svr.Get("/sync/status", [&](const Request&, Response& res) {
         bool available = (bool)syncClient;
-        bool paused = syncPaused.load();
+        // paused is meaningful only when a sync client exists; otherwise it's
+        // "unavailable / not configured", never an intentional pause.
+        bool paused = available && syncPaused.load();
         res.set_content(json{
             {"available", available},
             {"paused", paused},

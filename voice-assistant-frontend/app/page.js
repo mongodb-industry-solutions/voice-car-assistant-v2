@@ -217,13 +217,15 @@ export default function Cockpit() {
 
   // Online/offline toggle. Beyond switching the manual-search source, going OFFLINE
   // really pauses ObjectBox↔Atlas replication (edge keeps buffering); ONLINE resumes it,
-  // so the backlog catches up. Fire-and-forget — the SyncPanel polls the true state.
+  // so the backlog catches up. Optimistically flip the UI, then roll back if the pause/
+  // resume request fails — otherwise `online` (which also drives chat network_mode) would
+  // drift out of sync with the real backend state the SyncPanel polls.
   const toggleOnline = () => {
-    setOnline((o) => {
-      const next = !o;
-      fetch(next ? "/api/sync/resume" : "/api/sync/pause", { method: "POST" }).catch(() => {});
-      return next;
-    });
+    const next = !online;
+    setOnline(next);
+    fetch(next ? "/api/sync/resume" : "/api/sync/pause", { method: "POST" })
+      .then((r) => { if (!r.ok) setOnline(!next); })   // roll back on 409/500
+      .catch(() => setOnline(!next));                   // roll back on network error
   };
 
   // Clock

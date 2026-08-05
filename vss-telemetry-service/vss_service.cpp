@@ -347,25 +347,23 @@ int main(int argc, char* argv[]) {
                 {"error", "sync not available in this deployment"}}.dump(), "application/json");
             return;
         }
-        // start() after stop() doesn't reliably reconnect on every ObjectBox build, so
-        // resume rebuilds a fresh sync client for the store — the same call startup uses,
-        // which is known to work. reset() first so there's only ever one client per store.
+        // ObjectBox allows only ONE sync client per store for its whole lifetime, so we
+        // must NOT destroy + recreate on resume ("Only one sync client can be active for a
+        // store"). We keep the single client created at startup and just start()/stop() it.
+        // (If a prior failure ever left us with no client, create one — the only time that
+        // slot is actually free.)
         std::lock_guard<std::mutex> lk(syncMutex);
         try {
-            // Release the old (stopped) client first — ObjectBox allows only one sync
-            // client per store, so the fresh client can't be created while it lives.
-            syncClient.reset();
-            auto fresh = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
-            fresh->start();
-            syncClient = fresh;          // only publish on success
+            if (!syncClient)
+                syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
+            syncClient->start();
             syncPaused = false;
-            std::cout << "▶  Sync resumed (fresh client)\n";
+            std::cout << "▶  Sync resumed\n";
             res.set_content(json{{"success", true}, {"paused", false}}.dump(), "application/json");
         } catch (const std::exception& e) {
-            // syncClient stays null here; syncPaused is left untouched (whatever it was
-            // before this attempt). Either way `available` still reports syncConfigured,
-            // so status never collapses to "no sync" and the Resume button stays enabled
-            // for a retry — it just shows connected=false until a resume succeeds.
+            // syncPaused is left untouched (whatever it was before this attempt). `available`
+            // still reports syncConfigured, so status never collapses to "no sync" and the
+            // Resume button stays enabled for a retry — it just shows connected=false.
             std::cerr << "Sync resume failed: " << e.what() << "\n";
             res.status = 500; res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
         }

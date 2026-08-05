@@ -24,6 +24,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <atomic>
+#include <mutex>
 #include "objectbox.hpp"
 #include "objectbox-sync.hpp"
 #include "schema_vss.obx.hpp"
@@ -310,9 +311,13 @@ int main(int argc, char* argv[]) {
     // Pausing stops the ObjectBox sync client, so local snapshots keep accumulating
     // in the on-edge store but do NOT reach the Sync Server / Atlas until resumed —
     // then the backlog syncs up (the offline-first "buffer then catch-up" story).
-    // `syncPaused` is our own source of truth for status (deterministic, thread-safe).
+    // `syncPaused` is our own source of truth for status; `syncMutex` guards every
+    // access to `syncClient` because cpp-httplib serves requests on multiple threads
+    // and resume reassigns the shared_ptr (unsynchronized read/write would be a data race).
     static std::atomic<bool> syncPaused{false};
+    static std::mutex syncMutex;
     svr.Post("/sync/pause", [&](const Request&, Response& res) {
+        std::lock_guard<std::mutex> lk(syncMutex);
         if (!syncClient) {
             res.status = 409;
             res.set_content(json{{"success", false}, {"available", false},
@@ -340,6 +345,7 @@ int main(int argc, char* argv[]) {
         // start() after stop() doesn't reliably reconnect on every ObjectBox build, so
         // resume rebuilds a fresh sync client for the store — the same call startup uses,
         // which is known to work. reset() first so there's only ever one client per store.
+        std::lock_guard<std::mutex> lk(syncMutex);
         try {
             syncClient.reset();
             syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
@@ -354,7 +360,11 @@ int main(int argc, char* argv[]) {
     });
     // GET /sync/status → { available, paused, connected, local_count }
     svr.Get("/sync/status", [&](const Request&, Response& res) {
-        bool available = (bool)syncClient;
+        bool available;
+        {
+            std::lock_guard<std::mutex> lk(syncMutex);
+            available = (bool)syncClient;
+        }
         // paused is meaningful only when a sync client exists; otherwise it's
         // "unavailable / not configured", never an intentional pause.
         bool paused = available && syncPaused.load();

@@ -181,7 +181,12 @@ int main(int argc, char* argv[]) {
     std::cout << "✅ ObjectBox store ready\n";
 
     std::shared_ptr<obx::SyncClient> syncClient;
-    if (cfg.enable_sync && obx::Sync::isAvailable()) {
+    // Captured once at startup: the deployment configured sync AND the linked
+    // ObjectBox build supports it. Resume gates on THIS (not a live re-check) so
+    // that if a client existed at boot, resume always attempts the rebuild and any
+    // real failure surfaces as a 500 with the actual error — never a misleading 409.
+    const bool syncConfigured = cfg.enable_sync && obx::Sync::isAvailable();
+    if (syncConfigured) {
         try {
             syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
             syncClient->start();
@@ -336,7 +341,7 @@ int main(int argc, char* argv[]) {
     svr.Post("/sync/resume", [&](const Request&, Response& res) {
         // Only resume if sync was actually configured/available — don't fabricate a
         // client where the deployment never intended one.
-        if (!cfg.enable_sync || !obx::Sync::isAvailable()) {
+        if (!syncConfigured) {
             res.status = 409;
             res.set_content(json{{"success", false}, {"available", false},
                 {"error", "sync not available in this deployment"}}.dump(), "application/json");
@@ -347,31 +352,41 @@ int main(int argc, char* argv[]) {
         // which is known to work. reset() first so there's only ever one client per store.
         std::lock_guard<std::mutex> lk(syncMutex);
         try {
+            // Release the old (stopped) client first — ObjectBox allows only one sync
+            // client per store, so the fresh client can't be created while it lives.
             syncClient.reset();
-            syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
-            syncClient->start();
+            auto fresh = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
+            fresh->start();
+            syncClient = fresh;          // only publish on success
             syncPaused = false;
             std::cout << "▶  Sync resumed (fresh client)\n";
             res.set_content(json{{"success", true}, {"paused", false}}.dump(), "application/json");
         } catch (const std::exception& e) {
+            // syncClient stays null here; syncPaused is left untouched (whatever it was
+            // before this attempt). Either way `available` still reports syncConfigured,
+            // so status never collapses to "no sync" and the Resume button stays enabled
+            // for a retry — it just shows connected=false until a resume succeeds.
             std::cerr << "Sync resume failed: " << e.what() << "\n";
-            res.status = 500; res.set_content(json{{"error", e.what()}}.dump(), "application/json");
+            res.status = 500; res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
         }
     });
     // GET /sync/status → { available, paused, connected, local_count }
     svr.Get("/sync/status", [&](const Request&, Response& res) {
-        bool available;
+        bool hasClient;
         {
             std::lock_guard<std::mutex> lk(syncMutex);
-            available = (bool)syncClient;
+            hasClient = (bool)syncClient;
         }
-        // paused is meaningful only when a sync client exists; otherwise it's
-        // "unavailable / not configured", never an intentional pause.
-        bool paused = available && syncPaused.load();
+        // "available" reflects whether this deployment configured sync at all — it stays
+        // true across a pause (client stopped) or a failed resume (client transiently null),
+        // so the Resume button never disables itself. "connected" needs a live, running client.
+        bool isPaused  = syncPaused.load();   // single snapshot — derive both from it
+        bool paused    = syncConfigured && isPaused;
+        bool connected = hasClient && !isPaused;
         res.set_content(json{
-            {"available", available},
+            {"available", syncConfigured},
             {"paused", paused},
-            {"connected", available && !paused},
+            {"connected", connected},
             {"local_count", (int64_t)obt_box.count()}
         }.dump(), "application/json");
     });

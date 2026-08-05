@@ -362,8 +362,10 @@ int main(int argc, char* argv[]) {
             std::cout << "▶  Sync resumed (fresh client)\n";
             res.set_content(json{{"success", true}, {"paused", false}}.dump(), "application/json");
         } catch (const std::exception& e) {
-            // syncClient stays null here, but syncPaused is still true so status reports
-            // paused (not "no sync") and the Resume button remains enabled for a retry.
+            // syncClient stays null here; syncPaused is left untouched (whatever it was
+            // before this attempt). Either way `available` still reports syncConfigured,
+            // so status never collapses to "no sync" and the Resume button stays enabled
+            // for a retry — it just shows connected=false until a resume succeeds.
             std::cerr << "Sync resume failed: " << e.what() << "\n";
             res.status = 500; res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
         }
@@ -378,8 +380,9 @@ int main(int argc, char* argv[]) {
         // "available" reflects whether this deployment configured sync at all — it stays
         // true across a pause (client stopped) or a failed resume (client transiently null),
         // so the Resume button never disables itself. "connected" needs a live, running client.
-        bool paused    = syncConfigured && syncPaused.load();
-        bool connected = hasClient && !syncPaused.load();
+        bool isPaused  = syncPaused.load();   // single snapshot — derive both from it
+        bool paused    = syncConfigured && isPaused;
+        bool connected = hasClient && !isPaused;
         res.set_content(json{
             {"available", syncConfigured},
             {"paused", paused},

@@ -243,6 +243,25 @@ int main(int argc, char* argv[]) {
         }
     });
     
+    // POST /sync/reconnect — force an immediate reconnect attempt. The backend calls this on
+    // resume so the client reconnects promptly through the restored proxy instead of waiting
+    // out its backoff. triggerReconnect() is safe on an already-started client. `syncClient`
+    // is a global, so no capture is needed.
+    svr.Post("/sync/reconnect", [](const httplib::Request&, httplib::Response& res) {
+        if (!syncClient) {
+            res.status = 409;
+            res.set_content(json{{"success", false}, {"error", "sync not available"}}.dump(), "application/json");
+            return;
+        }
+        try {
+            syncClient->triggerReconnect();
+            res.set_content(json{{"success", true}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json{{"error", e.what()}}.dump(), "application/json");
+        }
+    });
+
     // Search endpoint
     svr.Post("/search", [](const httplib::Request& req, httplib::Response& res) {
         try {

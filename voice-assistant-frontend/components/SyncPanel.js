@@ -51,7 +51,10 @@ export default function SyncPanel() {
   const cloudCount = cloud.objectbox_telemetry;
   const available = edge.available !== false; // false only when the service reports no sync client
   const connected = !!edge.connected;
-  const buffered = edgeCount != null && cloudCount != null ? Math.max(0, edgeCount - cloudCount) : null;
+  // Authoritative backlog: the ObjectBox client's outgoing-queue depth (writes not yet
+  // acked by the server). Rises while paused, drains on resume — retention-independent,
+  // unlike an edge−cloud count delta.
+  const buffered = edge.buffered != null ? edge.buffered : null;
 
   return (
     <div className="sync-panel">

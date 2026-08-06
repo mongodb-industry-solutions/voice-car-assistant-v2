@@ -16,6 +16,7 @@ import re
 import subprocess
 import tempfile
 import threading
+import time
 import uuid
 
 import requests as http_requests
@@ -36,6 +37,63 @@ VSS_TELEMETRY_API_URL     = os.getenv("VSS_TELEMETRY_API_URL",     "http://local
 
 WHISPER_MODEL    = os.getenv("WHISPER_MODEL", "small")
 WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "en")
+
+# ── Sync proxy (toxiproxy) ──────────────────────────────────────────────────────
+# Offline/online is a NETWORK toggle: a toxiproxy proxy sits in front of the ObjectBox
+# Sync Server, and the C++ clients connect THROUGH it. Disabling the proxy cuts the
+# client↔server link (edge keeps writing locally, nothing reaches Atlas); enabling it
+# lets the clients auto-reconnect and flush their backlog. We drive it from here because
+# the ObjectBox client cannot be paused/resumed in-process — v5.1.0 forbids restarting a
+# started client (start() → "startedOnce") and close()+recreate loses the sync cursor.
+TOXIPROXY_URL       = os.getenv("TOXIPROXY_URL",       "http://localhost:8474")
+SYNC_PROXY_NAME     = os.getenv("SYNC_PROXY_NAME",     "sync")
+SYNC_PROXY_LISTEN   = os.getenv("SYNC_PROXY_LISTEN",   "0.0.0.0:9998")
+SYNC_PROXY_UPSTREAM = os.getenv("SYNC_PROXY_UPSTREAM", "sync-server:9999")
+
+
+def _proxy_get():
+    """Return the toxiproxy 'sync' proxy as a dict, creating it (enabled) if missing.
+    Returns None when toxiproxy is unreachable."""
+    try:
+        r = http_requests.get(f"{TOXIPROXY_URL}/proxies/{SYNC_PROXY_NAME}", timeout=3)
+        if r.status_code == 404:
+            http_requests.post(
+                f"{TOXIPROXY_URL}/proxies",
+                json={"name": SYNC_PROXY_NAME, "listen": SYNC_PROXY_LISTEN,
+                      "upstream": SYNC_PROXY_UPSTREAM, "enabled": True},
+                timeout=3,
+            )
+            r = http_requests.get(f"{TOXIPROXY_URL}/proxies/{SYNC_PROXY_NAME}", timeout=3)
+        return r.json() if r.ok else None
+    except Exception:
+        return None
+
+
+def _proxy_set_enabled(enabled: bool) -> None:
+    """Enable/disable the sync proxy. Disabling closes open connections and stops
+    listening, so the ObjectBox clients disconnect and buffer writes locally."""
+    p = _proxy_get() or {}
+    body = {
+        "name":     SYNC_PROXY_NAME,
+        "listen":   p.get("listen",   SYNC_PROXY_LISTEN),
+        "upstream": p.get("upstream", SYNC_PROXY_UPSTREAM),
+        "enabled":  enabled,
+    }
+    r = http_requests.post(f"{TOXIPROXY_URL}/proxies/{SYNC_PROXY_NAME}", json=body, timeout=5)
+    r.raise_for_status()
+
+
+def _ensure_proxy_loop():
+    """Create the proxy as soon as toxiproxy is reachable so replication works headless
+    (before anyone opens the UI). Idempotent; returns once the proxy exists."""
+    for _ in range(150):  # ~5 min of retries at 2s
+        if _proxy_get() is not None:
+            print("Sync proxy ready", flush=True)
+            return
+        time.sleep(2)
+
+
+threading.Thread(target=_ensure_proxy_loop, daemon=True, name="ensure-sync-proxy").start()
 
 # ── Whisper STT (lazy singleton; model weights baked into the image) ──────────
 _whisper_model = None
@@ -285,12 +343,20 @@ def api_sim_status():
 
 @app.route("/api/sync/state")
 def api_sync_state():
-    """Edge (ObjectBox) sync status + counts, and cloud (Atlas) doc counts — for the live sync panel."""
+    """Edge (ObjectBox) counts + buffered backlog, cloud (Atlas) counts, and the
+    proxy-owned paused/connected flags — for the live sync panel."""
     edge, cloud = {}, {}
     try:
         edge = http_requests.get(f"{VSS_TELEMETRY_SERVICE_URL}/sync/status", timeout=3).json()
     except Exception as e:
         edge = {"error": str(e)}
+    # paused/connected are owned by the proxy layer, not the ObjectBox client (which is
+    # always "started"). Derive them from whether the sync proxy is currently enabled.
+    proxy = _proxy_get()
+    if proxy is not None:
+        enabled = bool(proxy.get("enabled", True))
+        edge["paused"]    = not enabled
+        edge["connected"] = enabled and edge.get("available") is not False
     try:
         cloud = http_requests.get(f"{VSS_TELEMETRY_API_URL}/cloud/counts", timeout=5).json()
     except Exception as e:
@@ -300,22 +366,31 @@ def api_sync_state():
 
 @app.route("/api/sync/pause", methods=["POST"])
 def api_sync_pause():
-    """Really pause ObjectBox replication (edge keeps writing locally; Atlas stops)."""
+    """Go OFFLINE: cut the client↔Sync-Server link at the proxy. The edge keeps writing
+    to its local ObjectBox store; nothing reaches Atlas until resumed."""
     try:
-        r = http_requests.post(f"{VSS_TELEMETRY_SERVICE_URL}/sync/pause", timeout=10)
-        return jsonify(r.json()), r.status_code
+        _proxy_set_enabled(False)
+        return jsonify({"success": True, "paused": True})
     except Exception as e:
-        return jsonify({"error": str(e)}), 503
+        return jsonify({"success": False, "error": str(e)}), 503
 
 
 @app.route("/api/sync/resume", methods=["POST"])
 def api_sync_resume():
-    """Resume replication; the buffered local backlog syncs up to Atlas."""
+    """Go ONLINE: restore the proxy, then nudge the edge client to reconnect immediately
+    (instead of waiting out its backoff) so the buffered backlog flushes up to Atlas."""
     try:
-        r = http_requests.post(f"{VSS_TELEMETRY_SERVICE_URL}/sync/resume", timeout=10)
-        return jsonify(r.json()), r.status_code
+        _proxy_set_enabled(True)
     except Exception as e:
-        return jsonify({"error": str(e)}), 503
+        return jsonify({"success": False, "error": str(e)}), 503
+    # Nudge every sync client to reconnect immediately instead of waiting out its backoff.
+    # Best-effort: any client also auto-reconnects on its own if the request fails.
+    for url in (VSS_TELEMETRY_SERVICE_URL, SEARCH_SERVICE_URL, CONVERSATION_SERVICE_URL):
+        try:
+            http_requests.post(f"{url}/sync/reconnect", timeout=5)
+        except Exception:
+            pass
+    return jsonify({"success": True, "paused": False})
 
 
 @app.route("/api/navigate", methods=["POST"])

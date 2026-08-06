@@ -196,7 +196,7 @@ int main(int argc, char* argv[]) {
             syncClient->start();
             syncRunning = true;
             std::this_thread::sleep_for(std::chrono::seconds(2));
-            std::cout << "✅ Sync client started\n\n";
+            std::cout << "✅ Sync client started (state=" << (int)syncClient->state() << ")\n\n";
         } catch (const std::exception& e) {
             std::cerr << "⚠️  Sync start failed: " << e.what() << "\n\n";
         }
@@ -336,9 +336,16 @@ int main(int argc, char* argv[]) {
         }
         try {
             syncClient->stop();
+            // Fully close (destroy) the client, not just stop() it. A stopped ObjectBox
+            // v5.1.0 SyncClient does not reliably re-login on a later start() — resume
+            // would report success while nothing replicated ("stuck offline"). Destroying
+            // it here frees the store's single-client slot so resume can build a fresh,
+            // guaranteed-connecting client. Local writes continue regardless (the
+            // simulator keeps hitting /vss/snapshot); they flush to Atlas on resume.
+            syncClient.reset();
             syncRunning = false;
             syncPaused = true;
-            std::cout << "⏸  Sync paused\n";
+            std::cout << "⏸  Sync paused (client closed)\n";
             res.set_content(json{{"success", true}, {"paused", true}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500; res.set_content(json{{"error", e.what()}}.dump(), "application/json");
@@ -353,11 +360,12 @@ int main(int argc, char* argv[]) {
                 {"error", "sync not available in this deployment"}}.dump(), "application/json");
             return;
         }
-        // ObjectBox allows only ONE sync client per store for its whole lifetime, so we
-        // must NOT destroy + recreate on resume ("Only one sync client can be active for a
-        // store"). We keep the single client created at startup and just start()/stop() it.
-        // (If a prior failure ever left us with no client, create one — the only time that
-        // slot is actually free.)
+        // ObjectBox allows only one *active* sync client per store AT A TIME — closing one
+        // (pause does syncClient.reset()) frees the slot, so building a fresh client here is
+        // valid and is what actually makes resume reconnect. A stopped-then-restarted client
+        // does not reliably re-login in v5.1.0, so we deliberately rebuild rather than reuse.
+        // After pause, syncClient is null → this create path fires; on the fresh start() the
+        // client logs in and flushes the writes buffered while paused up to Atlas.
         std::lock_guard<std::mutex> lk(syncMutex);
         try {
             if (!syncClient)
@@ -365,12 +373,15 @@ int main(int argc, char* argv[]) {
             syncClient->start();
             syncRunning = true;
             syncPaused = false;
-            std::cout << "▶  Sync resumed\n";
+            std::cout << "▶  Sync resumed (state=" << (int)syncClient->state() << ")\n";
             res.set_content(json{{"success", true}, {"paused", false}}.dump(), "application/json");
         } catch (const std::exception& e) {
             // start() failed: the client is NOT running. syncRunning stays false so status
             // reports connected=false; `available` still reports syncConfigured, so status
             // never collapses to "no sync" and the Resume button stays enabled for a retry.
+            // Release the half-started client so the next resume rebuilds a fresh one rather
+            // than retrying start() on a possibly-DEAD instance.
+            syncClient.reset();
             syncRunning = false;
             std::cerr << "Sync resume failed: " << e.what() << "\n";
             res.status = 500; res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");

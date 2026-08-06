@@ -53,6 +53,13 @@ sidecarContainers:
         value: http://localhost:8087
       - name: VSS_TELEMETRY_API_URL
         value: http://localhost:3002
+      # Sync offline/online lever — toxiproxy control API + the proxy it fronts.
+      - name: TOXIPROXY_URL
+        value: http://localhost:8474
+      - name: SYNC_PROXY_UPSTREAM
+        value: 127.0.0.1:9999
+      - name: SYNC_PROXY_LISTEN
+        value: 0.0.0.0:9998
 
   - name: agent
     image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent:latest
@@ -130,7 +137,7 @@ sidecarContainers:
       - name: PORT
         value: "8083"
       - name: SYNC_SERVER_URL
-        value: ws://localhost:9999
+        value: ws://localhost:9998
     volumeMounts:
       - name: search-data
         mountPath: /app/search-service-db
@@ -141,7 +148,7 @@ sidecarContainers:
       - containerPort: 8081
     env:
       - name: SYNC_SERVER_URL
-        value: ws://localhost:9999
+        value: ws://localhost:9998
     volumeMounts:
       - name: conversation-data
         mountPath: /app/conversation-db
@@ -152,7 +159,7 @@ sidecarContainers:
       - containerPort: 8086
     env:
       - name: SYNC_SERVER_URL
-        value: ws://localhost:9999
+        value: ws://localhost:9998
     volumeMounts:
       - name: vss-data
         mountPath: /app/vss-db
@@ -189,6 +196,19 @@ sidecarContainers:
       - name: objectbox-model
         mountPath: /model
         readOnly: true
+
+  # Index 10 (public image, NOT built/overridden by Drone). The offline/online lever:
+  # the C++ clients reach the Sync Server via ws://localhost:9998 (this proxy → 127.0.0.1:9999).
+  # The backend enables/disables the 'sync' proxy through the :8474 control API.
+  - name: toxiproxy
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    args: ["-host", "0.0.0.0"]
+    ports:
+      - containerPort: 8474
+      - containerPort: 9998
+    resources:
+      requests: { cpu: 25m, memory: 32Mi }
+      limits:   { cpu: 100m, memory: 64Mi }
 
 # Ephemeral stores (rehydrate from Atlas on start) + the model file via ConfigMap.
 # Create the ConfigMap by hand before first deploy; recreate it when the schema changes:

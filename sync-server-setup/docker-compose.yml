@@ -27,6 +27,23 @@ services:
           --mongo-url "mongodb+srv://$${MONGODB_USER}:$${MONGODB_PASS}@$${MONGODB_CLUSTER}/?retryWrites=true&w=majority&tls=true" \
           --mongo-db "$${MONGODB_DATABASE}"
 
+  # ── Toxiproxy — the offline/online lever ────────────────────────────────────────
+  # The C++ sync clients connect to the Sync Server THROUGH this proxy (ws://toxiproxy:9998
+  # → sync-server:9999). The backend enables/disables the 'sync' proxy (created via the
+  # :8474 control API) to simulate going offline: disabled = clients disconnect and buffer
+  # locally; enabled = clients auto-reconnect and flush. -host 0.0.0.0 exposes the control
+  # API to the backend container (it binds localhost only by default).
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    container_name: toxiproxy
+    restart: always
+    command: ["-host", "0.0.0.0"]
+    ports:
+      - "8474:8474"  # control API
+      - "9998:9998"  # proxied sync port (client entrypoint)
+    depends_on:
+      - sync-server
+
   # ── Ollama ────────────────────────────────────────────────────────────────────
   ollama:
     image: ollama/ollama
@@ -75,7 +92,9 @@ services:
     volumes:
       - ./search-service-data:/app/search-service-db
     depends_on:
-      - sync-server
+      - toxiproxy
+    environment:
+      - SYNC_SERVER_URL=ws://toxiproxy:9998
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
       interval: 10s
@@ -93,7 +112,9 @@ services:
     volumes:
       - ./conversation-data:/app/conversation-db
     depends_on:
-      - sync-server
+      - toxiproxy
+    environment:
+      - SYNC_SERVER_URL=ws://toxiproxy:9998
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
       interval: 10s
@@ -191,6 +212,8 @@ services:
         condition: service_started
       langchain-agent-service:
         condition: service_started
+      toxiproxy:
+        condition: service_started
     environment:
       - SEARCH_SERVICE_URL=http://search-service:8080
       - CONVERSATION_SERVICE_URL=http://conversation-service:8081
@@ -199,6 +222,9 @@ services:
       - VSS_TELEMETRY_SERVICE_URL=http://vss-telemetry-service:8086
       - VSS_SIMULATOR_URL=http://vss-telemetry-simulator:8087
       - VSS_TELEMETRY_API_URL=http://vss-telemetry-api:3002
+      - TOXIPROXY_URL=http://toxiproxy:8474
+      - SYNC_PROXY_UPSTREAM=sync-server:9999
+      - SYNC_PROXY_LISTEN=0.0.0.0:9998
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
       interval: 30s
@@ -237,9 +263,9 @@ services:
     volumes:
       - ./vss-telemetry-data:/app/vss-db
     depends_on:
-      - sync-server
+      - toxiproxy
     environment:
-      - SYNC_SERVER_URL=ws://sync-server:9999
+      - SYNC_SERVER_URL=ws://toxiproxy:9998
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8086/health"]
       interval: 30s

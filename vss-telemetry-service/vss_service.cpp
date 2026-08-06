@@ -181,20 +181,15 @@ int main(int argc, char* argv[]) {
     std::cout << "✅ ObjectBox store ready\n";
 
     std::shared_ptr<obx::SyncClient> syncClient;
-    // Captured once at startup: the deployment configured sync AND the linked
-    // ObjectBox build supports it. Resume gates on THIS (not a live re-check) so
-    // that if a client existed at boot, resume always attempts the rebuild and any
-    // real failure surfaces as a 500 with the actual error — never a misleading 409.
+    // Captured once at startup: the deployment configured sync AND the linked ObjectBox
+    // build supports it. `/sync/status` and `/sync/reconnect` gate on this. The client is
+    // started exactly once here and then lives for the whole process — offline/online is
+    // toggled at the network layer (toxiproxy), never by stopping/restarting this client.
     const bool syncConfigured = cfg.enable_sync && obx::Sync::isAvailable();
-    // Real "is the client running" flag: set only after start() succeeds, cleared on
-    // stop()/failure. `connected` in /sync/status derives from THIS (not from syncPaused),
-    // so a failed start() never reports connected=true. Declared here so startup can set it.
-    static std::atomic<bool> syncRunning{false};
     if (syncConfigured) {
         try {
             syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
             syncClient->start();
-            syncRunning = true;
             std::this_thread::sleep_for(std::chrono::seconds(2));
             std::cout << "✅ Sync client started (state=" << (int)syncClient->state() << ")\n\n";
         } catch (const std::exception& e) {
@@ -317,91 +312,44 @@ int main(int argc, char* argv[]) {
         }
     });
 
-    // ── Sync control (demo: really pause/resume replication to the Sync Server) ──
-    // Pausing stops the ObjectBox sync client, so local snapshots keep accumulating
-    // in the on-edge store but do NOT reach the Sync Server / Atlas until resumed —
-    // then the backlog syncs up (the offline-first "buffer then catch-up" story).
-    // `syncPaused` is our own source of truth for status; `syncMutex` guards every
-    // access to `syncClient` because cpp-httplib serves requests on multiple threads
-    // and resume reassigns the shared_ptr (unsynchronized read/write would be a data race).
-    static std::atomic<bool> syncPaused{false};
+    // ── Sync control ────────────────────────────────────────────────────────────
+    // Offline/online is driven at the NETWORK layer — a toggleable proxy (toxiproxy) sits
+    // in front of the Sync Server — NOT by stopping this client. ObjectBox v5.1.0 forbids
+    // restarting a client (start() throws "startedOnce: State condition failed") and
+    // close()+recreate loses the sync cursor (the server then replays its whole dataset →
+    // local wipe + full re-download). So the client stays up for the entire process
+    // lifetime; when the proxy cuts the connection it buffers local writes in its outgoing
+    // queue and auto-reconnects once the proxy is restored. `syncMutex` guards `syncClient`
+    // because cpp-httplib serves requests on multiple threads.
     static std::mutex syncMutex;
-    svr.Post("/sync/pause", [&](const Request&, Response& res) {
+    // POST /sync/reconnect → force an immediate reconnect attempt. After the proxy is
+    // re-enabled the client would otherwise wait out its increasing backoff; triggerReconnect()
+    // reconnects promptly. It is allowed on an already-started client (unlike start(), it does
+    // not trip the startedOnce guard), so it's safe to call any time.
+    svr.Post("/sync/reconnect", [&](const Request&, Response& res) {
         std::lock_guard<std::mutex> lk(syncMutex);
         if (!syncClient) {
-            res.status = 409;
-            res.set_content(json{{"success", false}, {"available", false},
-                {"error", "sync not available — nothing to pause"}}.dump(), "application/json");
-            return;
-        }
-        try {
-            // stop() is the reversible pause: it disconnects but keeps the client (and its
-            // sync cursor) intact so resume can start() the SAME object. We must NOT close()/
-            // reset() the client — close() is terminal ("can no longer be used afterwards"),
-            // and a fresh client re-logs-in without the cursor, making the server replay its
-            // whole dataset (local wipe + full re-download, losing buffered writes).
-            // While stopped, local snapshots queue in the outgoing sync queue and flush on resume.
-            syncClient->stop();
-            syncRunning = false;
-            syncPaused = true;
-            std::cout << "⏸  Sync paused (buffered=" << syncClient->outgoingMessageCount() << ")\n";
-            res.set_content(json{{"success", true}, {"paused", true}}.dump(), "application/json");
-        } catch (const std::exception& e) {
-            res.status = 500; res.set_content(json{{"error", e.what()}}.dump(), "application/json");
-        }
-    });
-    svr.Post("/sync/resume", [&](const Request&, Response& res) {
-        // Only resume if sync was actually configured/available — don't fabricate a
-        // client where the deployment never intended one.
-        if (!syncConfigured) {
             res.status = 409;
             res.set_content(json{{"success", false}, {"available", false},
                 {"error", "sync not available in this deployment"}}.dump(), "application/json");
             return;
         }
-        // Resume the SAME client that pause stopped (its sync cursor is intact, so this is an
-        // incremental delta sync — buffered local writes flush UP, no full re-download).
-        // The `if (!syncClient)` create path is only a genuine fallback for the case where the
-        // client failed to build at boot; a normal pause leaves the object alive.
-        // start() returns immediately and reconnection uses an increasing backoff, so a bare
-        // start() can sit idle and look "stuck offline". triggerReconnect() forces an immediate
-        // connection attempt, which is what actually brings replication back promptly.
-        std::lock_guard<std::mutex> lk(syncMutex);
         try {
-            if (!syncClient)
-                syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
-            syncClient->start();
             syncClient->triggerReconnect();
-            syncRunning = true;
-            syncPaused = false;
-            // Give the background reconnect a moment so the logged state is meaningful.
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-            std::cout << "▶  Sync resumed (state=" << (int)syncClient->state()
+            std::cout << "🔁 Sync reconnect triggered (state=" << (int)syncClient->state()
                       << ", buffered=" << syncClient->outgoingMessageCount() << ")\n";
-            res.set_content(json{{"success", true}, {"paused", false}}.dump(), "application/json");
+            res.set_content(json{{"success", true}}.dump(), "application/json");
         } catch (const std::exception& e) {
-            // start() failed: the client is NOT running. syncRunning stays false so status
-            // reports connected=false; `available` still reports syncConfigured, so status
-            // never collapses to "no sync" and the Resume button stays enabled for a retry.
-            // Do NOT close/reset here — the (still-usable) client can be started again.
-            syncRunning = false;
-            std::cerr << "Sync resume failed: " << e.what() << "\n";
-            res.status = 500; res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+            res.status = 500; res.set_content(json{{"error", e.what()}}.dump(), "application/json");
         }
     });
-    // GET /sync/status → { available, paused, connected, local_count }
+    // GET /sync/status → { available, local_count, buffered, sync_state }
     svr.Get("/sync/status", [&](const Request&, Response& res) {
-        // "available" reflects whether this deployment configured sync at all — it stays
-        // true across a pause (client stopped) or a failed resume, so the Resume button
-        // never disables itself. "connected" derives from syncRunning, the real started
-        // state (only true after a successful start()), so a failed start() never reports
-        // connected=true even though syncPaused may still be false.
-        bool paused    = syncConfigured && syncPaused.load();
-        bool connected = syncRunning.load();
-        // buffered = messages in the outgoing queue waiting to reach the server. This is the
-        // authoritative "not yet in Atlas" backlog and rises while paused, drains on resume.
-        // sync_state is the live OBXSyncState (LOGGED_IN=connected). Guard syncClient with the
-        // same mutex resume uses, since resume may (in the fallback case) reassign it.
+        // available = did this deployment configure sync at all. buffered = outgoing-queue
+        // depth (writes not yet acknowledged by the server) — rises while the proxy is cut,
+        // drains on reconnect; this is the authoritative "not yet in Atlas" backlog.
+        // sync_state = live OBXSyncState (diagnostic). The user-facing paused/connected flags
+        // are owned by the proxy layer and are added by the backend (/api/sync/state).
         int64_t buffered = 0;
         int sync_state   = 0;
         {
@@ -413,8 +361,6 @@ int main(int argc, char* argv[]) {
         }
         res.set_content(json{
             {"available", syncConfigured},
-            {"paused", paused},
-            {"connected", connected},
             {"local_count", (int64_t)obt_box.count()},
             {"buffered", buffered},
             {"sync_state", sync_state}

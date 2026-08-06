@@ -335,17 +335,16 @@ int main(int argc, char* argv[]) {
             return;
         }
         try {
+            // stop() is the reversible pause: it disconnects but keeps the client (and its
+            // sync cursor) intact so resume can start() the SAME object. We must NOT close()/
+            // reset() the client — close() is terminal ("can no longer be used afterwards"),
+            // and a fresh client re-logs-in without the cursor, making the server replay its
+            // whole dataset (local wipe + full re-download, losing buffered writes).
+            // While stopped, local snapshots queue in the outgoing sync queue and flush on resume.
             syncClient->stop();
-            // Fully close (destroy) the client, not just stop() it. A stopped ObjectBox
-            // v5.1.0 SyncClient does not reliably re-login on a later start() — resume
-            // would report success while nothing replicated ("stuck offline"). Destroying
-            // it here frees the store's single-client slot so resume can build a fresh,
-            // guaranteed-connecting client. Local writes continue regardless (the
-            // simulator keeps hitting /vss/snapshot); they flush to Atlas on resume.
-            syncClient.reset();
             syncRunning = false;
             syncPaused = true;
-            std::cout << "⏸  Sync paused (client closed)\n";
+            std::cout << "⏸  Sync paused (buffered=" << syncClient->outgoingMessageCount() << ")\n";
             res.set_content(json{{"success", true}, {"paused", true}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500; res.set_content(json{{"error", e.what()}}.dump(), "application/json");
@@ -360,28 +359,31 @@ int main(int argc, char* argv[]) {
                 {"error", "sync not available in this deployment"}}.dump(), "application/json");
             return;
         }
-        // ObjectBox allows only one *active* sync client per store AT A TIME — closing one
-        // (pause does syncClient.reset()) frees the slot, so building a fresh client here is
-        // valid and is what actually makes resume reconnect. A stopped-then-restarted client
-        // does not reliably re-login in v5.1.0, so we deliberately rebuild rather than reuse.
-        // After pause, syncClient is null → this create path fires; on the fresh start() the
-        // client logs in and flushes the writes buffered while paused up to Atlas.
+        // Resume the SAME client that pause stopped (its sync cursor is intact, so this is an
+        // incremental delta sync — buffered local writes flush UP, no full re-download).
+        // The `if (!syncClient)` create path is only a genuine fallback for the case where the
+        // client failed to build at boot; a normal pause leaves the object alive.
+        // start() returns immediately and reconnection uses an increasing backoff, so a bare
+        // start() can sit idle and look "stuck offline". triggerReconnect() forces an immediate
+        // connection attempt, which is what actually brings replication back promptly.
         std::lock_guard<std::mutex> lk(syncMutex);
         try {
             if (!syncClient)
                 syncClient = obx::Sync::client(*store, cfg.sync_server_url, obx::SyncCredentials::none());
             syncClient->start();
+            syncClient->triggerReconnect();
             syncRunning = true;
             syncPaused = false;
-            std::cout << "▶  Sync resumed (state=" << (int)syncClient->state() << ")\n";
+            // Give the background reconnect a moment so the logged state is meaningful.
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            std::cout << "▶  Sync resumed (state=" << (int)syncClient->state()
+                      << ", buffered=" << syncClient->outgoingMessageCount() << ")\n";
             res.set_content(json{{"success", true}, {"paused", false}}.dump(), "application/json");
         } catch (const std::exception& e) {
             // start() failed: the client is NOT running. syncRunning stays false so status
             // reports connected=false; `available` still reports syncConfigured, so status
             // never collapses to "no sync" and the Resume button stays enabled for a retry.
-            // Release the half-started client so the next resume rebuilds a fresh one rather
-            // than retrying start() on a possibly-DEAD instance.
-            syncClient.reset();
+            // Do NOT close/reset here — the (still-usable) client can be started again.
             syncRunning = false;
             std::cerr << "Sync resume failed: " << e.what() << "\n";
             res.status = 500; res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
@@ -396,11 +398,26 @@ int main(int argc, char* argv[]) {
         // connected=true even though syncPaused may still be false.
         bool paused    = syncConfigured && syncPaused.load();
         bool connected = syncRunning.load();
+        // buffered = messages in the outgoing queue waiting to reach the server. This is the
+        // authoritative "not yet in Atlas" backlog and rises while paused, drains on resume.
+        // sync_state is the live OBXSyncState (LOGGED_IN=connected). Guard syncClient with the
+        // same mutex resume uses, since resume may (in the fallback case) reassign it.
+        int64_t buffered = 0;
+        int sync_state   = 0;
+        {
+            std::lock_guard<std::mutex> lk(syncMutex);
+            if (syncClient) {
+                buffered   = (int64_t)syncClient->outgoingMessageCount();
+                sync_state = (int)syncClient->state();
+            }
+        }
         res.set_content(json{
             {"available", syncConfigured},
             {"paused", paused},
             {"connected", connected},
-            {"local_count", (int64_t)obt_box.count()}
+            {"local_count", (int64_t)obt_box.count()},
+            {"buffered", buffered},
+            {"sync_state", sync_state}
         }.dump(), "application/json");
     });
     // GET /vss/count → local objectbox_telemetry row count (edge side of the sync)

@@ -246,12 +246,9 @@ export default function Cockpit() {
     try { localStorage.setItem("vca_tour_done", "1"); } catch {}
   }, []);
 
-  // DTC catalog + stats + geolocation (once)
+  // DTC catalog + geolocation (once)
   useEffect(() => {
     fetch("/dtc_catalog.json").then((r) => (r.ok ? r.json() : {})).then((c) => { dtcCatalogRef.current = c || {}; }).catch(() => {});
-    fetch("/api/stats").then((r) => r.json()).then((d) => {
-      if (d.chunk_count !== undefined) setChunkCount(Number(d.chunk_count).toLocaleString());
-    }).catch(() => {});
     if (navigator.geolocation) {
       navigator.geolocation.watchPosition(
         (pos) => { coordsRef.current = { lat: pos.coords.latitude, lon: pos.coords.longitude }; },
@@ -259,6 +256,25 @@ export default function Cockpit() {
         { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
       );
     }
+  }, []);
+
+  // Manual chunk count — poll until populated. Chunks stream into the local store via
+  // sync (rehydrated from Atlas), so the first fetch at load often sees 0 before the edge
+  // store has finished syncing; keep polling until a non-zero count settles.
+  useEffect(() => {
+    let id;
+    const fetchStats = async () => {
+      try {
+        const d = await (await fetch("/api/stats")).json();
+        if (d.chunk_count !== undefined) {
+          setChunkCount(Number(d.chunk_count).toLocaleString());
+          if (Number(d.chunk_count) > 0 && id) clearInterval(id); // settled — stop polling
+        }
+      } catch {}
+    };
+    fetchStats();
+    id = setInterval(fetchStats, 5000);
+    return () => clearInterval(id);
   }, []);
 
   // Telemetry poll

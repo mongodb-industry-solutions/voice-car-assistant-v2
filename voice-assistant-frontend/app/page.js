@@ -236,14 +236,15 @@ export default function Cockpit() {
     return () => clearInterval(id);
   }, []);
 
-  // First-run guided tour (once per browser)
+  // First-run guided tour — gated on sessionStorage (per tab/session), so it shows again
+  // in a new tab or a fresh browser session, but stays dismissed on reloads of this tab.
   useEffect(() => {
-    try { if (!localStorage.getItem("vca_tour_done")) setRunTour(true); } catch {}
+    try { if (!sessionStorage.getItem("vca_tour_done")) setRunTour(true); } catch {}
   }, []);
 
   const endTour = useCallback(() => {
     setRunTour(false);
-    try { localStorage.setItem("vca_tour_done", "1"); } catch {}
+    try { sessionStorage.setItem("vca_tour_done", "1"); } catch {}
   }, []);
 
   // DTC catalog + geolocation (once)

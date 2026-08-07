@@ -263,19 +263,26 @@ export default function Cockpit() {
   // sync (rehydrated from Atlas), so the first fetch at load often sees 0 before the edge
   // store has finished syncing; keep polling until a non-zero count settles.
   useEffect(() => {
-    let id;
-    const fetchStats = async () => {
+    let cancelled = false;
+    let timer = null;
+    // Self-scheduling loop: the next poll is only queued after the current request
+    // finishes (no overlap if /api/stats is slow), and we stop as soon as the count
+    // is positive. `cancelled` guards against a late response after unmount.
+    const poll = async () => {
       try {
         const d = await (await fetch("/api/stats")).json();
+        if (cancelled) return;
         if (d.chunk_count !== undefined) {
           setChunkCount(Number(d.chunk_count).toLocaleString());
-          if (Number(d.chunk_count) > 0 && id) clearInterval(id); // settled — stop polling
+          if (Number(d.chunk_count) > 0) return; // settled — don't reschedule
         }
-      } catch {}
+      } catch {
+        if (cancelled) return;
+      }
+      timer = setTimeout(poll, 5000);
     };
-    fetchStats();
-    id = setInterval(fetchStats, 5000);
-    return () => clearInterval(id);
+    poll();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, []);
 
   // Telemetry poll

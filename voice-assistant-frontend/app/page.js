@@ -204,6 +204,11 @@ export default function Cockpit() {
   const [runTour, setRunTour] = useState(false);
 
   const messagesRef = useRef(null);
+  // Stable conversation identity for the session — captured from the backend's `meta`
+  // event on the first turn and re-sent on every subsequent request so the agent's
+  // per-conversation memory (thread_id = conversation_id) actually carries context.
+  const conversationIdRef = useRef(null);
+  const userIdRef = useRef(null);
   const coordsRef = useRef({ lat: null, lon: null });
   const dtcCatalogRef = useRef({});
   const onlineRef = useRef(true);
@@ -373,7 +378,7 @@ export default function Cockpit() {
       const resp = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, network_mode: onlineRef.current ? "online" : "offline", lat: coordsRef.current.lat, lon: coordsRef.current.lon }),
+        body: JSON.stringify({ message: text, network_mode: onlineRef.current ? "online" : "offline", lat: coordsRef.current.lat, lon: coordsRef.current.lon, conversation_id: conversationIdRef.current, user_id: userIdRef.current }),
       });
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -389,7 +394,12 @@ export default function Cockpit() {
           if (!line) continue;
           let event;
           try { event = JSON.parse(line.slice(6)); } catch { continue; }
-          if (event.token) { acc += event.token; setStreaming({ text: acc }); }
+          if (event.meta) {
+            // Adopt the backend-resolved ids so later turns reuse the same thread (memory).
+            if (event.meta.conversation_id) conversationIdRef.current = event.meta.conversation_id;
+            if (event.meta.user_id) userIdRef.current = event.meta.user_id;
+          }
+          else if (event.token) { acc += event.token; setStreaming({ text: acc }); }
           else if ("status" in event) { setStatusText(event.status || ""); }
           else if (event.done) { done = event; }
           else if (event.error) { acc = "⚠️ " + event.error; }

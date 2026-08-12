@@ -233,6 +233,10 @@ export default function Cockpit() {
       .catch(() => setOnline(!next));                   // roll back on network error
   };
 
+  // The Sync & Data panel's own Pause/Resume button changes sync directly; mirror that
+  // back into the header online/offline state (paused → offline) so the two never disagree.
+  const handleSyncPaused = useCallback((paused) => setOnline(!paused), []);
+
   // Clock
   useEffect(() => {
     const t = () => setClock(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }));
@@ -611,7 +615,7 @@ export default function Cockpit() {
               <button className="overlay-close" onClick={() => setSceneOpen(false)}>✕</button>
             </div>
             <div className="scene-body">
-              <SyncPanel />
+              <SyncPanel onPausedChange={handleSyncPaused} />
               <DataModelPanel />
             </div>
           </div>

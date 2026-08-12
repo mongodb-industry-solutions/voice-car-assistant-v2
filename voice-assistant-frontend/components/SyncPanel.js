@@ -10,12 +10,16 @@ const STAGES = [
   { icon: "⚙️", label: "Atlas trigger", sub: "telemetry-data / -status" },
 ];
 
-export default function SyncPanel() {
+export default function SyncPanel({ onPausedChange }) {
   const [state, setState] = useState(null);
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [flow, setFlow] = useState(false);
   const prevEdge = useRef(null);
+  // Track the last reported paused state so the parent (home page online/offline) is
+  // notified only when it actually flips, whether the change came from this panel's
+  // button or from the header toggle.
+  const prevPaused = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +34,12 @@ export default function SyncPanel() {
           setTimeout(() => setFlow(false), 800);
         }
         prevEdge.current = ec;
-        setPaused(!!d?.edge?.paused);
+        const p = !!d?.edge?.paused;
+        setPaused(p);
+        if (prevPaused.current !== p) {
+          prevPaused.current = p;
+          onPausedChange?.(p);   // keep the home page online/offline in sync with real state
+        }
       } catch {}
     };
     tick();

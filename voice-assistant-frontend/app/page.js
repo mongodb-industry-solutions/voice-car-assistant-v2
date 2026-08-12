@@ -215,6 +215,7 @@ export default function Cockpit() {
   const dtcCatalogRef = useRef({});
   const onlineRef = useRef(true);
   const audioRef = useRef(null);
+  const audioUrlRef = useRef(null); // object URL of the audio currently loaded, so it can be revoked on stop/replace
   const mediaRef = useRef(null);
   const mapRef = useRef(null);
   const leafletRef = useRef(null);
@@ -330,8 +331,11 @@ export default function Cockpit() {
     if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
   }, [messages, streaming]);
 
+  // Stop playback and free the current object URL. Revoking here (not only in onended)
+  // prevents a blob-URL leak when playback is interrupted before it finishes.
   const stopTts = useCallback(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
     setSpeakingId(null);
   }, []);
 
@@ -340,18 +344,24 @@ export default function Cockpit() {
   const playTts = useCallback(async (text, id = null) => {
     if (!text) return;
     try {
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      stopTts(); // release any audio (and its object URL) already loaded
       setSpeakingId(id);
       const resp = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
       if (!resp.ok) { setSpeakingId(null); return; }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); audioRef.current = null; setSpeakingId(null); };
-      audio.play().catch(() => { setSpeakingId(null); });
+      const release = () => {
+        URL.revokeObjectURL(url);
+        if (audioUrlRef.current === url) audioUrlRef.current = null;
+        if (audioRef.current === audio) audioRef.current = null;
+      };
+      audio.onended = () => { release(); setSpeakingId(null); };
+      audio.play().catch(() => { release(); setSpeakingId(null); });
     } catch { setSpeakingId(null); }
-  }, []);
+  }, [stopTts]);
 
   const openMap = useCallback(async (route) => {
     setNavRoute(route);

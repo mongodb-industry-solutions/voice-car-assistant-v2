@@ -255,6 +255,16 @@ body.offline-mode::after {
 }
 .message-time { font-size: 0.58rem; color: var(--text-3); padding: 0 0.3rem; letter-spacing: 0.04em; }
 
+/* Per-message read-aloud control */
+.message-meta { display: flex; align-items: center; gap: 0.3rem; }
+.tts-btn {
+    background: none; border: none; cursor: pointer; padding: 0.1rem 0.25rem;
+    font-size: 0.8rem; line-height: 1; border-radius: 6px; opacity: 0.6;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+.tts-btn:hover { opacity: 1; background: rgba(255,255,255,0.06); }
+.tts-btn.speaking { opacity: 1; color: var(--green, #00ED64); }
+
 .user-message { align-self: flex-end; flex-direction: row-reverse; }
 .user-message .message-avatar { background: radial-gradient(circle at 40% 35%, rgba(0,237,100,0.3), rgba(0,237,100,0.08)); }
 .user-message .message-text {

@@ -576,12 +576,42 @@ def _local_chassis() -> str:
     )
 
 
+# DTC catalog for OFFLINE code→description translation. Mirrors vss-telemetry-api's
+# describeDtc: exact catalog match → category by first letter → "Unknown fault code".
+# The catalog file is baked into the image (COPY . .); regenerate from values-vss-data.md
+# via vss-telemetry-simulator/gen_vss_spec.py and keep the copies in sync.
+_DTC_CATEGORY = {
+    "P": "Powertrain (engine, transmission, emissions)",
+    "C": "Chassis (brakes, steering, suspension, ABS)",
+    "B": "Body (airbags, climate, seats, lighting)",
+    "U": "Network / communication",
+}
+
+
+def _load_dtc_catalog() -> dict:
+    path = os.getenv("DTC_CATALOG_PATH", os.path.join(os.path.dirname(__file__), "dtc_catalog.json"))
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[dtc] catalog load failed ({path}): {e}", flush=True)
+        return {}
+
+
+_DTC_CATALOG = _load_dtc_catalog()
+
+
+def _describe_dtc(code) -> str:
+    return _DTC_CATALOG.get(str(code)) or _DTC_CATEGORY.get(str(code)[:1], "Unknown fault code")
+
+
 def _local_diagnostics() -> str:
     d = _local_snapshot()
     codes = (_vpick(d, "Diagnostics") or {}).get("DTCList") or []
     if not codes:
         return "Diagnostics (live, on-edge): no active fault codes."
-    return f"Diagnostics (live, on-edge): {len(codes)} active fault code(s): {', '.join(map(str, codes))}."
+    described = "; ".join(f"{c} — {_describe_dtc(c)}" for c in codes)
+    return f"Diagnostics (live, on-edge): {len(codes)} active fault code(s): {described}."
 
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────

@@ -186,9 +186,10 @@ const now = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minu
 
 export default function Cockpit() {
   const [messages, setMessages] = useState([
-    { role: "assistant", text: "Welcome aboard. Ask me about your vehicle's status, a warning light, or say \"take me to the nearest charging station\" — I'll handle it.", time: "Just now" },
+    { id: 0, role: "assistant", text: "Welcome aboard. Ask me about your vehicle's status, a warning light, or say \"take me to the nearest charging station\" — I'll handle it.", time: "Just now" },
   ]);
   const [streaming, setStreaming] = useState(null); // {text}
+  const [speakingId, setSpeakingId] = useState(null); // id of the message currently read aloud
   const [statusText, setStatusText] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
@@ -204,6 +205,7 @@ export default function Cockpit() {
   const [runTour, setRunTour] = useState(false);
 
   const messagesRef = useRef(null);
+  const msgIdRef = useRef(1); // monotonic message id; 0 is the welcome message
   // Stable conversation identity for the session — captured from the backend's `meta`
   // event on the first turn and re-sent on every subsequent request so the agent's
   // per-conversation memory (thread_id = conversation_id) actually carries context.
@@ -213,6 +215,7 @@ export default function Cockpit() {
   const dtcCatalogRef = useRef({});
   const onlineRef = useRef(true);
   const audioRef = useRef(null);
+  const audioUrlRef = useRef(null); // object URL of the audio currently loaded, so it can be revoked on stop/replace
   const mediaRef = useRef(null);
   const mapRef = useRef(null);
   const leafletRef = useRef(null);
@@ -328,20 +331,37 @@ export default function Cockpit() {
     if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
   }, [messages, streaming]);
 
-  const playTts = useCallback(async (text) => {
+  // Stop playback and free the current object URL. Revoking here (not only in onended)
+  // prevents a blob-URL leak when playback is interrupted before it finishes.
+  const stopTts = useCallback(() => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
+    setSpeakingId(null);
+  }, []);
+
+  // Speak `text`, tagging the playing audio with `id` so a message can show a Stop
+  // control and the button state stays in sync when playback ends or is interrupted.
+  const playTts = useCallback(async (text, id = null) => {
     if (!text) return;
     try {
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      stopTts(); // release any audio (and its object URL) already loaded
+      setSpeakingId(id);
       const resp = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
-      if (!resp.ok) return;
+      if (!resp.ok) { setSpeakingId(null); return; }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); audioRef.current = null; };
-      audio.play().catch(() => {});
-    } catch {}
-  }, []);
+      const release = () => {
+        URL.revokeObjectURL(url);
+        if (audioUrlRef.current === url) audioUrlRef.current = null;
+        if (audioRef.current === audio) audioRef.current = null;
+      };
+      audio.onended = () => { release(); setSpeakingId(null); };
+      audio.play().catch(() => { release(); setSpeakingId(null); });
+    } catch { setSpeakingId(null); }
+  }, [stopTts]);
 
   const openMap = useCallback(async (route) => {
     setNavRoute(route);
@@ -370,8 +390,8 @@ export default function Cockpit() {
   const sendMessage = useCallback(async (text) => {
     text = (text || "").trim();
     if (!text || busy) return;
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-    setMessages((m) => [...m, { role: "user", text, time: now() }]);
+    stopTts();
+    setMessages((m) => [...m, { id: msgIdRef.current++, role: "user", text, time: now() }]);
     setStreaming({ text: "" });
     setBusy(true);
     setStatusText("");
@@ -418,11 +438,12 @@ export default function Cockpit() {
     const sources = (done && done.sources) || [];
     setStreaming(null);
     setStatusText("");
-    setMessages((m) => [...m, { role: "assistant", text: answer, tools, sources, time: now() }]);
+    const assistantId = msgIdRef.current++;
+    setMessages((m) => [...m, { id: assistantId, role: "assistant", text: answer, tools, sources, time: now() }]);
     setBusy(false);
     if (done && done.navigation) openMap(done.navigation);
-    playTts(answer);
-  }, [busy, openMap, playTts]);
+    playTts(answer, assistantId);
+  }, [busy, openMap, playTts, stopTts]);
 
   // ── Mic (MediaRecorder → /api/stt) ────────────────────────────────────────────
   const toggleMic = useCallback(async () => {
@@ -431,7 +452,7 @@ export default function Cockpit() {
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
-      setMessages((m) => [...m, { role: "assistant", text: "Microphone is not available in this browser.", time: now() }]);
+      setMessages((m) => [...m, { id: msgIdRef.current++, role: "assistant", text: "Microphone is not available in this browser.", time: now() }]);
       return;
     }
     try {
@@ -459,7 +480,7 @@ export default function Cockpit() {
       setStatusText("🎤 Listening…");
     } catch {
       setListening(false);
-      setMessages((m) => [...m, { role: "assistant", text: "Microphone access was denied. You can type your message below.", time: now() }]);
+      setMessages((m) => [...m, { id: msgIdRef.current++, role: "assistant", text: "Microphone access was denied. You can type your message below.", time: now() }]);
     }
   }, [listening, sendMessage]);
 
@@ -532,8 +553,14 @@ export default function Cockpit() {
           </div>
 
           <div className="chat-messages" ref={messagesRef}>
-            {messages.map((m, i) => (
-              <Message key={i} m={m} />
+            {messages.map((m) => (
+              <Message
+                key={m.id}
+                m={m}
+                speaking={speakingId === m.id}
+                onSpeak={() => playTts(m.text, m.id)}
+                onStop={stopTts}
+              />
             ))}
             {streaming && (
               <div className="message assistant-message thinking-bubble">
@@ -627,7 +654,7 @@ export default function Cockpit() {
   );
 }
 
-function Message({ m }) {
+function Message({ m, onSpeak, onStop, speaking }) {
   const isUser = m.role === "user";
   return (
     <div className={`message ${isUser ? "user-message" : "assistant-message"}`}>
@@ -657,7 +684,20 @@ function Message({ m }) {
             })}
           </div>
         )}
-        <div className="message-time">{m.time}</div>
+        <div className="message-meta">
+          {!isUser && (
+            <button
+              type="button"
+              className={`tts-btn${speaking ? " speaking" : ""}`}
+              onClick={speaking ? onStop : onSpeak}
+              title={speaking ? "Stop reading" : "Read aloud"}
+              aria-label={speaking ? "Stop reading" : "Read aloud"}
+            >
+              {speaking ? "⏹" : "🔊"}
+            </button>
+          )}
+          <span className="message-time">{m.time}</span>
+        </div>
       </div>
     </div>
   );

@@ -263,7 +263,7 @@ body.offline-mode::after {
     transition: opacity 0.15s ease, background 0.15s ease;
 }
 .tts-btn:hover { opacity: 1; background: rgba(255,255,255,0.06); }
-.tts-btn.speaking { opacity: 1; color: var(--green, #00ED64); }
+.tts-btn.speaking { opacity: 1; }
 
 .user-message { align-self: flex-end; flex-direction: row-reverse; }
 .user-message .message-avatar { background: radial-gradient(circle at 40% 35%, rgba(0,237,100,0.3), rgba(0,237,100,0.08)); }

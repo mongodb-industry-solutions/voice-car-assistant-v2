@@ -215,6 +215,7 @@ def chat_stream():
     user_id         = data.get("user_id") or str(uuid.uuid4())
     lat, lon        = data.get("lat"), data.get("lon")
     network_mode    = data.get("network_mode", "offline")
+    vehicle_id      = data.get("vehicle_id")  # per-session vehicle; agent defaults if None
 
     def generate():
         # Echo the resolved ids so a fresh client can adopt them.
@@ -224,7 +225,8 @@ def chat_stream():
             resp = http_requests.post(
                 f"{AGENT_SERVICE_URL}/agent/chat/stream",
                 json={"message": message, "conversation_id": conversation_id,
-                      "lat": lat, "lon": lon, "network_mode": network_mode},
+                      "lat": lat, "lon": lon, "network_mode": network_mode,
+                      "vehicle_id": vehicle_id},
                 stream=True, timeout=180,
             )
             resp.raise_for_status()
@@ -300,7 +302,8 @@ def tts():
 @app.route("/api/vss/latest")
 def api_vss_latest():
     try:
-        resp = http_requests.get(f"{VSS_TELEMETRY_SERVICE_URL}/vss/latest", timeout=3)
+        # Forward query params (vehicleId for the per-session vehicle, plus any cache-buster).
+        resp = http_requests.get(f"{VSS_TELEMETRY_SERVICE_URL}/vss/latest", params=request.args, timeout=3)
         return jsonify(resp.json()), resp.status_code
     except http_requests.exceptions.ConnectionError:
         return jsonify({"error": "VSS telemetry service unavailable"}), 503
@@ -322,7 +325,7 @@ def api_sim_start():
 @app.route("/api/vss/simulator/stop", methods=["POST"])
 def api_sim_stop():
     try:
-        resp = http_requests.post(f"{VSS_SIMULATOR_URL}/simulator/stop", timeout=10)
+        resp = http_requests.post(f"{VSS_SIMULATOR_URL}/simulator/stop", json=request.get_json(silent=True) or {}, timeout=10)
         return jsonify(resp.json()), resp.status_code
     except http_requests.exceptions.ConnectionError:
         return jsonify({"error": "VSS simulator unavailable"}), 503
@@ -333,7 +336,7 @@ def api_sim_stop():
 @app.route("/api/vss/simulator/status")
 def api_sim_status():
     try:
-        resp = http_requests.get(f"{VSS_SIMULATOR_URL}/simulator/status", timeout=3)
+        resp = http_requests.get(f"{VSS_SIMULATOR_URL}/simulator/status", params=request.args, timeout=3)
         return jsonify(resp.json()), resp.status_code
     except http_requests.exceptions.ConnectionError:
         return jsonify({"error": "VSS simulator unavailable", "running": False}), 503

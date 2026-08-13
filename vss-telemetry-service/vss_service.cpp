@@ -254,10 +254,13 @@ int main(int argc, char* argv[]) {
 
     // ── GET /vss/latest ─────────────────────────────────────────────────────────
     // Newest snapshot: domains (from `data`) + `meta`. Served from local ObjectBox → offline-capable.
-    svr.Get("/vss/latest", [&](const Request&, Response& res) {
+    svr.Get("/vss/latest", [&](const Request& req, Response& res) {
         try {
+            // Optional ?vehicleId= selects a per-session vehicle; default keeps single-vehicle behaviour.
+            std::string vid = req.get_param_value("vehicleId");
+            if (vid.empty()) vid = VEHICLE_ID;
             json out = json::object();
-            if (auto r = obt_box.query(ObxTelemetry_::vehicleId.equals(VEHICLE_ID))
+            if (auto r = obt_box.query(ObxTelemetry_::vehicleId.equals(vid))
                     .order(ObxTelemetry_::ts, OBXOrderFlags_DESCENDING).build().findFirst()) {
                 try { out = json::parse(r->data); } catch (...) { out = json::object(); }
                 out["ts"] = r->ts;
@@ -265,7 +268,7 @@ int main(int argc, char* argv[]) {
                     try { out["meta"] = json::parse(r->meta); } catch (...) {}
                 }
             }
-            out["vehicle_id"] = VEHICLE_ID;
+            out["vehicle_id"] = vid;
             res.set_content(out.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
@@ -278,10 +281,12 @@ int main(int argc, char* argv[]) {
     // dropped for now; revisit alongside the agent tools.
     svr.Get("/vss/history", [&](const Request& req, Response& res) {
         try {
+            std::string vid = req.get_param_value("vehicleId");
+            if (vid.empty()) vid = VEHICLE_ID;
             int mins = std::stoi(req.get_param_value("minutes").empty() ? "10" : req.get_param_value("minutes"));
             int64_t cutoff = now_ms() - (int64_t)mins * 60 * 1000;
             auto rows = obt_box.query(
-                ObxTelemetry_::vehicleId.equals(VEHICLE_ID) &&
+                ObxTelemetry_::vehicleId.equals(vid) &&
                 ObxTelemetry_::ts.greaterOrEq(cutoff))
                 .order(ObxTelemetry_::ts, OBXOrderFlags_DESCENDING).build().find();
             json arr = json::array();

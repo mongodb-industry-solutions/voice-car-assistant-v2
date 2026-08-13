@@ -17,6 +17,14 @@ const DATABASE_NAME = process.env.DATABASE_NAME || "";
 const PORT          = parseInt(process.env.PORT  || "3002", 10);
 const VEHICLE_ID    = process.env.VEHICLE_ID    || "VSS-DEMO-VIN-001";
 
+// vehicleId is caller-controlled and goes into a Mongo query filter. Coerce to a string
+// and allowlist it, so a non-string like { "$ne": "" } cannot become a selector operator
+// (NoSQL injection). Anything invalid falls back to the default vehicle.
+const VEHICLE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+function safeVehicleId(v) {
+  return typeof v === "string" && VEHICLE_ID_RE.test(v) ? v : VEHICLE_ID;
+}
+
 // ── MongoDB lazy connection ────────────────────────────────────────────────────
 
 let _client = null;
@@ -68,7 +76,7 @@ function geoCoords(geo) {
 async function getStatus(vehicleId) {
   const db = await getDb();
   return db.collection("telemetry-status").findOne(
-    { vehicleId: vehicleId || VEHICLE_ID },
+    { vehicleId: safeVehicleId(vehicleId) },
     { projection: { _id: 0 } }
   );
 }

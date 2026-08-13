@@ -7,6 +7,7 @@ telemetry service, and broadcasts them over WebSocket.
 import threading
 import time
 import os
+import re
 import requests as http_requests
 
 from flask import Flask, jsonify, request
@@ -24,6 +25,10 @@ VSS_TELEMETRY_SERVICE_URL = os.getenv(
 )
 VEHICLE_ID = os.getenv("VEHICLE_ID", "VSS-DEMO-VIN-001")
 INTERVAL_S = float(os.getenv("SIMULATOR_INTERVAL", "2.0"))
+
+# vehicle_id is caller-controlled and becomes a dict key + thread name. Allowlist it
+# (length + safe chars) so odd input can't bloat memory, spawn many sims, or garble logs.
+_VEHICLE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 # Vehicle metadata now rides inside every snapshot (see vss_generator.META) as a
@@ -102,13 +107,10 @@ _sims_lock = threading.Lock()
 
 def _resolve_vehicle_id(payload=None) -> str:
     payload = payload or {}
-    vid = (
-        payload.get("vehicle_id")
-        or payload.get("vehicleId")
-        or request.args.get("vehicleId")
-        or ""
-    ).strip()
-    return vid or VEHICLE_ID
+    raw = payload.get("vehicle_id") or payload.get("vehicleId") or request.args.get("vehicleId") or ""
+    # str() coerces non-string JSON values (dict/number) so .strip() and the regex are safe.
+    vid = str(raw).strip()
+    return vid if _VEHICLE_ID_RE.match(vid) else VEHICLE_ID
 
 
 def _get_or_create(vehicle_id: str) -> _Sim:

@@ -693,7 +693,7 @@ function Message({ m, onSpeak, onStop, speaking }) {
               title={speaking ? "Stop reading" : "Read aloud"}
               aria-label={speaking ? "Stop reading" : "Read aloud"}
             >
-              {speaking ? "🔇" : "🔊"}
+              {speaking ? "🔊" : "🔇"}
             </button>
           )}
           <span className="message-time">{m.time}</span>

@@ -64,12 +64,15 @@ class _Sim:
         """Stop the loop. Returns False if it was not running."""
         with self._lock:
             t = self._thread
+            if t is None:
+                return False
+            # Set the stop flag and join while still holding the lock, so a concurrent
+            # start() cannot swap in a new thread (and clear the flag) mid-stop. The loop
+            # never takes this lock, so joining under it can't deadlock.
+            self._stop.set()
+            t.join(timeout=5.0)
             self._thread = None
-        if t is None:
-            return False
-        self._stop.set()
-        t.join(timeout=5.0)
-        return True
+            return True
 
     def running(self) -> bool:
         t = self._thread

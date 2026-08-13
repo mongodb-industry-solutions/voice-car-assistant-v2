@@ -257,7 +257,7 @@ int main(int argc, char* argv[]) {
     svr.Get("/vss/latest", [&](const Request& req, Response& res) {
         try {
             // Optional ?vehicleId= selects a per-session vehicle; default keeps single-vehicle behaviour.
-            std::string vid = req.get_param_value("vehicleId");
+            std::string vid = req.has_param("vehicleId") ? req.get_param_value("vehicleId") : VEHICLE_ID;
             if (vid.empty()) vid = VEHICLE_ID;
             json out = json::object();
             if (auto r = obt_box.query(ObxTelemetry_::vehicleId.equals(vid))
@@ -281,7 +281,7 @@ int main(int argc, char* argv[]) {
     // dropped for now; revisit alongside the agent tools.
     svr.Get("/vss/history", [&](const Request& req, Response& res) {
         try {
-            std::string vid = req.get_param_value("vehicleId");
+            std::string vid = req.has_param("vehicleId") ? req.get_param_value("vehicleId") : VEHICLE_ID;
             if (vid.empty()) vid = VEHICLE_ID;
             int mins = std::stoi(req.get_param_value("minutes").empty() ? "10" : req.get_param_value("minutes"));
             int64_t cutoff = now_ms() - (int64_t)mins * 60 * 1000;

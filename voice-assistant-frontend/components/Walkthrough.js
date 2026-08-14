@@ -10,10 +10,12 @@ export const TOUR_STEPS = [
   { selector: ".telltales", title: "Warning lights", text: "Tell-tales light from live sensor values and active OBD-II fault codes." },
   { selector: ".chat-input", title: "Ask the assistant", text: "Try “What does the check-engine light mean?” or “What’s my fuel level?”." },
   { selector: ".mic-button", title: "Talk to it", text: "Tap to speak — Whisper transcribes server-side, Piper speaks the reply." },
+  { selector: ".veh-name", title: "Your vehicle", text: "Each browser session drives its own car, shown by this ID. Telemetry, chat, and the online/offline switch are all scoped to it — open a new tab for a second, independent vehicle." },
   { selector: ".conn-toggle", title: "Online / offline", text: "Switch the manual search between edge ObjectBox and Atlas Vector Search." },
   { selector: ".status-right", title: "Car-manual embeddings", text: "The 📚 count is the number of car-manual chunks embedded (voyage-4-nano, 1024-d) and indexed for vector search — in ObjectBox HNSW on the edge, and Atlas Vector Search in the cloud." },
   { selector: ".dtc-ticker", title: "Active fault codes", text: "Live DTCs decoded from the telemetry stream." },
   { selector: ".hdr-sync", title: "See the sync", text: "Open Sync & Data to watch ObjectBox ⇄ Atlas replication live — and pause it." },
+  { selector: ".hdr-info", title: "How it works", text: "Open How it works for a guided explanation of the architecture — the services, the data flow, and how the edge and MongoDB Atlas fit together." },
 ];
 
 export default function Walkthrough({ run, steps = TOUR_STEPS, onClose }) {

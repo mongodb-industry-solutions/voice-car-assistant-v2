@@ -206,6 +206,7 @@ export default function Cockpit() {
 
   const messagesRef = useRef(null);
   const msgIdRef = useRef(1); // monotonic message id; 0 is the welcome message
+  const vehicleIdRef = useRef(null); // per-session vehicle (one car per browser tab)
   // Stable conversation identity for the session — captured from the backend's `meta`
   // event on the first turn and re-sent on every subsequent request so the agent's
   // per-conversation memory (thread_id = conversation_id) actually carries context.
@@ -222,6 +223,24 @@ export default function Cockpit() {
   const mapObjectsRef = useRef({});
 
   useEffect(() => { onlineRef.current = online; }, [online]);
+
+  // Per-session vehicle id (one car per browser tab). Persisted in sessionStorage so a
+  // reload keeps the same vehicle, while a new tab/session gets a fresh one. Runs before
+  // the telemetry/simulator polls below so their first fetch already carries the id.
+  useEffect(() => {
+    let vid;
+    try {
+      vid = sessionStorage.getItem("vca_vehicle_id");
+      if (!vid) {
+        const rand = (crypto?.randomUUID?.() || Math.random().toString(16).slice(2)).replace(/-/g, "").slice(0, 8);
+        vid = `VEH-${rand}`;
+        sessionStorage.setItem("vca_vehicle_id", vid);
+      }
+    } catch {
+      vid = `VEH-${Math.random().toString(16).slice(2, 10)}`;
+    }
+    vehicleIdRef.current = vid;
+  }, []);
 
   // Online/offline toggle. Beyond switching the manual-search source, going OFFLINE
   // really pauses ObjectBox↔Atlas replication (edge keeps buffering); ONLINE resumes it,
@@ -301,7 +320,7 @@ export default function Cockpit() {
   useEffect(() => {
     const fetchTelemetry = async () => {
       try {
-        const resp = await fetch(`/api/vss/latest?t=${Date.now()}`);
+        const resp = await fetch(`/api/vss/latest?vehicleId=${encodeURIComponent(vehicleIdRef.current || "")}&t=${Date.now()}`);
         if (!resp.ok) { setCockpit(null); return; }
         const data = await resp.json();
         setCockpit(deriveCockpit(data));
@@ -316,7 +335,7 @@ export default function Cockpit() {
   useEffect(() => {
     const refresh = async () => {
       try {
-        const resp = await fetch("/api/vss/simulator/status");
+        const resp = await fetch(`/api/vss/simulator/status?vehicleId=${encodeURIComponent(vehicleIdRef.current || "")}`);
         const d = await resp.json().catch(() => ({}));
         setSimRunning(!!d.running);
       } catch { setSimRunning(false); }
@@ -402,7 +421,7 @@ export default function Cockpit() {
       const resp = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, network_mode: onlineRef.current ? "online" : "offline", lat: coordsRef.current.lat, lon: coordsRef.current.lon, conversation_id: conversationIdRef.current, user_id: userIdRef.current }),
+        body: JSON.stringify({ message: text, network_mode: onlineRef.current ? "online" : "offline", lat: coordsRef.current.lat, lon: coordsRef.current.lon, conversation_id: conversationIdRef.current, user_id: userIdRef.current, vehicle_id: vehicleIdRef.current }),
       });
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -486,9 +505,16 @@ export default function Cockpit() {
 
   const toggleSim = useCallback(async () => {
     const action = simRunning ? "stop" : "start";
-    try { await fetch(`/api/vss/simulator/${action}`, { method: "POST" }); } catch {}
+    const vid = vehicleIdRef.current || "";
     try {
-      const d = await (await fetch("/api/vss/simulator/status")).json();
+      await fetch(`/api/vss/simulator/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vehicle_id: vid }),
+      });
+    } catch {}
+    try {
+      const d = await (await fetch(`/api/vss/simulator/status?vehicleId=${encodeURIComponent(vid)}`)).json();
       setSimRunning(!!d.running);
     } catch {}
   }, [simRunning]);

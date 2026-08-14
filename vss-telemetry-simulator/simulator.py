@@ -29,6 +29,9 @@ INTERVAL_S = float(os.getenv("SIMULATOR_INTERVAL", "2.0"))
 # vehicle_id is caller-controlled and becomes a dict key + thread name. Allowlist it
 # (length + safe chars) so odd input can't bloat memory, spawn many sims, or garble logs.
 _VEHICLE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+# A sim with no start/status/config activity within this window is reaped (a tab that
+# closed without stopping). The UI polls status every ~5 s, so an open tab stays alive.
+SIM_IDLE_TTL_S = float(os.getenv("SIM_IDLE_TTL", "120"))
 
 
 # Vehicle metadata now rides inside every snapshot (see vss_generator.META) as a
@@ -49,9 +52,13 @@ class _Sim:
         self.generator = VssGenerator()
         self.count = 0
         self.last_snapshot = None
+        self.last_seen = time.time()   # updated on start/status/config; drives idle reaping
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+
+    def touch(self):
+        self.last_seen = time.time()
 
     def start(self) -> bool:
         """Start the loop. Returns False if it was already running."""
@@ -122,6 +129,26 @@ def _get_or_create(vehicle_id: str) -> _Sim:
         return sim
 
 
+def _reap_idle_sims():
+    """Stop and drop sims idle beyond SIM_IDLE_TTL_S (tabs that closed without stopping).
+    Pop stale entries under the lock, then stop() them outside it (stop can join for a
+    couple of seconds). A later start() with the same id just builds a fresh sim."""
+    interval = max(15.0, SIM_IDLE_TTL_S / 2)
+    while True:
+        time.sleep(interval)
+        now = time.time()
+        with _sims_lock:
+            popped = [(vid, _sims.pop(vid))
+                      for vid, s in list(_sims.items())
+                      if now - s.last_seen > SIM_IDLE_TTL_S]
+        for vid, sim in popped:
+            sim.stop()
+            print(f"[reaper] stopped idle vehicle {vid}", flush=True)
+
+
+threading.Thread(target=_reap_idle_sims, daemon=True, name="vss-sim-reaper").start()
+
+
 # ------------------------------------------------------------------ #
 #  Endpoints                                                           #
 # ------------------------------------------------------------------ #
@@ -140,6 +167,8 @@ def simulator_status():
     vid = _resolve_vehicle_id()
     with _sims_lock:
         sim = _sims.get(vid)
+    if sim is not None:
+        sim.touch()   # an open tab polling status keeps its sim from being reaped
     if sim is None:
         return jsonify({
             "vehicle_id": vid, "running": False, "count": 0,
@@ -172,6 +201,7 @@ def simulator_status():
 def simulator_start():
     vid = _resolve_vehicle_id(request.get_json(silent=True))
     sim = _get_or_create(vid)
+    sim.touch()
     if not sim.start():
         return jsonify({"status": "already_running", "vehicle_id": vid, "count": sim.count}), 200
     return jsonify({"status": "started", "vehicle_id": vid}), 200
@@ -180,8 +210,10 @@ def simulator_start():
 @app.route("/simulator/stop", methods=["POST"])
 def simulator_stop():
     vid = _resolve_vehicle_id(request.get_json(silent=True))
+    # Remove first, then stop: a stopped sim leaves the registry so the dict stays bounded.
+    # A concurrent start() with the same id simply builds a fresh sim (vid no longer present).
     with _sims_lock:
-        sim = _sims.get(vid)
+        sim = _sims.pop(vid, None)
     if sim is None or not sim.stop():
         return jsonify({"status": "not_running", "vehicle_id": vid}), 200
     return jsonify({"status": "stopped", "vehicle_id": vid}), 200
@@ -204,7 +236,9 @@ def simulator_config():
         return jsonify({"error": "'interval_s' must be positive"}), 400
 
     vid = _resolve_vehicle_id(data)
-    _get_or_create(vid).interval_s = interval_s
+    sim = _get_or_create(vid)
+    sim.interval_s = interval_s
+    sim.touch()
     return jsonify({"status": "updated", "vehicle_id": vid, "interval_s": interval_s}), 200
 
 

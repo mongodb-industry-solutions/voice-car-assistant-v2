@@ -448,9 +448,14 @@ int main(int argc, char* argv[]) {
         std::deque<ObxTelemetry> to_flush;
         {
             std::lock_guard<std::mutex> lk(sessionMutex);
-            sessionPaused[vid] = false;
+            // Erase both entries (a missing vid already means "online/not paused"), so the maps
+            // stay bounded by the number of *currently* offline vehicles, not cumulative sessions.
+            sessionPaused.erase(vid);
             auto it = sessionBuffer.find(vid);
-            if (it != sessionBuffer.end()) to_flush.swap(it->second);
+            if (it != sessionBuffer.end()) {
+                to_flush.swap(it->second);   // take the buffer locally first
+                sessionBuffer.erase(it);
+            }
         }
         for (auto& r : to_flush) obt_box.put(r);   // flush buffered snapshots → sync to Atlas
         std::cout << "▶  Session online: " << vid << " (flushed " << to_flush.size() << ")\n";

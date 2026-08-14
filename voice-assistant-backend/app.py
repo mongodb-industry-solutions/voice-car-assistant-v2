@@ -350,7 +350,6 @@ def api_sim_status():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/sync/state")
 def _session_vehicle_id():
     """vehicleId for session-scope sync ops — from the query string or the JSON body."""
     return (request.args.get("vehicleId")
@@ -358,6 +357,7 @@ def _session_vehicle_id():
             or "")
 
 
+@app.route("/api/sync/state")
 def api_sync_state():
     """Edge counts + buffered backlog + paused/connected + cloud counts, for the live sync panel.
     Session scope: per-vehicle (from vss-telemetry-service /session/status + per-vehicle cloud count).

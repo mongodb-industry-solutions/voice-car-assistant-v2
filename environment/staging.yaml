@@ -53,7 +53,13 @@ sidecarContainers:
         value: http://localhost:8087
       - name: VSS_TELEMETRY_API_URL
         value: http://localhost:3002
-      # Sync offline/online lever — toxiproxy control API + the proxy it fronts.
+      # Per-session online/offline: each browser session goes offline on its own by buffering
+      # its vehicle's snapshots in vss-telemetry-service (Option B). Local compose leaves this
+      # unset (defaults to "global" = the shared toxiproxy pause), so local behaviour is unchanged.
+      - name: SYNC_SCOPE
+        value: session
+      # Sync offline/online lever — toxiproxy control API + the proxy it fronts (still used to
+      # carry sync traffic; in session scope the proxy stays enabled and is never toggled).
       - name: TOXIPROXY_URL
         value: http://localhost:8474
       - name: SYNC_PROXY_UPSTREAM

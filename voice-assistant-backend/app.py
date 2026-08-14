@@ -50,6 +50,12 @@ SYNC_PROXY_NAME     = os.getenv("SYNC_PROXY_NAME",     "sync")
 SYNC_PROXY_LISTEN   = os.getenv("SYNC_PROXY_LISTEN",   "0.0.0.0:9998")
 SYNC_PROXY_UPSTREAM = os.getenv("SYNC_PROXY_UPSTREAM", "sync-server:9999")
 
+# Sync scope for online/offline. "global" (default → local docker-compose) pauses the shared
+# toxiproxy connection for the whole deployment, exactly as before. "session" (set on Kanopy)
+# buffers per-vehicle in vss-telemetry-service so each browser session goes offline on its own.
+# The default preserves local behaviour with no config.
+SYNC_SCOPE = os.getenv("SYNC_SCOPE", "global").strip().lower()
+
 
 def _proxy_get():
     """Return the toxiproxy 'sync' proxy as a dict, creating it (enabled) if missing.
@@ -345,10 +351,33 @@ def api_sim_status():
 
 
 @app.route("/api/sync/state")
+def _session_vehicle_id():
+    """vehicleId for session-scope sync ops — from the query string or the JSON body."""
+    return (request.args.get("vehicleId")
+            or (request.get_json(silent=True) or {}).get("vehicle_id")
+            or "")
+
+
 def api_sync_state():
-    """Edge (ObjectBox) counts + buffered backlog, cloud (Atlas) counts, and the
-    proxy-owned paused/connected flags — for the live sync panel."""
+    """Edge counts + buffered backlog + paused/connected + cloud counts, for the live sync panel.
+    Session scope: per-vehicle (from vss-telemetry-service /session/status + per-vehicle cloud count).
+    Global scope: global edge status + toxiproxy-owned paused + global cloud count."""
     edge, cloud = {}, {}
+    if SYNC_SCOPE == "session":
+        vid = _session_vehicle_id()
+        try:
+            edge = http_requests.get(f"{VSS_TELEMETRY_SERVICE_URL}/session/status",
+                                     params={"vehicleId": vid}, timeout=3).json()
+        except Exception as e:
+            edge = {"error": str(e)}
+        try:
+            cloud = http_requests.get(f"{VSS_TELEMETRY_API_URL}/cloud/counts",
+                                      params={"vehicleId": vid}, timeout=5).json()
+        except Exception as e:
+            cloud = {"error": str(e)}
+        return jsonify({"edge": edge, "cloud": cloud})
+
+    # global scope (toxiproxy) — unchanged
     try:
         edge = http_requests.get(f"{VSS_TELEMETRY_SERVICE_URL}/sync/status", timeout=3).json()
     except Exception as e:
@@ -369,8 +398,15 @@ def api_sync_state():
 
 @app.route("/api/sync/pause", methods=["POST"])
 def api_sync_pause():
-    """Go OFFLINE: cut the client↔Sync-Server link at the proxy. The edge keeps writing
-    to its local ObjectBox store; nothing reaches Atlas until resumed."""
+    """Go OFFLINE. Session scope: buffer this vehicle's snapshots at the edge (nothing reaches
+    Atlas). Global scope: cut the shared client↔Sync-Server link at the toxiproxy layer."""
+    if SYNC_SCOPE == "session":
+        try:
+            r = http_requests.post(f"{VSS_TELEMETRY_SERVICE_URL}/session/pause",
+                                   params={"vehicleId": _session_vehicle_id()}, timeout=10)
+            return jsonify(r.json()), r.status_code
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 503
     try:
         _proxy_set_enabled(False)
         return jsonify({"success": True, "paused": True})
@@ -380,8 +416,15 @@ def api_sync_pause():
 
 @app.route("/api/sync/resume", methods=["POST"])
 def api_sync_resume():
-    """Go ONLINE: restore the proxy, then nudge the edge client to reconnect immediately
-    (instead of waiting out its backoff) so the buffered backlog flushes up to Atlas."""
+    """Go ONLINE. Session scope: flush this vehicle's buffered snapshots (they sync to Atlas).
+    Global scope: restore the toxiproxy link and nudge the clients to reconnect."""
+    if SYNC_SCOPE == "session":
+        try:
+            r = http_requests.post(f"{VSS_TELEMETRY_SERVICE_URL}/session/resume",
+                                   params={"vehicleId": _session_vehicle_id()}, timeout=15)
+            return jsonify(r.json()), r.status_code
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 503
     try:
         _proxy_set_enabled(True)
     except Exception as e:

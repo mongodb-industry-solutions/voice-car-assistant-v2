@@ -52,6 +52,9 @@ export default function SyncPanel({ onPausedChange, vehicleId }) {
   }, [vidQS, onPausedChange]);
 
   const toggle = async () => {
+    // Skip until the session vehicle id exists — an empty id would fall back to the default
+    // vehicle in session scope (pausing/resuming the wrong one).
+    if (!vehicleId) return;
     setBusy(true);
     try {
       await fetch(paused ? "/api/sync/resume" : "/api/sync/pause", {

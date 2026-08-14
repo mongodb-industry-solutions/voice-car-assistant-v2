@@ -250,12 +250,16 @@ export default function Cockpit() {
   // resume request fails — otherwise `online` (which also drives chat network_mode) would
   // drift out of sync with the real backend state the SyncPanel polls.
   const toggleOnline = () => {
+    const vid = vehicleIdRef.current;
+    // Don't toggle until this session's vehicle id exists — an empty id makes the backend
+    // fall back to the default vehicle in session scope (pausing/resuming the wrong one).
+    if (!vid) return;
     const next = !online;
     setOnline(next);
     fetch(next ? "/api/sync/resume" : "/api/sync/pause", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vehicle_id: vehicleIdRef.current }),  // used in session scope; ignored globally
+      body: JSON.stringify({ vehicle_id: vid }),  // used in session scope; ignored globally
     })
       .then((r) => { if (!r.ok) setOnline(!next); })   // roll back on 409/500
       .catch(() => setOnline(!next));                   // roll back on network error

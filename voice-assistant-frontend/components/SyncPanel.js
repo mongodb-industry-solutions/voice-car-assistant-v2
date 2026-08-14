@@ -47,7 +47,9 @@ export default function SyncPanel({ onPausedChange, vehicleId }) {
     tick();
     const id = setInterval(tick, 2000);
     return () => { cancelled = true; clearInterval(id); };
-  }, []);
+    // Restart the interval if the session vehicle id becomes available/changes, so polling
+    // never sticks with a stale/empty ?vehicleId= (session scope needs it on every request).
+  }, [vidQS, onPausedChange]);
 
   const toggle = async () => {
     setBusy(true);

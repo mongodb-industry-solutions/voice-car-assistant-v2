@@ -194,6 +194,7 @@ export default function Cockpit() {
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [online, setOnline] = useState(true);
+  const [vehicleId, setVehicleId] = useState(""); // this session's vehicle, shown in the header
   const [simRunning, setSimRunning] = useState(false);
   const [chunkCount, setChunkCount] = useState("--");
   const [clock, setClock] = useState("--:--");
@@ -240,6 +241,7 @@ export default function Cockpit() {
       vid = `VEH-${Math.random().toString(16).slice(2, 10)}`;
     }
     vehicleIdRef.current = vid;
+    setVehicleId(vid);
   }, []);
 
   // Online/offline toggle. Beyond switching the manual-search source, going OFFLINE
@@ -248,9 +250,17 @@ export default function Cockpit() {
   // resume request fails — otherwise `online` (which also drives chat network_mode) would
   // drift out of sync with the real backend state the SyncPanel polls.
   const toggleOnline = () => {
+    const vid = vehicleIdRef.current;
+    // Don't toggle until this session's vehicle id exists — an empty id makes the backend
+    // fall back to the default vehicle in session scope (pausing/resuming the wrong one).
+    if (!vid) return;
     const next = !online;
     setOnline(next);
-    fetch(next ? "/api/sync/resume" : "/api/sync/pause", { method: "POST" })
+    fetch(next ? "/api/sync/resume" : "/api/sync/pause", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vehicle_id: vid }),  // used in session scope; ignored globally
+    })
       .then((r) => { if (!r.ok) setOnline(!next); })   // roll back on 409/500
       .catch(() => setOnline(!next));                   // roll back on network error
   };
@@ -545,7 +555,7 @@ export default function Cockpit() {
             <span className="conn-dot" />
             <span>{online ? "ONLINE" : "OFFLINE"}</span>
           </button>
-          <span className="veh-name">ORION-7</span>
+          <span className="veh-name">{vehicleId || "—"}</span>
         </div>
       </header>
 
@@ -574,7 +584,7 @@ export default function Cockpit() {
 
         <section className="copilot">
           <div className="copilot-head">
-            <div className="copilot-title"><span className="leaf">🍃</span><span>Leafy Assistant</span></div>
+            <div className="copilot-title"><span className="leaf">🍃</span><span>Leafy In Car Voice Assistant</span></div>
             <div className={`copilot-live${online ? " on" : ""}`}>{online ? "● LIVE TELEMETRY CONNECTED" : "● OFFLINE"}</div>
           </div>
 
@@ -607,7 +617,7 @@ export default function Cockpit() {
           </div>
 
           <div className="copilot-input">
-            <input type="text" className="chat-input" placeholder="Ask Leafy Assistant…" autoComplete="off"
+            <input type="text" className="chat-input" placeholder="Ask Leafy In Car Voice Assistant…" autoComplete="off"
                    value={input} onChange={(e) => setInput(e.target.value)}
                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); setInput(""); } }} />
             <button className={`mic-button${listening ? " listening" : ""}`} onClick={toggleMic} title="Tap to talk"><span>🎤</span></button>
@@ -668,7 +678,7 @@ export default function Cockpit() {
               <button className="overlay-close" onClick={() => setSceneOpen(false)}>✕</button>
             </div>
             <div className="scene-body">
-              <SyncPanel onPausedChange={handleSyncPaused} />
+              <SyncPanel onPausedChange={handleSyncPaused} vehicleId={vehicleId} />
               <DataModelPanel />
             </div>
           </div>

@@ -25,6 +25,9 @@
 #include <cstdlib>
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
+#include <deque>
+#include <cctype>
 #include "objectbox.hpp"
 #include "objectbox-sync.hpp"
 #include "schema_vss.obx.hpp"
@@ -145,6 +148,16 @@ static std::string js(const json& j, const char* k, const std::string& def = "")
     return j.contains(k) && j[k].is_string() ? j[k].get<std::string>() : def;
 }
 
+// vehicleId is caller-controlled and is used as a map key (sessionPaused/sessionBuffer) and a
+// stored value. Allowlist it (^[A-Za-z0-9_-]{1,64}$) and fall back to `def`, so oversized or
+// malformed ids can't create huge keys. Matches the agent/telemetry-api/simulator guards.
+static std::string safe_vehicle_id(const std::string& raw, const std::string& def) {
+    if (raw.empty() || raw.size() > 64) return def;
+    for (unsigned char c : raw)
+        if (!(std::isalnum(c) || c == '_' || c == '-')) return def;
+    return raw;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 int main(int argc, char* argv[]) {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -225,6 +238,18 @@ int main(int argc, char* argv[]) {
     });
     svr.Options("/(.*)", [](const Request&, Response& res){ res.status = 204; });
 
+    // ── Per-vehicle offline buffering (SYNC_SCOPE=session) ───────────────────────
+    // The sync client stays global and always connected. Taking a vehicle "offline" just
+    // routes its snapshots to an in-memory buffer instead of the synced store, so nothing
+    // for it reaches Atlas; /vss/latest serves the buffer so the edge keeps working; on
+    // resume the buffer flushes into the synced store and syncs up (catch-up). This is only
+    // exercised when the backend runs in session scope. In global scope (local) no vehicle
+    // is ever paused, so this is inert and the write path is byte-for-byte unchanged.
+    static std::mutex sessionMutex;
+    static std::unordered_map<std::string, bool> sessionPaused;
+    static std::unordered_map<std::string, std::deque<ObxTelemetry>> sessionBuffer;
+    static const size_t SESSION_BUFFER_MAX = 5000;  // ~2.7 h at 2 s/snapshot; drop oldest beyond
+
     // ── POST /vss/snapshot ────────────────────────────────────────────────────
     // Store the snapshot as one row: domains → `data`, metadata → `meta`
     // (both JsonToNative → nested sibling documents in Atlas). No per-domain split.
@@ -232,7 +257,8 @@ int main(int argc, char* argv[]) {
         try {
             auto body = json::parse(req.body);
             ObxTelemetry snap;
-            snap.vehicleId = js(body, "vehicle_id", VEHICLE_ID);
+            // Validate the caller-supplied id before it becomes a stored value / buffer key.
+            snap.vehicleId = safe_vehicle_id(js(body, "vehicle_id", VEHICLE_ID), VEHICLE_ID);
             snap.ts        = body.value("ts", now_ms());
             // `meta` becomes its own JsonToNative column (sibling of data).
             if (body.contains("meta") && !body["meta"].is_null())
@@ -243,8 +269,21 @@ int main(int argc, char* argv[]) {
             body.erase("trip_id");
             body.erase("meta");
             snap.data      = body.dump();
-            obt_box.put(snap);
-            res.set_content(json{{"success", true}, {"ts", snap.ts}, {"vehicle_id", snap.vehicleId}}.dump(),
+            // If this vehicle is offline (session paused), buffer instead of writing to the
+            // synced store, so nothing reaches Atlas until resume. Otherwise write as usual.
+            bool buffered = false;
+            {
+                std::lock_guard<std::mutex> lk(sessionMutex);
+                auto pit = sessionPaused.find(snap.vehicleId);
+                buffered = (pit != sessionPaused.end() && pit->second);
+                if (buffered) {
+                    auto& buf = sessionBuffer[snap.vehicleId];
+                    buf.push_back(snap);
+                    while (buf.size() > SESSION_BUFFER_MAX) buf.pop_front();
+                }
+            }
+            if (!buffered) obt_box.put(snap);
+            res.set_content(json{{"success", true}, {"ts", snap.ts}, {"vehicle_id", snap.vehicleId}, {"buffered", buffered}}.dump(),
                             "application/json");
         } catch (const std::exception& e) {
             res.status = 400;
@@ -257,8 +296,26 @@ int main(int argc, char* argv[]) {
     svr.Get("/vss/latest", [&](const Request& req, Response& res) {
         try {
             // Optional ?vehicleId= selects a per-session vehicle; default keeps single-vehicle behaviour.
-            std::string vid = req.has_param("vehicleId") ? req.get_param_value("vehicleId") : VEHICLE_ID;
-            if (vid.empty()) vid = VEHICLE_ID;
+            std::string vid = safe_vehicle_id(req.has_param("vehicleId") ? req.get_param_value("vehicleId") : "", VEHICLE_ID);
+            // If the vehicle is offline (session paused), its newest snapshot lives in the
+            // buffer (not the synced store), so serve that to keep the edge live offline.
+            {
+                std::lock_guard<std::mutex> lk(sessionMutex);
+                auto pit = sessionPaused.find(vid);
+                if (pit != sessionPaused.end() && pit->second) {
+                    auto bit = sessionBuffer.find(vid);
+                    if (bit != sessionBuffer.end() && !bit->second.empty()) {
+                        const ObxTelemetry& r = bit->second.back();
+                        json out = json::object();
+                        try { out = json::parse(r.data); } catch (...) { out = json::object(); }
+                        out["ts"] = r.ts;
+                        if (!r.meta.empty()) { try { out["meta"] = json::parse(r.meta); } catch (...) {} }
+                        out["vehicle_id"] = vid;
+                        res.set_content(out.dump(), "application/json");
+                        return;
+                    }
+                }
+            }
             json out = json::object();
             if (auto r = obt_box.query(ObxTelemetry_::vehicleId.equals(vid))
                     .order(ObxTelemetry_::ts, OBXOrderFlags_DESCENDING).build().findFirst()) {
@@ -281,8 +338,7 @@ int main(int argc, char* argv[]) {
     // dropped for now; revisit alongside the agent tools.
     svr.Get("/vss/history", [&](const Request& req, Response& res) {
         try {
-            std::string vid = req.has_param("vehicleId") ? req.get_param_value("vehicleId") : VEHICLE_ID;
-            if (vid.empty()) vid = VEHICLE_ID;
+            std::string vid = safe_vehicle_id(req.has_param("vehicleId") ? req.get_param_value("vehicleId") : "", VEHICLE_ID);
             int mins = std::stoi(req.get_param_value("minutes").empty() ? "10" : req.get_param_value("minutes"));
             int64_t cutoff = now_ms() - (int64_t)mins * 60 * 1000;
             auto rows = obt_box.query(
@@ -374,6 +430,93 @@ int main(int argc, char* argv[]) {
     // GET /vss/count → local objectbox_telemetry row count (edge side of the sync)
     svr.Get("/vss/count", [&](const Request&, Response& res) {
         res.set_content(json{{"count", (int64_t)obt_box.count()}}.dump(), "application/json");
+    });
+
+    // ── Per-vehicle session offline/online (used by the backend in session scope) ──
+    // These drive Option B: pause routes a vehicle's snapshots to the buffer; resume flushes
+    // the buffer into the synced store (which then syncs to Atlas); status reports the panel's
+    // per-vehicle numbers. The sync client is never touched, so this coexists with the global
+    // toxiproxy path used in global scope.
+    auto sessionVid = [&](const Request& req) {
+        std::string vid = req.has_param("vehicleId") ? req.get_param_value("vehicleId") : "";
+        return safe_vehicle_id(vid, VEHICLE_ID);
+    };
+    svr.Post("/session/pause", [&](const Request& req, Response& res) {
+        try {
+            std::string vid = sessionVid(req);
+            int64_t buffered;
+            {
+                std::lock_guard<std::mutex> lk(sessionMutex);
+                sessionPaused[vid] = true;
+                auto it = sessionBuffer.find(vid);
+                buffered = (it != sessionBuffer.end()) ? (int64_t)it->second.size() : 0;
+            }
+            std::cout << "⏸  Session offline: " << vid << "\n";
+            res.set_content(json{{"success", true}, {"paused", true}, {"vehicle_id", vid}, {"buffered", buffered}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    svr.Post("/session/resume", [&](const Request& req, Response& res) {
+        std::string vid = sessionVid(req);
+        std::deque<ObxTelemetry> to_flush;
+        {
+            std::lock_guard<std::mutex> lk(sessionMutex);
+            // Erase both entries (a missing vid already means "online/not paused"), so the maps
+            // stay bounded by the number of *currently* offline vehicles, not cumulative sessions.
+            sessionPaused.erase(vid);
+            auto it = sessionBuffer.find(vid);
+            if (it != sessionBuffer.end()) {
+                to_flush.swap(it->second);   // take the buffer locally first
+                sessionBuffer.erase(it);
+            }
+        }
+        // Flush buffered snapshots → synced store (→ Atlas). Guard the writes: an ObjectBox
+        // error must return 5xx, not escape the handler and kill the process. On failure,
+        // re-buffer the unflushed remainder and re-pause so the client can retry (no data loss).
+        size_t flushed = 0;
+        try {
+            for (; flushed < to_flush.size(); ++flushed) obt_box.put(to_flush[flushed]);
+        } catch (const std::exception& e) {
+            {
+                std::lock_guard<std::mutex> lk(sessionMutex);
+                sessionPaused[vid] = true;
+                auto& buf = sessionBuffer[vid];
+                for (size_t i = to_flush.size(); i-- > flushed; ) buf.push_front(to_flush[i]);
+                while (buf.size() > SESSION_BUFFER_MAX) buf.pop_front();
+            }
+            std::cerr << "Session resume flush failed for " << vid << " after " << flushed << ": " << e.what() << "\n";
+            res.status = 500;
+            res.set_content(json{{"success", false}, {"error", e.what()}, {"flushed", (int64_t)flushed}}.dump(), "application/json");
+            return;
+        }
+        std::cout << "▶  Session online: " << vid << " (flushed " << flushed << ")\n";
+        res.set_content(json{{"success", true}, {"paused", false}, {"vehicle_id", vid}, {"flushed", (int64_t)flushed}}.dump(), "application/json");
+    });
+    svr.Get("/session/status", [&](const Request& req, Response& res) {
+        try {
+            std::string vid = sessionVid(req);
+            bool paused; int64_t buffered;
+            {
+                std::lock_guard<std::mutex> lk(sessionMutex);
+                auto pit = sessionPaused.find(vid);
+                paused = (pit != sessionPaused.end() && pit->second);
+                auto bit = sessionBuffer.find(vid);
+                buffered = (bit != sessionBuffer.end()) ? (int64_t)bit->second.size() : 0;
+            }
+            int64_t synced = (int64_t)obt_box.query(ObxTelemetry_::vehicleId.equals(vid)).build().count();
+            res.set_content(json{
+                {"available", true},
+                {"paused", paused},
+                {"connected", !paused},
+                {"local_count", synced + buffered},   // edge has synced rows + buffered (offline) rows
+                {"buffered", buffered}
+            }.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json{{"error", e.what()}}.dump(), "application/json");
+        }
     });
 
     // ── GET /health ───────────────────────────────────────────────────────────

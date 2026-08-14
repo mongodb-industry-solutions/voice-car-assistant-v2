@@ -10,7 +10,9 @@ const STAGES = [
   { icon: "⚙️", label: "Atlas trigger", sub: "telemetry-data / -status" },
 ];
 
-export default function SyncPanel({ onPausedChange }) {
+export default function SyncPanel({ onPausedChange, vehicleId }) {
+  // vehicleId is used only in session scope (Kanopy); global scope ignores it.
+  const vidQS = vehicleId ? `?vehicleId=${encodeURIComponent(vehicleId)}` : "";
   const [state, setState] = useState(null);
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -25,7 +27,7 @@ export default function SyncPanel({ onPausedChange }) {
     let cancelled = false;
     const tick = async () => {
       try {
-        const d = await (await fetch("/api/sync/state")).json();
+        const d = await (await fetch(`/api/sync/state${vidQS}`)).json();
         if (cancelled) return;
         setState(d);
         const ec = d?.edge?.local_count;
@@ -45,12 +47,22 @@ export default function SyncPanel({ onPausedChange }) {
     tick();
     const id = setInterval(tick, 2000);
     return () => { cancelled = true; clearInterval(id); };
-  }, []);
+    // Restart the interval if the session vehicle id becomes available/changes, so polling
+    // never sticks with a stale/empty ?vehicleId= (session scope needs it on every request).
+  }, [vidQS, onPausedChange]);
 
   const toggle = async () => {
+    // Skip until the session vehicle id exists — an empty id would fall back to the default
+    // vehicle in session scope (pausing/resuming the wrong one).
+    if (!vehicleId) return;
     setBusy(true);
-    try { await fetch(paused ? "/api/sync/resume" : "/api/sync/pause", { method: "POST" }); }
-    catch {}
+    try {
+      await fetch(paused ? "/api/sync/resume" : "/api/sync/pause", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vehicle_id: vehicleId }),  // used in session scope; ignored globally
+      });
+    } catch {}
     setBusy(false);
   };
 

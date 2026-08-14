@@ -409,9 +409,12 @@ app.post("/tools/:toolName", express.json(), async (req, res) => {
 app.get("/cloud/counts", async (req, res) => {
   try {
     const db = await getDb();
+    // Optional ?vehicleId= scopes the objectbox_telemetry count to one vehicle (session
+    // scope); absent → global count (default / global scope). Guarded against injection.
+    const obFilter = req.query.vehicleId ? { vehicleId: safeVehicleId(req.query.vehicleId) } : {};
     const [objectbox, tsData, tsStatus] = await Promise.all([
       // exact count so it converges visibly with the edge count in the sync panel
-      db.collection("objectbox_telemetry").countDocuments(),
+      db.collection("objectbox_telemetry").countDocuments(obFilter),
       db.collection("telemetry-data").estimatedDocumentCount().catch(() => null),
       db.collection("telemetry-status").estimatedDocumentCount().catch(() => null),
     ]);

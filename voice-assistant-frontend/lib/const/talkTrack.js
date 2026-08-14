@@ -39,7 +39,7 @@ export const TALK_TRACK = [
     content: [
       {
         heading: "Architecture",
-        body: "The simulator emits VSS vehicle snapshots to a C++ service that writes them to a local ObjectBox store. ObjectBox Sync streams those rows to the ObjectBox Sync Server, which replicates them into MongoDB Atlas. An Atlas trigger reshapes each snapshot into time-series and current-status collections that the telemetry tools read. The LangChain agent answers using car-manual vector search, live telemetry and navigation; cloud LLM inference is served by Grove (hosted Claude).",
+        body: "The simulator emits VSS vehicle snapshots to a C++ service that writes them to a local ObjectBox store. ObjectBox Sync streams those rows to the ObjectBox Sync Server, which replicates them into MongoDB Atlas. An Atlas trigger reshapes each snapshot into time-series and current-status collections that the telemetry tools read. The LangChain agent answers using car-manual vector search, live telemetry and navigation.",
       },
       {
         heading: "Data flow",

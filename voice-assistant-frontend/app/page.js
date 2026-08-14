@@ -548,7 +548,7 @@ export default function Cockpit() {
           <span className="brand-tag">EDGE COCKPIT</span>
         </div>
         <div className="top-right">
-          <button className="hdr-btn" onClick={() => setInfoOpen(true)} title="How it works">ⓘ How it works</button>
+          <button className="hdr-btn hdr-info" onClick={() => setInfoOpen(true)} title="How it works">ⓘ How it works</button>
           <button className="hdr-btn hdr-sync" onClick={() => setSceneOpen(true)} title="Live sync & data model">⧉ Sync &amp; Data</button>
           <button className="hdr-btn hdr-tour" onClick={() => setRunTour(true)} title="Guided tour">?</button>
           <button className={`conn-toggle${online ? " online" : ""}`} onClick={toggleOnline} title="Switch online / offline — also pauses/resumes Atlas sync">

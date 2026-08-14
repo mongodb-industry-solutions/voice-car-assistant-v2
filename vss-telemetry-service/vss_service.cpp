@@ -248,7 +248,34 @@ int main(int argc, char* argv[]) {
     static std::mutex sessionMutex;
     static std::unordered_map<std::string, bool> sessionPaused;
     static std::unordered_map<std::string, std::deque<ObxTelemetry>> sessionBuffer;
+    static std::unordered_map<std::string, int64_t> sessionSeen;   // vid -> last activity (ms)
     static const size_t SESSION_BUFFER_MAX = 5000;  // ~2.7 h at 2 s/snapshot; drop oldest beyond
+
+    // Hard bound on distinct offline vehicles + idle expiry, so a client cannot grow the maps
+    // without limit by calling /session/pause with many ids (memory DoS). At the cap, new ids
+    // are rejected with 503; a paused vehicle with no activity for the TTL is reaped (its buffer
+    // dropped) — the closing tab's simulator also stops, so activity ceases and the slot frees.
+    size_t MAX_SESSION_VEHICLES = 50;
+    if (const char* e = std::getenv("MAX_OFFLINE_VEHICLES")) { int v = atoi(e); if (v > 0) MAX_SESSION_VEHICLES = (size_t)v; }
+    int64_t SESSION_IDLE_TTL_MS = 300000;  // 5 min
+    if (const char* e = std::getenv("SESSION_IDLE_TTL")) { int v = atoi(e); if (v > 0) SESSION_IDLE_TTL_MS = (int64_t)v * 1000; }
+    std::thread session_reaper([&]() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(30));
+            int64_t cutoff = now_ms() - SESSION_IDLE_TTL_MS;
+            std::lock_guard<std::mutex> lk(sessionMutex);
+            for (auto it = sessionSeen.begin(); it != sessionSeen.end(); ) {
+                if (it->second < cutoff) {
+                    sessionPaused.erase(it->first);
+                    sessionBuffer.erase(it->first);
+                    it = sessionSeen.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
+    });
+    session_reaper.detach();
 
     // ── POST /vss/snapshot ────────────────────────────────────────────────────
     // Store the snapshot as one row: domains → `data`, metadata → `meta`
@@ -280,6 +307,7 @@ int main(int argc, char* argv[]) {
                     auto& buf = sessionBuffer[snap.vehicleId];
                     buf.push_back(snap);
                     while (buf.size() > SESSION_BUFFER_MAX) buf.pop_front();
+                    sessionSeen[snap.vehicleId] = now_ms();   // activity → keeps the entry alive
                 }
             }
             if (!buffered) obt_box.put(snap);
@@ -444,12 +472,24 @@ int main(int argc, char* argv[]) {
     svr.Post("/session/pause", [&](const Request& req, Response& res) {
         try {
             std::string vid = sessionVid(req);
-            int64_t buffered;
+            int64_t buffered = 0;
+            bool atCap = false;
             {
                 std::lock_guard<std::mutex> lk(sessionMutex);
-                sessionPaused[vid] = true;
-                auto it = sessionBuffer.find(vid);
-                buffered = (it != sessionBuffer.end()) ? (int64_t)it->second.size() : 0;
+                bool isNew = sessionPaused.find(vid) == sessionPaused.end();
+                if (isNew && sessionPaused.size() >= MAX_SESSION_VEHICLES) {
+                    atCap = true;   // reject new vehicles once the cap is reached (existing ids still toggle)
+                } else {
+                    sessionPaused[vid] = true;
+                    sessionSeen[vid] = now_ms();
+                    auto it = sessionBuffer.find(vid);
+                    buffered = (it != sessionBuffer.end()) ? (int64_t)it->second.size() : 0;
+                }
+            }
+            if (atCap) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "offline-vehicle capacity reached; try again later"}}.dump(), "application/json");
+                return;
             }
             std::cout << "⏸  Session offline: " << vid << "\n";
             res.set_content(json{{"success", true}, {"paused", true}, {"vehicle_id", vid}, {"buffered", buffered}}.dump(), "application/json");
@@ -466,6 +506,7 @@ int main(int argc, char* argv[]) {
             // Erase both entries (a missing vid already means "online/not paused"), so the maps
             // stay bounded by the number of *currently* offline vehicles, not cumulative sessions.
             sessionPaused.erase(vid);
+            sessionSeen.erase(vid);
             auto it = sessionBuffer.find(vid);
             if (it != sessionBuffer.end()) {
                 to_flush.swap(it->second);   // take the buffer locally first
@@ -482,6 +523,7 @@ int main(int argc, char* argv[]) {
             {
                 std::lock_guard<std::mutex> lk(sessionMutex);
                 sessionPaused[vid] = true;
+                sessionSeen[vid] = now_ms();   // re-paused after a failed flush; keep it alive
                 auto& buf = sessionBuffer[vid];
                 for (size_t i = to_flush.size(); i-- > flushed; ) buf.push_front(to_flush[i]);
                 while (buf.size() > SESSION_BUFFER_MAX) buf.pop_front();

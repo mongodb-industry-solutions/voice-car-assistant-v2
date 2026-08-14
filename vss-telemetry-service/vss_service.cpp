@@ -27,6 +27,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <deque>
+#include <cctype>
 #include "objectbox.hpp"
 #include "objectbox-sync.hpp"
 #include "schema_vss.obx.hpp"
@@ -147,6 +148,16 @@ static std::string js(const json& j, const char* k, const std::string& def = "")
     return j.contains(k) && j[k].is_string() ? j[k].get<std::string>() : def;
 }
 
+// vehicleId is caller-controlled and is used as a map key (sessionPaused/sessionBuffer) and a
+// stored value. Allowlist it (^[A-Za-z0-9_-]{1,64}$) and fall back to `def`, so oversized or
+// malformed ids can't create huge keys. Matches the agent/telemetry-api/simulator guards.
+static std::string safe_vehicle_id(const std::string& raw, const std::string& def) {
+    if (raw.empty() || raw.size() > 64) return def;
+    for (unsigned char c : raw)
+        if (!(std::isalnum(c) || c == '_' || c == '-')) return def;
+    return raw;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 int main(int argc, char* argv[]) {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -246,7 +257,8 @@ int main(int argc, char* argv[]) {
         try {
             auto body = json::parse(req.body);
             ObxTelemetry snap;
-            snap.vehicleId = js(body, "vehicle_id", VEHICLE_ID);
+            // Validate the caller-supplied id before it becomes a stored value / buffer key.
+            snap.vehicleId = safe_vehicle_id(js(body, "vehicle_id", VEHICLE_ID), VEHICLE_ID);
             snap.ts        = body.value("ts", now_ms());
             // `meta` becomes its own JsonToNative column (sibling of data).
             if (body.contains("meta") && !body["meta"].is_null())
@@ -284,8 +296,7 @@ int main(int argc, char* argv[]) {
     svr.Get("/vss/latest", [&](const Request& req, Response& res) {
         try {
             // Optional ?vehicleId= selects a per-session vehicle; default keeps single-vehicle behaviour.
-            std::string vid = req.has_param("vehicleId") ? req.get_param_value("vehicleId") : VEHICLE_ID;
-            if (vid.empty()) vid = VEHICLE_ID;
+            std::string vid = safe_vehicle_id(req.has_param("vehicleId") ? req.get_param_value("vehicleId") : "", VEHICLE_ID);
             // If the vehicle is offline (session paused), its newest snapshot lives in the
             // buffer (not the synced store), so serve that to keep the edge live offline.
             {
@@ -327,8 +338,7 @@ int main(int argc, char* argv[]) {
     // dropped for now; revisit alongside the agent tools.
     svr.Get("/vss/history", [&](const Request& req, Response& res) {
         try {
-            std::string vid = req.has_param("vehicleId") ? req.get_param_value("vehicleId") : VEHICLE_ID;
-            if (vid.empty()) vid = VEHICLE_ID;
+            std::string vid = safe_vehicle_id(req.has_param("vehicleId") ? req.get_param_value("vehicleId") : "", VEHICLE_ID);
             int mins = std::stoi(req.get_param_value("minutes").empty() ? "10" : req.get_param_value("minutes"));
             int64_t cutoff = now_ms() - (int64_t)mins * 60 * 1000;
             auto rows = obt_box.query(
@@ -429,7 +439,7 @@ int main(int argc, char* argv[]) {
     // toxiproxy path used in global scope.
     auto sessionVid = [&](const Request& req) {
         std::string vid = req.has_param("vehicleId") ? req.get_param_value("vehicleId") : "";
-        return vid.empty() ? VEHICLE_ID : vid;
+        return safe_vehicle_id(vid, VEHICLE_ID);
     };
     svr.Post("/session/pause", [&](const Request& req, Response& res) {
         try {

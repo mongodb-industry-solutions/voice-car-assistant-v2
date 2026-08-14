@@ -432,16 +432,21 @@ int main(int argc, char* argv[]) {
         return vid.empty() ? VEHICLE_ID : vid;
     };
     svr.Post("/session/pause", [&](const Request& req, Response& res) {
-        std::string vid = sessionVid(req);
-        int64_t buffered;
-        {
-            std::lock_guard<std::mutex> lk(sessionMutex);
-            sessionPaused[vid] = true;
-            auto it = sessionBuffer.find(vid);
-            buffered = (it != sessionBuffer.end()) ? (int64_t)it->second.size() : 0;
+        try {
+            std::string vid = sessionVid(req);
+            int64_t buffered;
+            {
+                std::lock_guard<std::mutex> lk(sessionMutex);
+                sessionPaused[vid] = true;
+                auto it = sessionBuffer.find(vid);
+                buffered = (it != sessionBuffer.end()) ? (int64_t)it->second.size() : 0;
+            }
+            std::cout << "⏸  Session offline: " << vid << "\n";
+            res.set_content(json{{"success", true}, {"paused", true}, {"vehicle_id", vid}, {"buffered", buffered}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
         }
-        std::cout << "⏸  Session offline: " << vid << "\n";
-        res.set_content(json{{"success", true}, {"paused", true}, {"vehicle_id", vid}, {"buffered", buffered}}.dump(), "application/json");
     });
     svr.Post("/session/resume", [&](const Request& req, Response& res) {
         std::string vid = sessionVid(req);
@@ -457,28 +462,51 @@ int main(int argc, char* argv[]) {
                 sessionBuffer.erase(it);
             }
         }
-        for (auto& r : to_flush) obt_box.put(r);   // flush buffered snapshots → sync to Atlas
-        std::cout << "▶  Session online: " << vid << " (flushed " << to_flush.size() << ")\n";
-        res.set_content(json{{"success", true}, {"paused", false}, {"vehicle_id", vid}, {"flushed", (int64_t)to_flush.size()}}.dump(), "application/json");
+        // Flush buffered snapshots → synced store (→ Atlas). Guard the writes: an ObjectBox
+        // error must return 5xx, not escape the handler and kill the process. On failure,
+        // re-buffer the unflushed remainder and re-pause so the client can retry (no data loss).
+        size_t flushed = 0;
+        try {
+            for (; flushed < to_flush.size(); ++flushed) obt_box.put(to_flush[flushed]);
+        } catch (const std::exception& e) {
+            {
+                std::lock_guard<std::mutex> lk(sessionMutex);
+                sessionPaused[vid] = true;
+                auto& buf = sessionBuffer[vid];
+                for (size_t i = to_flush.size(); i-- > flushed; ) buf.push_front(to_flush[i]);
+                while (buf.size() > SESSION_BUFFER_MAX) buf.pop_front();
+            }
+            std::cerr << "Session resume flush failed for " << vid << " after " << flushed << ": " << e.what() << "\n";
+            res.status = 500;
+            res.set_content(json{{"success", false}, {"error", e.what()}, {"flushed", (int64_t)flushed}}.dump(), "application/json");
+            return;
+        }
+        std::cout << "▶  Session online: " << vid << " (flushed " << flushed << ")\n";
+        res.set_content(json{{"success", true}, {"paused", false}, {"vehicle_id", vid}, {"flushed", (int64_t)flushed}}.dump(), "application/json");
     });
     svr.Get("/session/status", [&](const Request& req, Response& res) {
-        std::string vid = sessionVid(req);
-        bool paused; int64_t buffered;
-        {
-            std::lock_guard<std::mutex> lk(sessionMutex);
-            auto pit = sessionPaused.find(vid);
-            paused = (pit != sessionPaused.end() && pit->second);
-            auto bit = sessionBuffer.find(vid);
-            buffered = (bit != sessionBuffer.end()) ? (int64_t)bit->second.size() : 0;
+        try {
+            std::string vid = sessionVid(req);
+            bool paused; int64_t buffered;
+            {
+                std::lock_guard<std::mutex> lk(sessionMutex);
+                auto pit = sessionPaused.find(vid);
+                paused = (pit != sessionPaused.end() && pit->second);
+                auto bit = sessionBuffer.find(vid);
+                buffered = (bit != sessionBuffer.end()) ? (int64_t)bit->second.size() : 0;
+            }
+            int64_t synced = (int64_t)obt_box.query(ObxTelemetry_::vehicleId.equals(vid)).build().count();
+            res.set_content(json{
+                {"available", true},
+                {"paused", paused},
+                {"connected", !paused},
+                {"local_count", synced + buffered},   // edge has synced rows + buffered (offline) rows
+                {"buffered", buffered}
+            }.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json{{"error", e.what()}}.dump(), "application/json");
         }
-        int64_t synced = (int64_t)obt_box.query(ObxTelemetry_::vehicleId.equals(vid)).build().count();
-        res.set_content(json{
-            {"available", true},
-            {"paused", paused},
-            {"connected", !paused},
-            {"local_count", synced + buffered},   // edge has synced rows + buffered (offline) rows
-            {"buffered", buffered}
-        }.dump(), "application/json");
     });
 
     // ── GET /health ───────────────────────────────────────────────────────────

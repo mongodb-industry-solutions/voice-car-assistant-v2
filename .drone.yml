@@ -320,5 +320,322 @@ steps:
       kubernetes_token:
         from_secret: staging_kubernetes_token
 
-# ── Production pipeline: add once staging is verified (mirror the above with
-#    -prod repos/tags, branch main, api.prod.corp.mongodb.com, prod_kubernetes_token). ──
+---
+kind: pipeline
+type: kubernetes
+name: production-combined
+
+# Mirrors staging-combined: 10 kaniko builds (to "-prod" ECR repos, tagged git-<sha> + prod-latest)
+# + 1 combined all-in-one-pod deploy from environment/production.yaml. Triggers on the `main` branch
+# and deploys to the prod cluster (api.prod, prod_kubernetes_token). objectbox-sync-server (idx 9)
+# and toxiproxy (idx 10) are prebuilt/public and NOT built here.
+trigger:
+  branch:
+    - main
+  event:
+    - push
+
+steps:
+  - name: publish-frontend
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-frontend-prod
+      dockerfile: voice-assistant-frontend/Dockerfile
+      context: voice-assistant-frontend
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-backend
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-backend-prod
+      dockerfile: voice-assistant-backend/Dockerfile
+      context: voice-assistant-backend
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-agent
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-agent-prod
+      dockerfile: langchain-agent-service/Dockerfile
+      context: langchain-agent-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-navigation
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-navigation-prod
+      dockerfile: navigation-service/Dockerfile
+      context: navigation-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-mongodb-search
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search-prod
+      dockerfile: mongodb-search-service/Dockerfile
+      context: mongodb-search-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-telemetry-api
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api-prod
+      dockerfile: vss-telemetry-api/Dockerfile
+      context: vss-telemetry-api
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  # C++ ObjectBox services build from source (slow) → shared build cache with staging.
+  - name: publish-search-service
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      cache: true
+      cache_repo: industrysolutions/mobile-edge-in-car-voice-assistant-search-service-cache
+      cache_ttl: 168
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-search-service-prod
+      dockerfile: search-service/Dockerfile
+      context: search-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-conversation-service
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      cache: true
+      cache_repo: industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service-cache
+      cache_ttl: 168
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service-prod
+      dockerfile: conversation-service/Dockerfile
+      context: conversation-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-vss-telemetry-service
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      cache: true
+      cache_repo: industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service-cache
+      cache_ttl: 168
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service-prod
+      dockerfile: vss-telemetry-service/Dockerfile
+      context: vss-telemetry-service
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  - name: publish-simulator
+    image: plugins/kaniko-ecr
+    resources:
+      requests: { cpu: 1000, memory: 2048Mi }
+      limits: { cpu: 2000, memory: 4096Mi }
+    settings:
+      compressed_caching: false
+      snapshot_mode: redo
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/mobile-edge-in-car-voice-assistant-simulator-prod
+      dockerfile: vss-telemetry-simulator/Dockerfile
+      context: vss-telemetry-simulator
+      tags:
+        - "git-${DRONE_COMMIT_SHA:0:7}"
+        - prod-latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+
+  # ── One combined deploy to the prod cluster: frontend main container + sidecars.
+  #   0 backend · 1 agent · 2 navigation · 3 mongodb-search · 4 telemetry-api
+  #   5 search-service · 6 conversation-service · 7 vss-telemetry-service · 8 simulator
+  #   9 objectbox-sync-server (prebuilt — image NOT set here) · 10 toxiproxy (public)
+  - name: deploy-combined-production
+    image: public.ecr.aws/kanopy/drone-helm:v3
+    settings:
+      chart: mongodb/web-app
+      chart_version: 4.30.0
+      add_repos: [mongodb=https://10gen.github.io/helm-charts]
+      namespace: industrysolutions
+      release: mobile-edge-car-assistant
+      values_files: ["environment/production.yaml"]
+      values:
+        - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-frontend-prod"
+        - "image.tag=git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[0].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend-prod:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[1].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent-prod:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[2].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-navigation-prod:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[3].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search-prod:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[4].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api-prod:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[5].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-search-service-prod:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[6].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service-prod:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[7].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service-prod:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[8].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-simulator-prod:git-${DRONE_COMMIT_SHA:0:7}"
+        - "ingress.enabled=true"
+        - "ingress.hosts[0]=mobile-edge-in-car-voice-assistant.industrysolutions.prod.corp.mongodb.com"
+        - "mesh.enabled=true"
+        - "resources.limits.cpu=500m"
+        - "resources.limits.memory=512Mi"
+        - "resources.requests.cpu=100m"
+        - "resources.requests.memory=256Mi"
+        - "sidecarContainers[0].resources.limits.cpu=1000m"
+        - "sidecarContainers[0].resources.limits.memory=2048Mi"
+        - "sidecarContainers[0].resources.requests.cpu=200m"
+        - "sidecarContainers[0].resources.requests.memory=512Mi"
+        - "sidecarContainers[1].resources.limits.cpu=1000m"
+        - "sidecarContainers[1].resources.limits.memory=2048Mi"
+        - "sidecarContainers[1].resources.requests.cpu=200m"
+        - "sidecarContainers[1].resources.requests.memory=512Mi"
+        - "sidecarContainers[2].resources.limits.cpu=500m"
+        - "sidecarContainers[2].resources.limits.memory=512Mi"
+        - "sidecarContainers[2].resources.requests.cpu=100m"
+        - "sidecarContainers[2].resources.requests.memory=128Mi"
+        - "sidecarContainers[3].resources.limits.cpu=500m"
+        - "sidecarContainers[3].resources.limits.memory=512Mi"
+        - "sidecarContainers[3].resources.requests.cpu=100m"
+        - "sidecarContainers[3].resources.requests.memory=128Mi"
+        - "sidecarContainers[4].resources.limits.cpu=500m"
+        - "sidecarContainers[4].resources.limits.memory=256Mi"
+        - "sidecarContainers[4].resources.requests.cpu=100m"
+        - "sidecarContainers[4].resources.requests.memory=128Mi"
+        - "sidecarContainers[5].resources.limits.cpu=500m"
+        - "sidecarContainers[5].resources.limits.memory=512Mi"
+        - "sidecarContainers[5].resources.requests.cpu=100m"
+        - "sidecarContainers[5].resources.requests.memory=256Mi"
+        - "sidecarContainers[5].resources.requests.ephemeral-storage=512Mi"
+        - "sidecarContainers[5].resources.limits.ephemeral-storage=2Gi"
+        - "sidecarContainers[6].resources.limits.cpu=500m"
+        - "sidecarContainers[6].resources.limits.memory=512Mi"
+        - "sidecarContainers[6].resources.requests.cpu=100m"
+        - "sidecarContainers[6].resources.requests.memory=256Mi"
+        - "sidecarContainers[6].resources.requests.ephemeral-storage=512Mi"
+        - "sidecarContainers[6].resources.limits.ephemeral-storage=2Gi"
+        - "sidecarContainers[7].resources.limits.cpu=500m"
+        - "sidecarContainers[7].resources.limits.memory=512Mi"
+        - "sidecarContainers[7].resources.requests.cpu=100m"
+        - "sidecarContainers[7].resources.requests.memory=256Mi"
+        - "sidecarContainers[7].resources.requests.ephemeral-storage=512Mi"
+        - "sidecarContainers[7].resources.limits.ephemeral-storage=2Gi"
+        - "sidecarContainers[8].resources.limits.cpu=500m"
+        - "sidecarContainers[8].resources.limits.memory=256Mi"
+        - "sidecarContainers[8].resources.requests.cpu=100m"
+        - "sidecarContainers[8].resources.requests.memory=128Mi"
+        - "sidecarContainers[9].resources.limits.cpu=500m"
+        - "sidecarContainers[9].resources.limits.memory=1024Mi"
+        - "sidecarContainers[9].resources.requests.cpu=100m"
+        - "sidecarContainers[9].resources.requests.memory=256Mi"
+        - "sidecarContainers[9].resources.requests.ephemeral-storage=512Mi"
+        - "sidecarContainers[9].resources.limits.ephemeral-storage=2Gi"
+      api_server: https://api.prod.corp.mongodb.com
+      kubernetes_token:
+        from_secret: prod_kubernetes_token

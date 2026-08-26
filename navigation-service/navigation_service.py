@@ -8,10 +8,11 @@ import math
 import os
 import time
 
-import ollama
 import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+from llm_provider import complete
 
 app = Flask(__name__)
 CORS(app)
@@ -106,10 +107,8 @@ JSON:"""
 
     try:
         t0 = time.time()
-        client = ollama.Client(host=OLLAMA_HOST)
-        response = client.generate(model=LLM_MODEL, prompt=prompt, think=False)
+        text = complete(prompt)
         print(f"[timing] intent LLM: {time.time()-t0:.2f}s", flush=True)
-        text = response["response"].strip()
         start = text.find("{")
         end = text.rfind("}") + 1
         if start >= 0 and end > start:

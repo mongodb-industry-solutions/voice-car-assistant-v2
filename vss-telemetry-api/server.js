@@ -17,6 +17,14 @@ const DATABASE_NAME = process.env.DATABASE_NAME || "";
 const PORT          = parseInt(process.env.PORT  || "3002", 10);
 const VEHICLE_ID    = process.env.VEHICLE_ID    || "VSS-DEMO-VIN-001";
 
+// vehicleId is caller-controlled and goes into a Mongo query filter. Coerce to a string
+// and allowlist it, so a non-string like { "$ne": "" } cannot become a selector operator
+// (NoSQL injection). Anything invalid falls back to the default vehicle.
+const VEHICLE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+function safeVehicleId(v) {
+  return typeof v === "string" && VEHICLE_ID_RE.test(v) ? v : VEHICLE_ID;
+}
+
 // ── MongoDB lazy connection ────────────────────────────────────────────────────
 
 let _client = null;
@@ -65,10 +73,10 @@ function geoCoords(geo) {
   }
 }
 
-async function getStatus() {
+async function getStatus(vehicleId) {
   const db = await getDb();
   return db.collection("telemetry-status").findOne(
-    { vehicleId: VEHICLE_ID },
+    { vehicleId: safeVehicleId(vehicleId) },
     { projection: { _id: 0 } }
   );
 }
@@ -154,8 +162,8 @@ function pick(obj, path) {
 const fmt = (v, u = "") => (v == null ? "N/A" : `${v}${u}`);
 const stamp = (doc) => `Last Updated: ${doc.lastUpdated != null ? new Date(doc.lastUpdated).toISOString() : "N/A"}`;
 
-async function get_vehicle_status() {
-  const doc = await getStatus();
+async function get_vehicle_status(vehicleId) {
+  const doc = await getStatus(vehicleId);
   if (!doc || !doc.data) return noData();
   const d = doc.data, meta = doc.meta;
 
@@ -179,8 +187,8 @@ async function get_vehicle_status() {
   return lines.join("\n");
 }
 
-async function get_powertrain_status() {
-  const doc = await getStatus();
+async function get_powertrain_status(vehicleId) {
+  const doc = await getStatus(vehicleId);
   if (!doc || !pick(doc.data, "Powertrain")) return noData("powertrain");
   const d = doc.data;
   const coolant = pick(d, "Powertrain.CombustionEngine.EngineCoolant.Temperature");
@@ -198,8 +206,8 @@ async function get_powertrain_status() {
   return lines.join("\n");
 }
 
-async function get_fuel_status() {
-  const doc = await getStatus();
+async function get_fuel_status(vehicleId) {
+  const doc = await getStatus(vehicleId);
   if (!doc || !pick(doc.data, "Powertrain.FuelSystem")) return noData("fuel");
   const d = doc.data, meta = doc.meta || {};
   const pct    = pick(d, "Powertrain.FuelSystem.RelativeLevel");
@@ -222,8 +230,8 @@ async function get_fuel_status() {
   return lines.join("\n");
 }
 
-async function get_battery_status() {
-  const doc = await getStatus();
+async function get_battery_status(vehicleId) {
+  const doc = await getStatus(vehicleId);
   if (!doc || !pick(doc.data, "Powertrain.TractionBattery")) return noData("battery");
   const d = doc.data;
   const soc      = pick(d, "Powertrain.TractionBattery.StateOfCharge.Current");
@@ -251,8 +259,8 @@ async function get_battery_status() {
   return lines.join("\n");
 }
 
-async function get_chassis_status() {
-  const doc = await getStatus();
+async function get_chassis_status(vehicleId) {
+  const doc = await getStatus(vehicleId);
   if (!doc || !pick(doc.data, "Chassis")) return noData("chassis");
   const d = doc.data;
   const tireSummary = (position, kpa) => {
@@ -278,8 +286,8 @@ async function get_chassis_status() {
   return lines.join("\n");
 }
 
-async function get_cabin_status() {
-  const doc = await getStatus();
+async function get_cabin_status(vehicleId) {
+  const doc = await getStatus(vehicleId);
   if (!doc || !pick(doc.data, "Cabin")) return noData("cabin");
   const d = doc.data;
 
@@ -295,8 +303,8 @@ async function get_cabin_status() {
   return lines.join("\n");
 }
 
-async function get_location() {
-  const doc = await getStatus();
+async function get_location(vehicleId) {
+  const doc = await getStatus(vehicleId);
   if (!doc || !pick(doc.data, "CurrentLocation")) return noData("location");
 
   const loc    = doc.data.CurrentLocation;
@@ -317,8 +325,8 @@ async function get_location() {
   return lines.join("\n");
 }
 
-async function get_adas_status() {
-  const doc = await getStatus();
+async function get_adas_status(vehicleId) {
+  const doc = await getStatus(vehicleId);
   if (!doc || !pick(doc.data, "ADAS")) return noData("adas");
   const d = doc.data;
   const collision = pick(d, "ADAS.ObstacleDetection.Front.Center.IsWarning");
@@ -336,8 +344,8 @@ async function get_adas_status() {
   return lines.join("\n");
 }
 
-async function get_diagnostics_status() {
-  const doc = await getStatus();
+async function get_diagnostics_status(vehicleId) {
+  const doc = await getStatus(vehicleId);
   if (!doc || !pick(doc.data, "Diagnostics")) return noData("diagnostics");
 
   const dg    = doc.data.Diagnostics;
@@ -362,16 +370,17 @@ async function get_diagnostics_status() {
 
 // ── Tool dispatch map ──────────────────────────────────────────────────────────
 
+// Each tool takes the caller's vehicleId (per-session vehicle); falls back to VEHICLE_ID.
 const toolHandlers = {
-  get_vehicle_status:    (_args) => get_vehicle_status(),
-  get_powertrain_status: (_args) => get_powertrain_status(),
-  get_fuel_status:       (_args) => get_fuel_status(),
-  get_battery_status:    (_args) => get_battery_status(),
-  get_chassis_status:    (_args) => get_chassis_status(),
-  get_cabin_status:      (_args) => get_cabin_status(),
-  get_location:          (_args) => get_location(),
-  get_adas_status:       (_args) => get_adas_status(),
-  get_diagnostics_status:(_args) => get_diagnostics_status(),
+  get_vehicle_status:    (args) => get_vehicle_status(args.vehicleId),
+  get_powertrain_status: (args) => get_powertrain_status(args.vehicleId),
+  get_fuel_status:       (args) => get_fuel_status(args.vehicleId),
+  get_battery_status:    (args) => get_battery_status(args.vehicleId),
+  get_chassis_status:    (args) => get_chassis_status(args.vehicleId),
+  get_cabin_status:      (args) => get_cabin_status(args.vehicleId),
+  get_location:          (args) => get_location(args.vehicleId),
+  get_adas_status:       (args) => get_adas_status(args.vehicleId),
+  get_diagnostics_status:(args) => get_diagnostics_status(args.vehicleId),
 };
 
 // ── Express app ────────────────────────────────────────────────────────────────
@@ -393,6 +402,25 @@ app.post("/tools/:toolName", express.json(), async (req, res) => {
   } catch (e) {
     console.error(`Tool error [${sanitizeForLog(toolName)}]:`, e);
     res.status(500).json({ error: e.message });
+  }
+});
+
+// Cloud-side document counts — the Atlas end of the sync, for the live sync panel.
+app.get("/cloud/counts", async (req, res) => {
+  try {
+    const db = await getDb();
+    // Optional ?vehicleId= scopes the objectbox_telemetry count to one vehicle (session
+    // scope); absent → global count (default / global scope). Guarded against injection.
+    const obFilter = req.query.vehicleId ? { vehicleId: safeVehicleId(req.query.vehicleId) } : {};
+    const [objectbox, tsData, tsStatus] = await Promise.all([
+      // exact count so it converges visibly with the edge count in the sync panel
+      db.collection("objectbox_telemetry").countDocuments(obFilter),
+      db.collection("telemetry-data").estimatedDocumentCount().catch(() => null),
+      db.collection("telemetry-status").estimatedDocumentCount().catch(() => null),
+    ]);
+    res.json({ objectbox_telemetry: objectbox, "telemetry-data": tsData, "telemetry-status": tsStatus });
+  } catch (e) {
+    res.status(503).json({ error: e.message });
   }
 });
 

@@ -7,6 +7,7 @@ telemetry service, and broadcasts them over WebSocket.
 import threading
 import time
 import os
+import re
 import requests as http_requests
 
 from flask import Flask, jsonify, request
@@ -25,62 +26,127 @@ VSS_TELEMETRY_SERVICE_URL = os.getenv(
 VEHICLE_ID = os.getenv("VEHICLE_ID", "VSS-DEMO-VIN-001")
 INTERVAL_S = float(os.getenv("SIMULATOR_INTERVAL", "2.0"))
 
+# vehicle_id is caller-controlled and becomes a dict key + thread name. Allowlist it
+# (length + safe chars) so odd input can't bloat memory, spawn many sims, or garble logs.
+_VEHICLE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+# A sim with no start/status/config activity within this window is reaped (a tab that
+# closed without stopping). The UI polls status every ~5 s, so an open tab stays alive.
+SIM_IDLE_TTL_S = float(os.getenv("SIM_IDLE_TTL", "120"))
+
 
 # Vehicle metadata now rides inside every snapshot (see vss_generator.META) as a
 # sibling of the domain blocks — no separate /vss/meta seeding is needed.
 
 # ------------------------------------------------------------------ #
-#  Shared state                                                        #
+#  Per-vehicle simulators                                             #
 # ------------------------------------------------------------------ #
+# Each browser session drives its own vehicleId, so sessions get independent
+# telemetry streams. A _Sim owns one generator + background thread and POSTs
+# snapshots stamped with its vehicleId. Callers that send no vehicleId fall back
+# to the default VEHICLE_ID, preserving single-vehicle behaviour.
 
-_lock = threading.Lock()
-_state = {
-    "running": False,
-    "count": 0,
-    "interval_s": INTERVAL_S,
-    "last_snapshot": None,
-}
-_generator = VssGenerator()
-_thread: threading.Thread | None = None
-_stop_event = threading.Event()
+class _Sim:
+    def __init__(self, vehicle_id: str, interval_s: float):
+        self.vehicle_id = vehicle_id
+        self.interval_s = interval_s
+        self.generator = VssGenerator()
+        self.count = 0
+        self.last_snapshot = None
+        self.last_seen = time.time()   # updated on start/status/config; drives idle reaping
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._lock = threading.Lock()
 
+    def touch(self):
+        self.last_seen = time.time()
 
-# ------------------------------------------------------------------ #
-#  Background worker                                                   #
-# ------------------------------------------------------------------ #
-
-def _background_loop():
-    while not _stop_event.is_set():
-        with _lock:
-            interval = _state["interval_s"]
-
-        snapshot = _generator.generate_snapshot()
-
-        # POST to telemetry service
-        try:
-            http_requests.post(
-                f"{VSS_TELEMETRY_SERVICE_URL}/vss/snapshot",
-                json=snapshot,
-                timeout=3.0,
+    def start(self) -> bool:
+        """Start the loop. Returns False if it was already running."""
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive():
+                return False
+            self._stop.clear()
+            self._thread = threading.Thread(
+                target=self._loop, daemon=True, name=f"vss-sim-{self.vehicle_id}"
             )
-        except Exception:
-            pass  # telemetry service may not be available; continue regardless
+            self._thread.start()
+            return True
 
-        # Emit over WebSocket
-        socketio.emit("vss_snapshot", snapshot)
+    def stop(self) -> bool:
+        """Stop the loop. Returns False if it was not running."""
+        with self._lock:
+            t = self._thread
+            if t is None:
+                return False
+            # Set the stop flag and join while still holding the lock, so a concurrent
+            # start() cannot swap in a new thread (and clear the flag) mid-stop. The loop
+            # never takes this lock, so joining under it can't deadlock.
+            self._stop.set()
+            t.join(timeout=5.0)
+            self._thread = None
+            return True
 
-        with _lock:
-            _state["count"] += 1
-            _state["last_snapshot"] = snapshot
+    def running(self) -> bool:
+        t = self._thread
+        return t is not None and t.is_alive()
 
-        _stop_event.wait(interval)
+    def _loop(self):
+        while not self._stop.is_set():
+            snapshot = self.generator.generate_snapshot()
+            snapshot["vehicle_id"] = self.vehicle_id  # stamp this session's vehicle
+            try:
+                http_requests.post(
+                    f"{VSS_TELEMETRY_SERVICE_URL}/vss/snapshot",
+                    json=snapshot,
+                    timeout=3.0,
+                )
+            except Exception:
+                pass  # telemetry service may not be available; continue regardless
+            socketio.emit("vss_snapshot", snapshot)
+            self.count += 1
+            self.last_snapshot = snapshot
+            self._stop.wait(self.interval_s)
 
 
-def _start_thread():
-    global _thread
-    _stop_event.clear()
-    _thread = threading.Thread(target=_background_loop, daemon=True, name="vss-sim")
-    _thread.start()
+_sims: dict[str, _Sim] = {}
+_sims_lock = threading.Lock()
+
+
+def _resolve_vehicle_id(payload=None) -> str:
+    payload = payload or {}
+    raw = payload.get("vehicle_id") or payload.get("vehicleId") or request.args.get("vehicleId") or ""
+    # str() coerces non-string JSON values (dict/number) so .strip() and the regex are safe.
+    vid = str(raw).strip()
+    return vid if _VEHICLE_ID_RE.match(vid) else VEHICLE_ID
+
+
+def _get_or_create(vehicle_id: str) -> _Sim:
+    with _sims_lock:
+        sim = _sims.get(vehicle_id)
+        if sim is None:
+            sim = _Sim(vehicle_id, INTERVAL_S)
+            _sims[vehicle_id] = sim
+        return sim
+
+
+def _reap_idle_sims():
+    """Stop and drop sims idle beyond SIM_IDLE_TTL_S (tabs that closed without stopping).
+    Pop stale entries under the lock, then stop() them outside it (stop can join for a
+    couple of seconds). A later start() with the same id just builds a fresh sim."""
+    interval = max(15.0, SIM_IDLE_TTL_S / 2)
+    while True:
+        time.sleep(interval)
+        now = time.time()
+        with _sims_lock:
+            popped = [(vid, _sims.pop(vid))
+                      for vid, s in list(_sims.items())
+                      if now - s.last_seen > SIM_IDLE_TTL_S]
+        for vid, sim in popped:
+            sim.stop()
+            print(f"[reaper] stopped idle vehicle {vid}", flush=True)
+
+
+threading.Thread(target=_reap_idle_sims, daemon=True, name="vss-sim-reaper").start()
 
 
 # ------------------------------------------------------------------ #
@@ -89,21 +155,30 @@ def _start_thread():
 
 @app.route("/health", methods=["GET"])
 def health():
-    with _lock:
-        running = _state["running"]
-        count = _state["count"]
-    return jsonify({"status": "healthy", "running": running, "count": count})
+    with _sims_lock:
+        vehicles = len(_sims)
+        running = sum(1 for s in _sims.values() if s.running())
+        count = sum(s.count for s in _sims.values())
+    return jsonify({"status": "healthy", "vehicles": vehicles, "running": running, "count": count})
 
 
 @app.route("/simulator/status", methods=["GET"])
 def simulator_status():
-    with _lock:
-        s = dict(_state)
+    vid = _resolve_vehicle_id()
+    with _sims_lock:
+        sim = _sims.get(vid)
+    if sim is not None:
+        sim.touch()   # an open tab polling status keeps its sim from being reaped
+    if sim is None:
+        return jsonify({
+            "vehicle_id": vid, "running": False, "count": 0,
+            "interval_s": INTERVAL_S, "last_snapshot_summary": None,
+        })
 
-    last = s.get("last_snapshot")
+    last = sim.last_snapshot
     summary = None
     if last:
-        # data is now the full VSS tree (exact VSS paths); surface a few top-level signals.
+        # data is the full VSS tree (exact VSS paths); surface a few top-level signals.
         summary = {
             "vehicle_id": last.get("vehicle_id"),
             "ts": last.get("ts"),
@@ -114,39 +189,34 @@ def simulator_status():
         }
 
     return jsonify({
-        "running": s["running"],
-        "count": s["count"],
-        "interval_s": s["interval_s"],
+        "vehicle_id": vid,
+        "running": sim.running(),
+        "count": sim.count,
+        "interval_s": sim.interval_s,
         "last_snapshot_summary": summary,
     })
 
 
 @app.route("/simulator/start", methods=["POST"])
 def simulator_start():
-    global _thread
-    with _lock:
-        if _state["running"]:
-            return jsonify({"status": "already_running", "count": _state["count"]}), 200
-        _state["running"] = True
-
-    _start_thread()
-    return jsonify({"status": "started"}), 200
+    vid = _resolve_vehicle_id(request.get_json(silent=True))
+    sim = _get_or_create(vid)
+    sim.touch()
+    if not sim.start():
+        return jsonify({"status": "already_running", "vehicle_id": vid, "count": sim.count}), 200
+    return jsonify({"status": "started", "vehicle_id": vid}), 200
 
 
 @app.route("/simulator/stop", methods=["POST"])
 def simulator_stop():
-    global _thread
-    with _lock:
-        if not _state["running"]:
-            return jsonify({"status": "not_running"}), 200
-        _state["running"] = False
-
-    _stop_event.set()
-    if _thread is not None:
-        _thread.join(timeout=5.0)
-        _thread = None
-
-    return jsonify({"status": "stopped"}), 200
+    vid = _resolve_vehicle_id(request.get_json(silent=True))
+    # Remove first, then stop: a stopped sim leaves the registry so the dict stays bounded.
+    # A concurrent start() with the same id simply builds a fresh sim (vid no longer present).
+    with _sims_lock:
+        sim = _sims.pop(vid, None)
+    if sim is None or not sim.stop():
+        return jsonify({"status": "not_running", "vehicle_id": vid}), 200
+    return jsonify({"status": "stopped", "vehicle_id": vid}), 200
 
 
 @app.route("/simulator/config", methods=["POST"])
@@ -165,15 +235,18 @@ def simulator_config():
     if interval_s <= 0:
         return jsonify({"error": "'interval_s' must be positive"}), 400
 
-    with _lock:
-        _state["interval_s"] = interval_s
-
-    return jsonify({"status": "updated", "interval_s": interval_s}), 200
+    vid = _resolve_vehicle_id(data)
+    sim = _get_or_create(vid)
+    sim.interval_s = interval_s
+    sim.touch()
+    return jsonify({"status": "updated", "vehicle_id": vid, "interval_s": interval_s}), 200
 
 
 @app.route("/simulator/snapshot", methods=["GET"])
 def simulator_snapshot():
-    snapshot = _generator.generate_snapshot()
+    vid = _resolve_vehicle_id()
+    snapshot = _get_or_create(vid).generator.generate_snapshot()
+    snapshot["vehicle_id"] = vid
     return jsonify(snapshot), 200
 
 
@@ -182,10 +255,10 @@ def simulator_snapshot():
 # ------------------------------------------------------------------ #
 
 if __name__ == "__main__":
-    # Auto-start the background simulator on launch
-    with _lock:
-        _state["running"] = True
-    _start_thread()
+    # Sessions start their own vehicle on demand; no global auto-start so abandoned
+    # streams do not accumulate. Set AUTOSTART_DEFAULT=1 to stream the default vehicle.
+    if os.getenv("AUTOSTART_DEFAULT") == "1":
+        _get_or_create(VEHICLE_ID).start()
 
     socketio.run(
         app,

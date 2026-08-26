@@ -3,7 +3,7 @@ LangChain Agent Service — Unified car assistant
 Combines: car manual RAG, vehicle telemetry (via VSS Telemetry API), navigation.
 
 Uses a LangGraph ReAct agent (create_react_agent) with:
-  - ChatOllama as the LLM
+  - a chat model chosen by LLM_PROVIDER (local Ollama, or Grove-hosted Claude) via llm_provider.make_chat_llm
   - MemorySaver checkpointer for per-conversation history
   - Two agents pre-compiled at startup: _OFFLINE_AGENT and _ONLINE_AGENT
     Selected per-request by network_mode; graph compilation cost is zero per request.
@@ -23,7 +23,6 @@ from requests.adapters import HTTPAdapter
 from sentence_transformers import SentenceTransformer
 from flask import Flask, jsonify, request, stream_with_context, Response
 from flask_cors import CORS
-from langchain_ollama import ChatOllama
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import AIMessageChunk, HumanMessage, SystemMessage, ToolMessage, trim_messages
 from langchain_core.runnables import RunnableLambda, RunnableConfig
@@ -31,6 +30,8 @@ from langchain_core.tools import StructuredTool
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel, Field
+
+from llm_provider import make_chat_llm
 
 app = Flask(__name__)
 CORS(app)
@@ -44,6 +45,10 @@ SEARCH_SERVICE_URL         = os.getenv("SEARCH_SERVICE_URL",         "http://loc
 MONGODB_SEARCH_SERVICE_URL = os.getenv("MONGODB_SEARCH_SERVICE_URL", "http://localhost:8085")
 NAVIGATION_SERVICE_URL     = os.getenv("NAVIGATION_SERVICE_URL",     "http://localhost:5001")
 TELEMETRY_SERVICE_URL      = os.getenv("VSS_TELEMETRY_API_URL",      "http://localhost:3002")
+# Local on-edge ObjectBox telemetry service (used OFFLINE — no Atlas dependency).
+VSS_TELEMETRY_LOCAL_URL    = os.getenv("VSS_TELEMETRY_SERVICE_URL",  "http://localhost:8086")
+# Default vehicle when a request carries none (single-vehicle / non-session callers).
+DEFAULT_VEHICLE_ID         = os.getenv("VEHICLE_ID", "VSS-DEMO-VIN-001")
 
 # ── Module-level singletons (shared across all Gunicorn threads) ──────────────
 
@@ -58,18 +63,10 @@ print(f"Loading embedding model: {EMBEDDING_MODEL} @ {EMBED_DIM} dims", flush=Tr
 _embed_model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True, truncate_dim=EMBED_DIM)
 print("Embedding model ready", flush=True)
 
-# LLM — stateless; safe to share across gthread workers
-# num_ctx=1536: fits ~350 tokens of system+tools + 600-char tool result (~150 tok) + history with margin
-# num_predict=400: qwen2.5:3b emits ~50-100 tokens of preamble before the tool call JSON even without
-#   explicit thinking; 200 was cut off mid-tool-call causing silent fallback to direct answers
-_llm = ChatOllama(
-    model=LLM_MODEL,
-    base_url=OLLAMA_HOST,
-    temperature=0,
-    keep_alive=-1,
-    num_ctx=1536,
-    num_predict=400,
-)
+# LLM — stateless; safe to share across gthread workers.
+# Provider selected by LLM_PROVIDER (default "ollama" local; "grove" = hosted Claude
+# on Kanopy). Ollama params (num_ctx/num_predict) live in llm_provider.make_chat_llm.
+_llm = make_chat_llm()
 
 # Conversation memory — keyed by conversation_id as thread_id
 _checkpointer = MemorySaver()
@@ -169,6 +166,17 @@ def _validate_network_mode(raw: str | None) -> str:
     return "offline"
 
 
+_VEHICLE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _validate_vehicle_id(raw: str | None) -> str:
+    """Accept a safe vehicle id (used in DB queries / URL params) or fall back to the default."""
+    if raw is None:
+        return DEFAULT_VEHICLE_ID
+    raw = str(raw).strip()
+    return raw if _VEHICLE_ID_RE.match(raw) else DEFAULT_VEHICLE_ID
+
+
 def _validate_coord(value: Any, name: str) -> Optional[float]:
     """Parse and range-check a latitude or longitude value."""
     if value is None:
@@ -185,6 +193,30 @@ def _validate_coord(value: Any, name: str) -> Optional[float]:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _content_to_text(content) -> str:
+    """
+    Normalise a LangChain message's content to plain text.
+
+    Ollama returns a string; Anthropic/Claude (langchain_anthropic) returns a list
+    of content blocks (e.g. [{"type": "text", "text": "..."}], plus tool_use blocks).
+    Concatenate the text blocks and ignore non-text ones so downstream string ops
+    (streaming accumulation, think-tag stripping) never see a list.
+    """
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and isinstance(block.get("text"), str):
+                parts.append(block["text"])
+        return "".join(parts)
+    return str(content)
+
 
 def _strip_think_tags(text: str) -> str:
     """Remove <think>...</think> blocks that some models embed in their output."""
@@ -306,9 +338,9 @@ def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
     messages = input_["messages"] if isinstance(input_, dict) else input_
     cfg = config.get("configurable", {})
     lat = cfg.get("lat")
-    # Mode hint: live telemetry is Atlas-only, so it is unavailable offline. Tell the
-    # LLM its current mode and to refuse (state the mode) rather than guess when the
-    # requested capability isn't available in this mode.
+    # Mode hint: both modes have car manual, live telemetry and navigation. Online reads
+    # telemetry from Atlas; offline reads it from the on-edge ObjectBox store. Either way
+    # the LLM must call the tools and never guess values.
     network_mode = cfg.get("network_mode", "offline")
     if network_mode == "online":
         mode_hint = (
@@ -317,12 +349,10 @@ def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
         )
     else:
         mode_hint = (
-            "MODE: You are OFFLINE. Live vehicle telemetry (overall car status, battery, "
-            "fuel, tyres, powertrain, cabin, location, fault-code/diagnostics readings) "
-            "needs an online connection "
-            "and is NOT available now. If the user asks for any live vehicle reading, tell "
-            "them you are offline and cannot access live vehicle data right now — do not "
-            "guess values. Car-manual questions and navigation still work."
+            "MODE: You are OFFLINE, but live vehicle telemetry is STILL available, served "
+            "from the on-edge database (overall status, powertrain, fuel, battery, tyres, "
+            "diagnostics). Car manual and navigation also work. Always call the tools for "
+            "live readings — never guess values."
         )
     loc_hint = (
         "The user's GPS location is known. "
@@ -449,11 +479,13 @@ def _navigate(destination: str, config: RunnableConfig) -> str:
         return f"Navigation service unavailable: {e}"
 
 
-def _call_telemetry(name: str, args: dict | None = None) -> str:
+def _call_telemetry(name: str, vehicle_id: str, args: dict | None = None) -> str:
     try:
+        body = dict(args or {})
+        body["vehicleId"] = vehicle_id   # per-session vehicle; API defaults if absent
         resp = _http.post(
             f"{TELEMETRY_SERVICE_URL}/tools/{name}",
-            json=args or {},
+            json=body,
             timeout=10,
         )
         if resp.ok:
@@ -465,6 +497,137 @@ def _call_telemetry(name: str, args: dict | None = None) -> str:
         return f"Telemetry error: {resp.status_code}"
     except Exception as e:
         return f"Telemetry service unavailable: {e}"
+
+
+# ── Local (on-edge) telemetry ──────────────────────────────────────────────────
+# Reads the ObjectBox store directly (vss-telemetry-service /vss/latest), so live
+# readings work OFFLINE with no Atlas dependency. The online tools above read the
+# Atlas copy via the telemetry API; these read the same signals straight from the edge.
+
+def _vpick(d, path):
+    cur = d
+    for k in path.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(k)
+    return cur
+
+
+def _local_snapshot(vehicle_id: str) -> dict:
+    try:
+        resp = _http.get(f"{VSS_TELEMETRY_LOCAL_URL}/vss/latest",
+                         params={"vehicleId": vehicle_id}, timeout=5)
+        return resp.json() if resp.ok else {}
+    except Exception:
+        return {}
+
+
+def _f(v, unit=""):
+    if v is None:
+        return "N/A"
+    if isinstance(v, (int, float)):
+        return f"{round(v, 1)}{unit}"
+    return f"{v}{unit}"
+
+
+def _local_vehicle_status(vehicle_id: str) -> str:
+    d = _local_snapshot(vehicle_id)
+    if not d:
+        return "Live telemetry is not available right now."
+    codes = (_vpick(d, "Diagnostics") or {}).get("DTCList") or []
+    return (
+        "Live vehicle status (on-edge ObjectBox): "
+        f"speed {_f(_vpick(d, 'Speed'), ' km/h')}, "
+        f"engine {_f(_vpick(d, 'Powertrain.CombustionEngine.Speed'), ' rpm')}, "
+        f"coolant {_f(_vpick(d, 'Powertrain.CombustionEngine.EngineCoolant.Temperature'), '°C')}, "
+        f"fuel {_f(_vpick(d, 'Powertrain.FuelSystem.RelativeLevel'), '%')}, "
+        f"battery SoC {_f(_vpick(d, 'Powertrain.TractionBattery.StateOfCharge.Current'), '%')}, "
+        f"range {_f(_vpick(d, 'Powertrain.TractionBattery.Range'), ' km')}. "
+        f"Active fault codes: {', '.join(map(str, codes)) if codes else 'none'}."
+    )
+
+
+def _local_powertrain(vehicle_id: str) -> str:
+    d = _local_snapshot(vehicle_id)
+    return (
+        "Powertrain (live, on-edge): "
+        f"speed {_f(_vpick(d, 'Speed'), ' km/h')}, "
+        f"RPM {_f(_vpick(d, 'Powertrain.CombustionEngine.Speed'))}, "
+        f"coolant {_f(_vpick(d, 'Powertrain.CombustionEngine.EngineCoolant.Temperature'), '°C')}, "
+        f"gear {_f(_vpick(d, 'Powertrain.Transmission.CurrentGear'))}."
+    )
+
+
+def _local_fuel(vehicle_id: str) -> str:
+    d = _local_snapshot(vehicle_id)
+    pct = _vpick(d, "Powertrain.FuelSystem.RelativeLevel")
+    cap = _vpick(d, "meta.fuelTankCapacityL")
+    litres = round(pct / 100 * cap, 1) if isinstance(pct, (int, float)) and isinstance(cap, (int, float)) else None
+    tail = f" of {cap} L" if isinstance(cap, (int, float)) else ""
+    return (
+        "Fuel (live, on-edge): "
+        f"level {_f(pct, '%')}, {_f(litres, ' L')} remaining{tail}, "
+        f"consumption {_f(_vpick(d, 'Powertrain.FuelSystem.InstantConsumption'), ' L/100km')}."
+    )
+
+
+def _local_battery(vehicle_id: str) -> str:
+    d = _local_snapshot(vehicle_id)
+    return (
+        "Battery (live, on-edge): "
+        f"SoC {_f(_vpick(d, 'Powertrain.TractionBattery.StateOfCharge.Current'), '%')}, "
+        f"range {_f(_vpick(d, 'Powertrain.TractionBattery.Range'), ' km')}."
+    )
+
+
+def _local_chassis(vehicle_id: str) -> str:
+    d = _local_snapshot(vehicle_id)
+    tp = lambda p: _f(_vpick(d, p), " kPa")
+    return (
+        "Chassis (live, on-edge) tire pressures — "
+        f"FL {tp('Chassis.Axle.Row1.Wheel.Left.Tire.Pressure')}, "
+        f"FR {tp('Chassis.Axle.Row1.Wheel.Right.Tire.Pressure')}, "
+        f"RL {tp('Chassis.Axle.Row2.Wheel.Left.Tire.Pressure')}, "
+        f"RR {tp('Chassis.Axle.Row2.Wheel.Right.Tire.Pressure')}."
+    )
+
+
+# DTC catalog for OFFLINE code→description translation. Mirrors vss-telemetry-api's
+# describeDtc: exact catalog match → category by first letter → "Unknown fault code".
+# The catalog file is baked into the image (COPY . .); regenerate from values-vss-data.md
+# via vss-telemetry-simulator/gen_vss_spec.py and keep the copies in sync.
+_DTC_CATEGORY = {
+    "P": "Powertrain (engine, transmission, emissions)",
+    "C": "Chassis (brakes, steering, suspension, ABS)",
+    "B": "Body (airbags, climate, seats, lighting)",
+    "U": "Network / communication",
+}
+
+
+def _load_dtc_catalog() -> dict:
+    path = os.getenv("DTC_CATALOG_PATH", os.path.join(os.path.dirname(__file__), "dtc_catalog.json"))
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[dtc] catalog load failed ({path}): {e}", flush=True)
+        return {}
+
+
+_DTC_CATALOG = _load_dtc_catalog()
+
+
+def _describe_dtc(code) -> str:
+    return _DTC_CATALOG.get(str(code)) or _DTC_CATEGORY.get(str(code)[:1], "Unknown fault code")
+
+
+def _local_diagnostics(vehicle_id: str) -> str:
+    d = _local_snapshot(vehicle_id)
+    codes = (_vpick(d, "Diagnostics") or {}).get("DTCList") or []
+    if not codes:
+        return "Diagnostics (live, on-edge): no active fault codes."
+    described = "; ".join(f"{c} — {_describe_dtc(c)}" for c in codes)
+    return f"Diagnostics (live, on-edge): {len(codes)} active fault code(s): {described}."
 
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────
@@ -504,49 +667,66 @@ _NAVIGATE_TOOL = StructuredTool.from_function(
     args_schema=NavigateInput,
 )
 
-# Zero-argument telemetry tools use _NoInput so the LLM calls them with {}
-# instead of an ambiguous empty string, which prevents tool-call parse errors.
+# The caller's vehicle rides in the RunnableConfig (set per-request from network_mode/
+# lat/lon alongside it). Telemetry tools read it so each session queries its own vehicle.
+def _vehicle_id(config: RunnableConfig) -> str:
+    return (config.get("configurable", {}) or {}).get("vehicle_id") or DEFAULT_VEHICLE_ID
+
+
+def _online_tele(api_name: str):
+    """Online telemetry tool fn: reads the caller's vehicle from config, hits the telemetry API."""
+    def _tool(config: RunnableConfig) -> str:
+        return _call_telemetry(api_name, _vehicle_id(config))
+    return _tool
+
+
+def _local_tele(fn):
+    """Offline telemetry tool fn: reads the caller's vehicle from config, hits the on-edge store."""
+    def _tool(config: RunnableConfig) -> str:
+        return fn(_vehicle_id(config))
+    return _tool
+
+
+# Telemetry tools use _NoInput so the LLM calls them with {} (the vehicle is injected via
+# config, not an LLM argument), which prevents tool-call parse errors.
 # Descriptions are one line and carry the keyword routing hints that were removed from the system prompt.
 _TELEMETRY_TOOLS = [
-    StructuredTool.from_function(
-        func=lambda: _call_telemetry("get_vehicle_status"),
-        name="get_vehicle_status",
+    StructuredTool.from_function(func=_online_tele("get_vehicle_status"), name="get_vehicle_status",
         description="LIVE READING: full car snapshot in ONE call — speed, fuel, battery, tires, cabin, location, ADAS. Use for general 'how is my car' / overall status questions instead of calling several tools.",
-        args_schema=_NoInput,
-    ),
-    StructuredTool.from_function(
-        func=lambda: _call_telemetry("get_powertrain_status"),
-        name="get_powertrain_status",
-        description="LIVE READING: current speed, RPM, coolant temp, gear, throttle.",
-        args_schema=_NoInput,
-    ),
-    StructuredTool.from_function(
-        func=lambda: _call_telemetry("get_fuel_status"),
-        name="get_fuel_status",
-        description="LIVE READING: current fuel level %, litres remaining, consumption rate.",
-        args_schema=_NoInput,
-    ),
-    StructuredTool.from_function(
-        func=lambda: _call_telemetry("get_battery_status"),
-        name="get_battery_status",
-        description="LIVE READING: current battery SOC%, state of health, range, charging status, voltage, temperature.",
-        args_schema=_NoInput,
-    ),
-    StructuredTool.from_function(
-        func=lambda: _call_telemetry("get_chassis_status"),
-        name="get_chassis_status",
-        description="LIVE READING: current tire pressures (all four), ABS, traction control, brake pedal.",
-        args_schema=_NoInput,
-    ),
-    StructuredTool.from_function(
-        func=lambda: _call_telemetry("get_diagnostics_status"),
-        name="get_diagnostics",
+        args_schema=_NoInput),
+    StructuredTool.from_function(func=_online_tele("get_powertrain_status"), name="get_powertrain_status",
+        description="LIVE READING: current speed, RPM, coolant temp, gear, throttle.", args_schema=_NoInput),
+    StructuredTool.from_function(func=_online_tele("get_fuel_status"), name="get_fuel_status",
+        description="LIVE READING: current fuel level %, litres remaining, consumption rate.", args_schema=_NoInput),
+    StructuredTool.from_function(func=_online_tele("get_battery_status"), name="get_battery_status",
+        description="LIVE READING: current battery SOC%, state of health, range, charging status, voltage, temperature.", args_schema=_NoInput),
+    StructuredTool.from_function(func=_online_tele("get_chassis_status"), name="get_chassis_status",
+        description="LIVE READING: current tire pressures (all four), ABS, traction control, brake pedal.", args_schema=_NoInput),
+    StructuredTool.from_function(func=_online_tele("get_diagnostics_status"), name="get_diagnostics",
         description="LIVE READING: active fault codes (DTCs), how many are set, and which warning lights are on right now. Use for 'any faults?', 'check engine', 'warning lights', 'error codes'.",
-        args_schema=_NoInput,
-    ),
+        args_schema=_NoInput),
 ]
 # get_cabin_status, get_location, get_adas_status, get_driving_history removed to reduce
 # tool schema token count; restoring them adds ~160 tokens to every LLM call prefill.
+
+# Offline telemetry — same tool names/descriptions as above, but sourced from the
+# on-edge ObjectBox store instead of Atlas, so live readings work with no connection.
+_TELEMETRY_TOOLS_LOCAL = [
+    StructuredTool.from_function(func=_local_tele(_local_vehicle_status), name="get_vehicle_status",
+        description="LIVE READING: full car snapshot in ONE call — speed, fuel, battery, tires. Use for general 'how is my car' / overall status questions instead of calling several tools.",
+        args_schema=_NoInput),
+    StructuredTool.from_function(func=_local_tele(_local_powertrain), name="get_powertrain_status",
+        description="LIVE READING: current speed, RPM, coolant temp, gear.", args_schema=_NoInput),
+    StructuredTool.from_function(func=_local_tele(_local_fuel), name="get_fuel_status",
+        description="LIVE READING: current fuel level %, litres remaining, consumption rate.", args_schema=_NoInput),
+    StructuredTool.from_function(func=_local_tele(_local_battery), name="get_battery_status",
+        description="LIVE READING: current battery SOC%, range.", args_schema=_NoInput),
+    StructuredTool.from_function(func=_local_tele(_local_chassis), name="get_chassis_status",
+        description="LIVE READING: current tire pressures (all four).", args_schema=_NoInput),
+    StructuredTool.from_function(func=_local_tele(_local_diagnostics), name="get_diagnostics",
+        description="LIVE READING: active fault codes (DTCs) and how many are set right now. Use for 'any faults?', 'check engine', 'warning lights', 'error codes'.",
+        args_schema=_NoInput),
+]
 
 
 # ── Pre-compiled agents ───────────────────────────────────────────────────────
@@ -556,7 +736,7 @@ _TELEMETRY_TOOLS = [
 print("Compiling offline agent...", flush=True)
 _OFFLINE_AGENT = create_react_agent(
     model=_llm,
-    tools=[_SEARCH_MANUAL_OFFLINE_TOOL, _NAVIGATE_TOOL],
+    tools=[_SEARCH_MANUAL_OFFLINE_TOOL, _NAVIGATE_TOOL] + _TELEMETRY_TOOLS_LOCAL,
     prompt=_PROMPT_RUNNABLE,
     checkpointer=_checkpointer,
 )
@@ -579,6 +759,7 @@ def run_agent(
     lat: Optional[float],
     lon: Optional[float],
     network_mode: str = "offline",
+    vehicle_id: str = DEFAULT_VEHICLE_ID,
 ) -> dict:
     agent = _ONLINE_AGENT if network_mode == "online" else _OFFLINE_AGENT
 
@@ -588,6 +769,7 @@ def run_agent(
             "lat": lat,
             "lon": lon,
             "network_mode": network_mode,
+            "vehicle_id": vehicle_id,
         },
         "callbacks": [_TimingCallback()],
         "recursion_limit": 8,
@@ -599,7 +781,7 @@ def run_agent(
     print(f"[timing] agent total: {time.time() - t0:.2f}s", flush=True)
 
     final_message = result["messages"][-1]
-    answer = _strip_think_tags(final_message.content or "")
+    answer = _strip_think_tags(_content_to_text(final_message.content))
     if not answer:
         answer = "I couldn't generate a response."
 
@@ -656,6 +838,7 @@ def stream_agent(
     lat: Optional[float],
     lon: Optional[float],
     network_mode: str = "offline",
+    vehicle_id: str = DEFAULT_VEHICLE_ID,
 ):
     """
     Generator that yields SSE-formatted strings.
@@ -671,6 +854,7 @@ def stream_agent(
             "lat": lat,
             "lon": lon,
             "network_mode": network_mode,
+            "vehicle_id": vehicle_id,
         },
         "callbacks": [_TimingCallback()],
         "recursion_limit": 8,
@@ -721,10 +905,12 @@ def stream_agent(
                             label = _TOOL_STATUS.get(name, f"Calling {name}…")
                             yield f"data: {json.dumps({'status': label})}\n\n"
                 elif chunk.content:
-                    full_content += chunk.content
+                    # Claude streams a list of content blocks; coerce to text.
+                    piece = _content_to_text(chunk.content)
+                    full_content += piece
                     # Filter <think>...</think> blocks so the UI never shows raw reasoning.
                     # Tags may span chunk boundaries; _in_think carries state across iterations.
-                    token = chunk.content
+                    token = piece
                     if _in_think:
                         close = token.find("</think>")
                         if close != -1:
@@ -845,19 +1031,20 @@ def _parse_request(data: dict) -> tuple:
     lat             = _validate_coord(data.get("lat"), "lat")
     lon             = _validate_coord(data.get("lon"), "lon")
     network_mode    = _validate_network_mode(data.get("network_mode"))
-    return message, conversation_id, lat, lon, network_mode
+    vehicle_id      = _validate_vehicle_id(data.get("vehicle_id") or data.get("vehicleId"))
+    return message, conversation_id, lat, lon, network_mode, vehicle_id
 
 
 @app.route("/agent/chat", methods=["POST"])
 def agent_chat():
     data = request.json or {}
     try:
-        message, conversation_id, lat, lon, network_mode = _parse_request(data)
+        message, conversation_id, lat, lon, network_mode, vehicle_id = _parse_request(data)
     except _InputError as e:
         return jsonify({"error": str(e)}), 400
 
     try:
-        result = run_agent(message, conversation_id, lat, lon, network_mode)
+        result = run_agent(message, conversation_id, lat, lon, network_mode, vehicle_id)
         return jsonify(result)
     except Exception as e:
         print(f"[agent] error: {e}", flush=True)
@@ -874,12 +1061,12 @@ def agent_chat():
 def agent_chat_stream():
     data = request.json or {}
     try:
-        message, conversation_id, lat, lon, network_mode = _parse_request(data)
+        message, conversation_id, lat, lon, network_mode, vehicle_id = _parse_request(data)
     except _InputError as e:
         return jsonify({"error": str(e)}), 400
 
     return Response(
-        stream_with_context(stream_agent(message, conversation_id, lat, lon, network_mode)),
+        stream_with_context(stream_agent(message, conversation_id, lat, lon, network_mode, vehicle_id)),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

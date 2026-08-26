@@ -1,0 +1,245 @@
+security:
+  dataClassification: "Internal"
+  dataDesignation: ["MI"]
+
+ownership:
+  driEmail: dorottya.nyarady@mongodb.com
+
+# ── Main container = frontend (Next.js). Only this one gets the ingress. ────────
+# Everything else runs as a sidecar in the SAME pod, so all inter-service calls
+# are over localhost and never cross the Istio mesh.
+env:
+  NODE_ENV: staging
+  BACKEND_URL: http://localhost:8000
+
+# Secret group holding all values (helm ksec group name). Injected into the main
+# (frontend) container; sidecars pull what they need via secretKeyRef below.
+envSecrets:
+  MONGODB_URI: mobile-edge-in-car-voice-assistant-staging
+  DATABASE_NAME: mobile-edge-in-car-voice-assistant-staging
+  GROVE_API_KEY: mobile-edge-in-car-voice-assistant-staging
+  GROVE_MODEL_ID: mobile-edge-in-car-voice-assistant-staging
+  GROVE_BASE_URL: mobile-edge-in-car-voice-assistant-staging
+
+# ── Sidecars ────────────────────────────────────────────────────────────────
+# Order matters: .drone.yaml overrides sidecarContainers[i].image by index for the
+# BUILT images (0–8). Index 9 (objectbox-sync-server) is a prebuilt licensed image
+# and is NOT overridden by Drone.
+#   0 backend · 1 agent · 2 navigation · 3 mongodb-search · 4 telemetry-api
+#   5 search-service · 6 conversation-service · 7 vss-telemetry-service · 8 simulator
+#   9 objectbox-sync-server (prebuilt)
+sidecarContainers:
+  - name: backend
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-backend:latest
+    ports:
+      - containerPort: 8000
+    env:
+      - name: PORT
+        value: "8000"
+      # Loopback-only: reachable by the frontend over in-pod localhost, not via the pod IP.
+      - name: HOST
+        value: "127.0.0.1"
+      - name: SEARCH_SERVICE_URL
+        value: http://localhost:8083
+      - name: CONVERSATION_SERVICE_URL
+        value: http://localhost:8081
+      - name: NAVIGATION_SERVICE_URL
+        value: http://localhost:5001
+      - name: AGENT_SERVICE_URL
+        value: http://localhost:5002
+      - name: VSS_TELEMETRY_SERVICE_URL
+        value: http://localhost:8086
+      - name: VSS_SIMULATOR_URL
+        value: http://localhost:8087
+      - name: VSS_TELEMETRY_API_URL
+        value: http://localhost:3002
+      # Per-session online/offline: each browser session goes offline on its own by buffering
+      # its vehicle's snapshots in vss-telemetry-service (Option B). Local compose leaves this
+      # unset (defaults to "global" = the shared toxiproxy pause), so local behaviour is unchanged.
+      - name: SYNC_SCOPE
+        value: session
+      # Sync offline/online lever — toxiproxy control API + the proxy it fronts (still used to
+      # carry sync traffic; in session scope the proxy stays enabled and is never toggled).
+      - name: TOXIPROXY_URL
+        value: http://localhost:8474
+      - name: SYNC_PROXY_UPSTREAM
+        value: 127.0.0.1:9999
+      - name: SYNC_PROXY_LISTEN
+        value: 0.0.0.0:9998
+
+  - name: agent
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-agent:latest
+    ports:
+      - containerPort: 5002
+    env:
+      - name: LLM_PROVIDER
+        value: grove
+      - name: EMBEDDING_MODEL
+        value: voyageai/voyage-4-nano
+      - name: SEARCH_SERVICE_URL
+        value: http://localhost:8083
+      - name: MONGODB_SEARCH_SERVICE_URL
+        value: http://localhost:8085
+      - name: NAVIGATION_SERVICE_URL
+        value: http://localhost:5001
+      - name: VSS_TELEMETRY_API_URL
+        value: http://localhost:3002
+      - name: VSS_TELEMETRY_SERVICE_URL
+        value: http://localhost:8086
+      - name: GROVE_API_KEY
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_API_KEY } }
+      - name: GROVE_MODEL_ID
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_MODEL_ID } }
+      - name: GROVE_BASE_URL
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_BASE_URL } }
+
+  - name: navigation
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-navigation:latest
+    ports:
+      - containerPort: 5001
+    env:
+      - name: LLM_PROVIDER
+        value: grove
+      - name: GROVE_API_KEY
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_API_KEY } }
+      - name: GROVE_MODEL_ID
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_MODEL_ID } }
+      - name: GROVE_BASE_URL
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: GROVE_BASE_URL } }
+
+  - name: mongodb-search
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-mongodb-search:latest
+    ports:
+      - containerPort: 8085
+    env:
+      - name: PORT
+        value: "8085"
+      - name: VECTOR_INDEX_NAME
+        value: manual_chunks_vector_index_staging
+      - name: MONGODB_URI
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: MONGODB_URI } }
+      - name: DATABASE_NAME
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: DATABASE_NAME } }
+
+  - name: telemetry-api
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-telemetry-api:latest
+    ports:
+      - containerPort: 3002
+    env:
+      - name: PORT
+        value: "3002"
+      - name: VEHICLE_ID
+        value: VSS-DEMO-VIN-001
+      - name: MONGODB_URI
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: MONGODB_URI } }
+      - name: DATABASE_NAME
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: DATABASE_NAME } }
+
+  - name: search-service
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-search-service:latest
+    ports:
+      - containerPort: 8083
+    env:
+      - name: PORT
+        value: "8083"
+      - name: SYNC_SERVER_URL
+        value: ws://localhost:9998
+    volumeMounts:
+      - name: search-data
+        mountPath: /app/search-service-db
+
+  - name: conversation-service
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-conversation-service:latest
+    ports:
+      - containerPort: 8081
+    env:
+      - name: SYNC_SERVER_URL
+        value: ws://localhost:9998
+    volumeMounts:
+      - name: conversation-data
+        mountPath: /app/conversation-db
+
+  - name: vss-telemetry-service
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-vss-telemetry-service:latest
+    ports:
+      - containerPort: 8086
+    env:
+      - name: SYNC_SERVER_URL
+        value: ws://localhost:9998
+    volumeMounts:
+      - name: vss-data
+        mountPath: /app/vss-db
+
+  - name: simulator
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-simulator:latest
+    ports:
+      - containerPort: 8087
+    env:
+      - name: VSS_TELEMETRY_SERVICE_URL
+        value: http://localhost:8086
+
+  - name: objectbox-sync-server
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/mobile-edge-in-car-voice-assistant-objectbox-sync:2026-07-14
+    args:
+      - --model
+      - /model/objectbox-model.json
+      - --unsecured-no-authentication
+      - --admin-bind
+      - 0.0.0.0:9980
+      - --mongo-url
+      - $(MONGODB_URI)
+      - --mongo-db
+      - $(DATABASE_NAME)
+      - --mongo-initial-import
+    env:
+      - name: MONGODB_URI
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: MONGODB_URI } }
+      - name: DATABASE_NAME
+        valueFrom: { secretKeyRef: { name: mobile-edge-in-car-voice-assistant-staging, key: DATABASE_NAME } }
+    volumeMounts:
+      - name: sync-server-data
+        mountPath: /data
+      - name: objectbox-model
+        mountPath: /model
+        readOnly: true
+
+  # Index 10 (public image, NOT built/overridden by Drone). The offline/online lever:
+  # the C++ clients reach the Sync Server via ws://localhost:9998 (this proxy → 127.0.0.1:9999).
+  # The backend enables/disables the 'sync' proxy through the :8474 control API.
+  - name: toxiproxy
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    args: ["-host", "0.0.0.0"]
+    ports:
+      - containerPort: 8474
+      - containerPort: 9998
+    resources:
+      requests: { cpu: 25m, memory: 32Mi }
+      limits:   { cpu: 100m, memory: 64Mi }
+
+# Ephemeral stores (rehydrate from Atlas on start) + the model file via ConfigMap.
+# Create the ConfigMap by hand before first deploy; recreate it when the schema changes:
+#   kubectl create configmap mobile-edge-in-car-voice-assistant-objectbox-model \
+#     --from-file=objectbox-model.json=sync-server-setup/objectbox-model.json -n industrysolutions
+extraVolumes:
+  - name: search-data
+    emptyDir:
+      sizeLimit: 2Gi
+  - name: conversation-data
+    emptyDir:
+      sizeLimit: 2Gi
+  - name: vss-data
+    emptyDir:
+      sizeLimit: 2Gi
+  - name: sync-server-data
+    emptyDir:
+      sizeLimit: 2Gi
+  - name: objectbox-model
+    configMap:
+      name: mobile-edge-in-car-voice-assistant-objectbox-model
+
+# Kept from the template; Grove needs no AWS, so IRSA is optional here (harmless).
+serviceAccount:
+  enabled: true
+  irsa:
+    accountId: "275662791714"
+    roleName: "kanopy-staging-cicd-irsa"

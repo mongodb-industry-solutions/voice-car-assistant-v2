@@ -1,64 +1,49 @@
 # Voice Car Assistant v2
 
-A multi-service, fully Dockerised in-vehicle assistant that combines live VSS telemetry, car-manual vector search, voice I/O, and a LangChain ReAct agent — all running locally with MongoDB Atlas as the cloud replica.
+A multi-service, fully Dockerised **offline-first** in-vehicle assistant that combines live VSS telemetry, car-manual vector search, voice I/O, and a LangChain ReAct agent. A Next.js cockpit UI talks to a REST/SSE Python backend; edge data lives in ObjectBox and replicates to MongoDB Atlas via ObjectBox Sync, with a toggle that pauses/resumes that replication to demonstrate offline buffering and catch-up.
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  Browser  http://localhost:5000                                       │
-│  Cockpit UI (Flask + SocketIO + Whisper STT + Piper TTS)             │
-│  "Leafy Assistant" — RPM gauge · chat · speedometer · DTC ticker     │
-│  Streams tokens via answer_token; tool progress via agent_status     │
-└──────┬───────────────────────────────────────┬────────────────────────┘
-       │ chat / agent (SSE stream)              │ conversation history
-       │                              ┌─────────▼──────────────┐
-       │                              │  conversation-service  │
-       │                              │  :8081  ObjectBox      │
-       │                              └────────────────────────┘
-       │
-┌──────▼────────────────────────────────────────┐
-│  LangChain ReAct Agent  :5002                  │
-│  Ollama (qwen2.5:3b)                           │
-│  Two pre-compiled graphs (offline / online)    │
-│  Tools: car-manual search · navigation ·       │
-│         6 VSS telemetry tools (online mode)    │
-│  Streaming: POST /agent/chat/stream (SSE)      │
-└──┬──────────────┬─────────────────┬────────────┘
-   │              │                 │
-   │    ┌─────────▼──────┐  ┌───────▼──────────────────────────┐
-   │    │ search-service │  │  vss-telemetry-api               │
-   │    │ :8080          │  │  :3002  (Node.js REST API)        │
-   │    │ ObjectBox HNSW │  │  reads telemetry-status (unified) │
-   │    │ vector search  │  └───────────────────────────────────┘
-   │    └────────────────┘             ▲
-   │                                   │ Atlas Trigger (assembleTelemetry)
-   │                        ┌──────────┴──────────────────┐
-   │                        │  MongoDB Atlas               │
-   │                        │  objectbox_telemetry (nested)│
-   │                        │  → telemetry-data (time-series)│
-   │                        │  → telemetry-status (unified)│
-   │                        └──────────┬──────────────────┘
-   │                                   │ ObjectBox Sync
-   │                        ┌──────────┴──────────────────┐
-   │                        │  ObjectBox Sync Server       │
-   │                        │  :9999 sync  :9980 admin     │
-   │                        └──────────┬──────────────────┘
-   │                                   │
-   │                        ┌──────────▼──────────────────┐
-   │                        │  vss-telemetry-service :8086 │
-   │                        │  C++ ObjectBox (snapshots)   │
-   │                        └──────────┬──────────────────┘
-   │                                   │ POST /vss/snapshot every 2 s
-   │                        ┌──────────▼──────────────────┐
-   │                        │  vss-telemetry-simulator     │
-   │                        │  :8087  Python               │
-   │                        └─────────────────────────────┘
-   │
-┌──▼────────────────────────┐
-│  navigation-service :5001  │
-│  Ollama (qwen2.5:3b) + OSRM│
-└────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│  Browser  →  http://localhost:5000                                       │
+│  voice-assistant-frontend  (Next.js cockpit "Leafy Assistant")           │
+│  RPM/speed gauges · chat (SSE) · DTC ticker · map · live sync panel      │
+│  Browser talks ONLY to same-origin /api/* → proxied server-side          │
+└───────────────────────────────┬──────────────────────────────────────────┘
+                                 │ REST + SSE  (BACKEND_URL)
+┌────────────────────────────────▼─────────────────────────────────────────┐
+│  voice-assistant-backend  :8000  (Flask — REST/SSE, no UI)                 │
+│  Agent relay · Whisper STT · Piper TTS · telemetry/sim/nav proxies         │
+│  Online/offline toggle = enable/disable the sync proxy (toxiproxy ctl API) │
+└──┬──────────────┬───────────────────┬────────────────────┬────────────────┘
+   │ chat (SSE)    │ conversations     │ navigation         │ sync pause/resume
+   │               ▼                   ▼                    ▼
+   │      conversation-service   navigation-service   toxiproxy :8474 (control)
+   │      :8081  ObjectBox       :5001 Ollama + OSRM  :9998 (sync proxy) ──┐
+   │                                                                        │ ws
+┌──▼───────────────────────────────────────────────┐                       │
+│  LangChain ReAct Agent  :5002  (Ollama qwen2.5:3b)│                       │
+│  offline graph → local tools                      │                       │
+│  online  graph → Atlas / telemetry-api tools      │                       │
+└──┬──────────────────────────┬─────────────────────┘                       │
+   │ car-manual search         │ live telemetry                             │
+   │  · offline → search-service :8080 (ObjectBox HNSW)                      │
+   │  · online  → mongodb-search-service :8085 (Atlas Vector Search)         │
+   │  · offline telemetry → vss-telemetry-service :8086 /vss/latest (local)  │
+   │  · online  telemetry → vss-telemetry-api :3002 (Atlas telemetry-status) │
+   │                                                                         │
+   ·  Telemetry ingest + sync path:                                         │
+      vss-telemetry-simulator :8087                                          │
+        → POST /vss/snapshot every 2 s                                       │
+          → vss-telemetry-service :8086 (C++ ObjectBox)                      │
+              ← UI & offline agent read /vss/latest (local store)            │
+            → ObjectBox Sync client ──ws://toxiproxy:9998──────────────────┘
+              → ObjectBox Sync Server :9999 (admin :9980)
+                → MongoDB Atlas: objectbox_telemetry (nested)
+                  → Atlas Trigger assembleTelemetry
+                      ├── telemetry-data   (time-series)
+                      └── telemetry-status (current) ← vss-telemetry-api (online)
 ```
 
 ## Services
@@ -67,7 +52,8 @@ All services are defined in [`sync-server-setup/docker-compose.yml`](sync-server
 
 | Service | Port | Description |
 |---|---|---|
-| `voice-assistant-backend` | 5000 | Flask + SocketIO cockpit UI; Whisper STT; Piper TTS |
+| `voice-assistant-frontend` | 5000 | Next.js cockpit UI ("Leafy Assistant"); browser calls same-origin `/api/*` only |
+| `voice-assistant-backend` | 8000 | Flask REST/SSE API (no UI); orchestration; Whisper STT; Piper TTS; sync toggle |
 | `langchain-agent-service` | 5002 | LangChain ReAct agent (Ollama qwen2.5:3b) |
 | `navigation-service` | 5001 | LLM-powered navigation + OSRM routing |
 | `ollama` | 11434 | Ollama server — serves qwen2.5:3b; GPU-ready |
@@ -75,9 +61,14 @@ All services are defined in [`sync-server-setup/docker-compose.yml`](sync-server
 | `mongodb-search-service` | 8085 | MongoDB Atlas vector search (voyage-4-nano) |
 | `conversation-service` | 8081 | ObjectBox conversation history |
 | `sync-server` | 9980 / 9999 | ObjectBox Sync Server — replicates to MongoDB Atlas |
+| `toxiproxy` | 8474 / 9998 | Toggleable proxy in front of the Sync Server — the online/offline lever |
 | `vss-telemetry-service` | 8086 | C++ ObjectBox service — stores snapshots as `objectbox_telemetry` |
 | `vss-telemetry-simulator` | 8087 | Python VSS data generator — start/stop from the dashboard |
 | `vss-telemetry-api` | 3002 | Node.js REST API — 9 tools, reads unified Atlas collections |
+
+The browser only ever reaches the **frontend** (`:5000`); every backend call is a same-origin
+Next.js `/api/*` route proxied server-side to `voice-assistant-backend` (`:8000`). All other
+services are internal.
 
 ## Agent Service
 
@@ -92,7 +83,7 @@ The `langchain-agent-service` uses LangGraph `create_react_agent` and is optimis
 - **Tool tracking** — every assistant turn records which tools were called in `tools_used`, persisted to the `conversations` entity and synced to Atlas as a native BSON array (`JsonToNative`).
 - **Embedding cache** — query embeddings are LRU-cached (256 entries); repeated queries skip the encode step.
 - **Context budget** — system prompt + mode hint (~250 tokens) + tool schemas + capped tool results (600 chars max) + token-trimmed history stay within `num_ctx=1536`, keeping per-token generation fast.
-- **Mode-aware** — the offline agent has no telemetry tools and is instructed to tell the user it is offline rather than guess live values.
+- **Mode-aware** — both agents have car-manual search, navigation, and live telemetry; the only difference is the *source*. Offline reads the manual and telemetry from the on-edge ObjectBox store (works with no connection); online reads the manual from Atlas Vector Search and telemetry from the Atlas `telemetry-status` collection. Either way the agent must call the tools and never guess live values.
 
 ### Model config
 
@@ -111,10 +102,14 @@ Tools are labelled explicitly to prevent routing errors with a small model:
 - `search_car_manual` — **PROCEDURES & INSTRUCTIONS**: how-to guides, repair steps, warning light meanings, owner's manual content. Use for "how do I" or "what does X mean" questions.
 - Telemetry tools — **LIVE READING**: current sensor values only. Never used for procedures. (`get_diagnostics` reports which fault codes/warning lights are active *now*; "what a light means / how to fix" routes to `search_car_manual`.)
 
-| Agent | Tools |
-|---|---|
-| Offline | `search_car_manual` (ObjectBox), `navigate_to` |
-| Online | `search_car_manual` (MongoDB Atlas), `navigate_to`, `get_vehicle_status`, `get_powertrain_status`, `get_fuel_status`, `get_battery_status`, `get_chassis_status`, `get_diagnostics` |
+Both agents expose the same tool *names*; only the backing data source differs.
+
+| Agent | Tools | Telemetry / manual source |
+|---|---|---|
+| Offline | `search_car_manual`, `navigate_to`, `get_vehicle_status`, `get_powertrain_status`, `get_fuel_status`, `get_battery_status`, `get_chassis_status`, `get_diagnostics` | On-edge ObjectBox — `search-service` (:8080) + `vss-telemetry-service` `/vss/latest` (:8086) |
+| Online | same tool set | Cloud — `mongodb-search-service` (:8085, Atlas Vector Search) + `vss-telemetry-api` (:3002, Atlas `telemetry-status`) |
+
+Navigation (`navigate_to`) calls external routing/geocoding APIs, so it needs internet in both modes — "offline" here means the Atlas *sync* is paused, not that the device has no network.
 
 ### Navigation
 
@@ -249,13 +244,19 @@ Once all containers are healthy, open the voice assistant at **[http://localhost
 
 ## Using the Assistant
 
-The web UI is a full-screen car cockpit dashboard ("Leafy Assistant"):
+The web UI is a full-screen car cockpit dashboard ("Leafy Assistant"), served by the Next.js
+frontend. All telemetry widgets poll `/api/vss/latest` every 3 seconds (proxied to the C++
+`vss-telemetry-service`, i.e. the local edge store), so the gauges stay live in both modes.
 
-All telemetry widgets poll `/api/vss/latest` every 3 seconds from the C++ service.
+The **ONLINE / OFFLINE** toggle in the header switches the agent's data source **and** pauses/resumes
+the ObjectBox → Atlas replication (see *Online / Offline & Live Sync* below):
 
-**Offline mode** — uses ObjectBox vector search + local Ollama only (no MongoDB, no VSS tools). An amber pulsing border highlights the screen.
+**Offline mode** — car-manual search and live telemetry are served from the on-edge ObjectBox
+store, and Atlas replication is paused (the edge keeps writing locally and buffers the backlog).
+An amber pulsing border highlights the screen.
 
-**Online mode** — adds 6 VSS telemetry tools and MongoDB Atlas vector search to the agent.
+**Online mode** — the agent reads the manual from Atlas Vector Search and telemetry from the Atlas
+`telemetry-status` collection, and replication resumes so the buffered backlog flushes to Atlas.
 
 ### Example questions
 
@@ -266,6 +267,37 @@ All telemetry widgets poll `/api/vss/latest` every 3 seconds from the C++ servic
 - "How do I check the brake fluid?" *(car manual search)*
 - "Navigate to the nearest service station" *(navigation — shows route map overlay, no turn-by-turn narration)*
 
+## Online / Offline & Live Sync
+
+The offline/online toggle is a **network-level** switch, not a client stop. Every C++ sync client
+connects to the Sync Server **through toxiproxy** (`SYNC_SERVER_URL=ws://toxiproxy:9998` →
+`sync-server:9999`), and the backend enables/disables that proxy via its control API (`:8474`):
+
+- **Go offline** → backend disables the `sync` proxy. The clients disconnect but keep running, so
+  the edge stores keep accepting writes; the changes queue in each client's outgoing sync buffer.
+  Nothing reaches Atlas.
+- **Go online** → backend re-enables the proxy and pings each C++ service's `POST /sync/reconnect`
+  (which calls the ObjectBox client's `triggerReconnect()`), so the clients reconnect immediately
+  instead of waiting out their backoff, and the buffered backlog flushes up to Atlas.
+
+Why a proxy instead of stopping the client? ObjectBox (v5.1.0) forbids restarting a sync client
+(`start()` after a stop throws `startedOnce`), and closing + recreating one loses the sync cursor,
+which triggers a full re-download. Cutting the connection underneath a permanently-running client
+avoids both and is a faithful "offline-first buffer, then catch up" demonstration.
+
+The **live sync panel** (header → *Sync & Data*) polls `GET /api/sync/state`, which merges the edge
+side (`vss-telemetry-service` `/sync/status`: `local_count`, `buffered` = outgoing-queue depth,
+`sync_state`) with the cloud side (`vss-telemetry-api` `/cloud/counts`) and the proxy's enabled
+state (`paused` / `connected`). Watch `buffered` climb while offline and drain on resume.
+
+Backend endpoints (all proxied from the frontend under `/api/sync/*`):
+
+```
+GET  /api/sync/state    — edge counts + buffered backlog + cloud counts + paused/connected
+POST /api/sync/pause    — go offline (disable the sync proxy)
+POST /api/sync/resume   — go online (enable the proxy + nudge every client to reconnect)
+```
+
 ## VSS Telemetry Schema
 
 Each snapshot is stored **verbatim as one row** — no per-domain split.
@@ -273,8 +305,9 @@ Each snapshot is stored **verbatim as one row** — no per-domain split.
 ### Entities
 | Entity | ID | Description |
 |---|---|---|
-| `SignalDefinition` | 11 | VSS signal registry (declared for shared-model compatibility; not populated) |
-| `objectbox_telemetry` | 26 | `id`, `vehicleId` (idx), `ts` (idx), **`data`** (full VSS Vehicle tree JSON), **`meta`** (vehicle metadata JSON), `syncClock`. Both `data` and `meta` use external type `JsonToNative`. Append-only, pruned after 24 h. |
+| `objectbox_telemetry` | 26 | `id`, `vehicleId` (idx), `ts` (idx), **`data`** (full VSS Vehicle tree JSON), **`meta`** (vehicle metadata JSON), `syncClock`. Both `data` and `meta` use external type `JsonToNative`. Append-only, pruned after 8 h (`RETAIN_HOURS` env, default 8). |
+
+The shared sync model has three live entities — `manual_chunks` (1), `conversations` (3), `objectbox_telemetry` (26). See [`vss-data.md`](vss-data.md) for the full data model.
 
 `data` is the complete VSS `Vehicle` tree (~1300 signals, 45 top-level domains, exact VSS paths such as `Powertrain.CombustionEngine.Speed`). It is generated by `vss-telemetry-simulator` from the committed spec (`vss-telemetry-simulator/vss_model.json`) with a realistic drive-cycle physics core plus correlated OBD-II fault episodes (~20% of ticks). Active fault codes are drawn from the catalog in `vss-telemetry-simulator/dtc_catalog.json` (mirrored to `voice-assistant-backend/static/dtc_catalog.json` for the dashboard).
 
@@ -342,11 +375,18 @@ GET    /health   — status + chunk_count
 
 ```
 POST   /vss/snapshot          — store one snapshot (data + meta) as objectbox_telemetry
-GET    /vss/latest            — newest snapshot (parsed) + meta
+GET    /vss/latest            — newest snapshot (parsed) + meta   ← UI & offline agent read this
 GET    /vss/history?minutes=N — recent snapshots (parsed)
-DELETE /vss/prune?older_than_hours=N
+GET    /vss/count             — local objectbox_telemetry row count
+DELETE /vss/prune?older_than_hours=N   — default N = RETAIN_HOURS (8)
+GET    /sync/status           — { available, local_count, buffered, sync_state }
+POST   /sync/reconnect        — force an immediate reconnect (used by the backend on resume)
 GET    /health
 ```
+
+`search-service` and `conversation-service` also expose `POST /sync/reconnect` for the same
+resume nudge. The online/offline toggle itself lives on the backend (`/api/sync/*`), not here —
+these services never stop their sync client; the toxiproxy layer cuts the connection instead.
 
 ## Telemetry Tools (vss-telemetry-api)
 
@@ -368,15 +408,20 @@ Additional tools on the server but not wired to the agent: `get_cabin_status`, `
 ```
 vss-telemetry-simulator (8087)
   → POST /vss/snapshot every 2 s (complete VSS Vehicle tree JSON)
-    → vss-telemetry-service (8086, ObjectBox C++)   ← UI polls /vss/latest
+    → vss-telemetry-service (8086, ObjectBox C++)   ← UI & offline agent poll /vss/latest
         one objectbox_telemetry row (data = verbatim JSON, JsonToNative)
-      → ObjectBox Sync Server (9999)
-        → MongoDB Atlas: objectbox_telemetry collection (data expanded to nested doc)
-          → Atlas Trigger on objectbox_telemetry insert (assembleTelemetry)
-              ├── INSERT telemetry-data (time-series, every ~2 s)
-              └── UPSERT telemetry-status (every ~10 s)
-                    → vss-telemetry-api (3002)   ← LangChain agent (online mode)
+      → ObjectBox Sync client ──ws──▶ toxiproxy (9998)   ← online/offline lever (backend toggles)
+        → ObjectBox Sync Server (9999)
+          → MongoDB Atlas: objectbox_telemetry collection (data expanded to nested doc)
+            → Atlas Trigger on objectbox_telemetry insert (assembleTelemetry)
+                ├── INSERT telemetry-data (time-series, every ~2 s)
+                └── UPSERT telemetry-status (every ~10 s)
+                      → vss-telemetry-api (3002)   ← LangChain agent (online mode)
 ```
+
+When the backend disables the toxiproxy `sync` proxy (offline), the snapshot write path above
+still runs up to `vss-telemetry-service`; the hop to the Sync Server is cut, so rows accumulate
+locally and flush once the proxy is re-enabled.
 
 Snapshots are inserted with `id = 0` (append-only), so each one creates a new `objectbox_telemetry` row that replicates to Atlas; there is no read-modify-write.
 

@@ -35,8 +35,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(json)
 
 # Executable
-add_executable(search_service 
-    search_service_cpp_highlevel.cpp
+add_executable(search_service
+    search_service.cpp
     schema.obx.cpp
 )
 

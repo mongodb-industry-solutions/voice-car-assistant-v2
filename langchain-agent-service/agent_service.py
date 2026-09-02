@@ -368,6 +368,25 @@ def _build_prompt(input_: list | dict, config: RunnableConfig) -> list:
     # AIMessage(tool_call)/ToolMessage pairs intact at the cut point (some models
     # reject an orphan tool response), which a plain messages[-N:] slice could split.
     history = _strip_tool_markers(messages)
+    # Bulky tool results from PRIOR turns (e.g. a 2 400-char manual chunk) would otherwise eat the
+    # whole budget and force trim_messages(start_on="human") to drop the recent conversation — a
+    # follow-up like "yes" then loses what it was answering. Condense tool results from earlier
+    # turns to a short stub; the assistant already summarised them in its reply, which we keep in
+    # full. The CURRENT turn's tool results (after the last human message) are left intact so the
+    # model can still answer the in-flight request.
+    last_human_idx = max(
+        (i for i, m in enumerate(history) if isinstance(m, HumanMessage)),
+        default=len(history),
+    )
+    _TOOL_STUB = 200
+    history = [
+        ToolMessage(content=m.content[:_TOOL_STUB] + " …[older result trimmed]",
+                    tool_call_id=m.tool_call_id, name=m.name)
+        if (i < last_human_idx and isinstance(m, ToolMessage)
+            and isinstance(m.content, str) and len(m.content) > _TOOL_STUB)
+        else m
+        for i, m in enumerate(history)
+    ]
     trimmed = trim_messages(
         history,
         max_tokens=_HISTORY_TOKEN_BUDGET,

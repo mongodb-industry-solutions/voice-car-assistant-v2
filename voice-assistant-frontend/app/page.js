@@ -679,7 +679,7 @@ export default function Cockpit() {
             </div>
             <div className="scene-body">
               <SyncPanel onPausedChange={handleSyncPaused} vehicleId={vehicleId} />
-              <DataModelPanel />
+              <DataModelPanel vehicleId={vehicleId} />
             </div>
           </div>
         </div>

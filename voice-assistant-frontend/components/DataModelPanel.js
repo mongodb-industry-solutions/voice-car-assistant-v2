@@ -9,20 +9,22 @@ const ENTITIES = [
   { name: "objectbox_telemetry", owner: "vss-telemetry-service", fields: "vehicleId · ts · data · meta", note: "data/meta (JsonToNative) → nested docs in Atlas" },
 ];
 
-export default function DataModelPanel() {
+export default function DataModelPanel({ vehicleId }) {
   const [doc, setDoc] = useState(null);
+  // Scope the live document to THIS session's vehicle (not the default one).
+  const vidQS = vehicleId ? `&vehicleId=${encodeURIComponent(vehicleId)}` : "";
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
       try {
-        const d = await (await fetch(`/api/vss/latest?t=${Date.now()}`)).json();
+        const d = await (await fetch(`/api/vss/latest?t=${Date.now()}${vidQS}`)).json();
         if (!cancelled && !d.error) setDoc(d);
       } catch {}
     };
     tick();
     const id = setInterval(tick, 3000);
     return () => { cancelled = true; clearInterval(id); };
-  }, []);
+  }, [vidQS]);
 
   return (
     <div className="dm-panel">

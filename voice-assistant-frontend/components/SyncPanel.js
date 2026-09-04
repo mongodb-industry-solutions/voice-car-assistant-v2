@@ -22,6 +22,8 @@ export default function SyncPanel({ onPausedChange, vehicleId }) {
   // notified only when it actually flips, whether the change came from this panel's
   // button or from the header toggle.
   const prevPaused = useRef(null);
+  // Edge count captured at the moment we go offline; buffered backlog = growth since then.
+  const baselineRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,14 +33,22 @@ export default function SyncPanel({ onPausedChange, vehicleId }) {
         if (cancelled) return;
         setState(d);
         const ec = d?.edge?.local_count;
+        const p = !!d?.edge?.paused;
+        const wasPaused = prevPaused.current;   // last tick's paused (null on first)
+        // On the online→offline transition, snapshot the edge count (use the previous, still-
+        // online count so the transition tick's write isn't missed). Clear it when back online.
+        if (p && wasPaused !== true) {
+          baselineRef.current = prevEdge.current != null ? prevEdge.current : (ec ?? 0);
+        } else if (!p) {
+          baselineRef.current = null;
+        }
         if (prevEdge.current != null && ec != null && ec !== prevEdge.current) {
           setFlow(true);
           setTimeout(() => setFlow(false), 800);
         }
         prevEdge.current = ec;
-        const p = !!d?.edge?.paused;
         setPaused(p);
-        if (prevPaused.current !== p) {
+        if (wasPaused !== p) {
           prevPaused.current = p;
           onPausedChange?.(p);   // keep the home page online/offline in sync with real state
         }
@@ -72,10 +82,16 @@ export default function SyncPanel({ onPausedChange, vehicleId }) {
   const cloudCount = cloud.objectbox_telemetry;
   const available = edge.available !== false; // false only when the service reports no sync client
   const connected = !!edge.connected;
-  // Authoritative backlog: the ObjectBox client's outgoing-queue depth (writes not yet
-  // acked by the server). Rises while paused, drains on resume — retention-independent,
-  // unlike an edge−cloud count delta.
-  const buffered = edge.buffered != null ? edge.buffered : null;
+  // Backlog while offline = growth in the edge count since we paused. local_count keeps rising
+  // in both scopes while paused (global: writes keep hitting the store; session: local_count =
+  // synced + buffer), so this is the real "not yet in Atlas" count. It works even when the
+  // ObjectBox outgoing-queue metric reads 0 — a cut connection (global scope) forms no outgoing
+  // messages. Falls back to the service-reported buffered if the panel opened mid-pause.
+  const buffered = !paused
+    ? 0
+    : (baselineRef.current != null && edgeCount != null)
+      ? Math.max(0, edgeCount - baselineRef.current)
+      : (edge.buffered ?? 0);
 
   return (
     <div className="sync-panel">
@@ -112,7 +128,7 @@ export default function SyncPanel({ onPausedChange, vehicleId }) {
           <div className="sc-sub">objectbox_telemetry · local</div>
         </div>
         <div className={`sc-gap${buffered ? " buffering" : ""}`}>
-          {buffered != null ? `${buffered} buffered` : "—"}
+          {paused ? `${buffered} buffered` : "in sync"}
           <div className="sc-gap-arrow">
             {!available ? "⇢ no sync ⇢" : connected ? "→ syncing →" : paused ? "⇢ paused ⇢" : "⇢ offline ⇢"}
           </div>

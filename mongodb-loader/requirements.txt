@@ -7,7 +7,7 @@ sentence-transformers>=3.0.0
 # masking API. 4.57.1 is the last release before transformers 5.x renamed
 # create_causal_mask's args, which breaks the model. Do not bump without
 # re-verifying the model loads and emits 1024-d vectors.
-transformers==4.57.1
+transformers==5.10.1
 
 # CPU-only torch — avoids pulling large CUDA wheels on the host machine
 --extra-index-url https://download.pytorch.org/whl/cpu

@@ -10,4 +10,4 @@ pydantic>=2.0.0
 sentence-transformers>=3.0.0
 # Pinned: voyage-4-nano's trust_remote_code needs the 4.5x masking API; 4.57.1 is
 # the last release before transformers 5.x breaks it. Must match load_documents.py.
-transformers==4.57.1
+transformers==5.10.1

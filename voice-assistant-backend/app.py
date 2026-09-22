@@ -77,16 +77,26 @@ def _proxy_get():
 
 def _proxy_set_enabled(enabled: bool) -> None:
     """Enable/disable the sync proxy. Disabling closes open connections and stops
-    listening, so the ObjectBox clients disconnect and buffer writes locally."""
-    p = _proxy_get() or {}
-    body = {
-        "name":     SYNC_PROXY_NAME,
-        "listen":   p.get("listen",   SYNC_PROXY_LISTEN),
-        "upstream": p.get("upstream", SYNC_PROXY_UPSTREAM),
-        "enabled":  enabled,
-    }
-    r = http_requests.post(f"{TOXIPROXY_URL}/proxies/{SYNC_PROXY_NAME}", json=body, timeout=5)
-    r.raise_for_status()
+    listening, so the ObjectBox clients disconnect and buffer writes locally.
+    Retries briefly so a transient toxiproxy blip doesn't fail the toggle (which would
+    make the UI button roll back and look dead)."""
+    last_err = None
+    for attempt in range(3):
+        try:
+            p = _proxy_get() or {}
+            body = {
+                "name":     SYNC_PROXY_NAME,
+                "listen":   p.get("listen",   SYNC_PROXY_LISTEN),
+                "upstream": p.get("upstream", SYNC_PROXY_UPSTREAM),
+                "enabled":  enabled,
+            }
+            r = http_requests.post(f"{TOXIPROXY_URL}/proxies/{SYNC_PROXY_NAME}", json=body, timeout=5)
+            r.raise_for_status()
+            return
+        except Exception as e:
+            last_err = e
+            time.sleep(0.5 * (attempt + 1))
+    raise last_err
 
 
 def _ensure_proxy_loop():

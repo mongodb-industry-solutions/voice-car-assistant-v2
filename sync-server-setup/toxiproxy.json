@@ -1,0 +1,8 @@
+[
+  {
+    "name": "sync",
+    "listen": "0.0.0.0:9998",
+    "upstream": "sync-server:9999",
+    "enabled": true
+  }
+]

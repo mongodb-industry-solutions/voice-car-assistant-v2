@@ -7,7 +7,11 @@ langchain-anthropic>=0.2.0  # cloud provider: Grove-hosted Claude (LLM_PROVIDER=
 langgraph>=0.2.0
 requests>=2.31.0
 pydantic>=2.0.0
-sentence-transformers>=3.0.0
-# Pinned: voyage-4-nano's trust_remote_code needs the 4.5x masking API; 4.57.1 is
-# the last release before transformers 5.x breaks it. Must match load_documents.py.
+# Embedding stack PINNED AS A SET. voyage-4-nano's trust_remote_code targets the
+# transformers 4.5x masking API; transformers 5.x renames create_causal_mask's args
+# (input_embeds) → the model throws at encode() and ALL vector search fails. Because
+# sentence-transformers 6.x / huggingface_hub 1.x drag transformers 5.x in, all three are
+# pinned to the last known-good set (verified on staging). Must match load_documents.py.
 transformers==4.57.1
+sentence-transformers==5.7.0
+huggingface_hub==0.36.2

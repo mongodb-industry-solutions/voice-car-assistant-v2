@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@mdb-ist/kube": "^1.0.1"
+  }
+}

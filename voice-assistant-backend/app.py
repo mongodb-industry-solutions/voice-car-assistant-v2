@@ -385,7 +385,9 @@ def api_sync_state():
                                       params={"vehicleId": vid}, timeout=5).json()
         except Exception as e:
             cloud = {"error": str(e)}
-        return jsonify({"edge": edge, "cloud": cloud})
+        # scope lets the UI know edge.buffered is the authoritative server count (survives a
+        # panel close/reopen); in global scope the UI must derive it from an edge-count delta.
+        return jsonify({"edge": edge, "cloud": cloud, "scope": "session"})
 
     # global scope (toxiproxy) — unchanged
     try:
@@ -403,7 +405,7 @@ def api_sync_state():
         cloud = http_requests.get(f"{VSS_TELEMETRY_API_URL}/cloud/counts", timeout=5).json()
     except Exception as e:
         cloud = {"error": str(e)}
-    return jsonify({"edge": edge, "cloud": cloud})
+    return jsonify({"edge": edge, "cloud": cloud, "scope": "global"})
 
 
 @app.route("/api/sync/pause", methods=["POST"])

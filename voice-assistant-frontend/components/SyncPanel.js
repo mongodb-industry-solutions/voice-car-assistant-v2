@@ -82,16 +82,21 @@ export default function SyncPanel({ onPausedChange, vehicleId }) {
   const cloudCount = cloud.objectbox_telemetry;
   const available = edge.available !== false; // false only when the service reports no sync client
   const connected = !!edge.connected;
-  // Backlog while offline = growth in the edge count since we paused. local_count keeps rising
-  // in both scopes while paused (global: writes keep hitting the store; session: local_count =
-  // synced + buffer), so this is the real "not yet in Atlas" count. It works even when the
-  // ObjectBox outgoing-queue metric reads 0 — a cut connection (global scope) forms no outgoing
-  // messages. Falls back to the service-reported buffered if the panel opened mid-pause.
+  // Backlog while offline.
+  // - session scope: the server tracks the real backlog (sessionBuffer size in
+  //   vss-telemetry-service) and reports it as edge.buffered. Use it directly — it is
+  //   authoritative and SURVIVES a panel close/reopen, unlike the client-side delta below
+  //   (whose baseline lives in a ref that resets on remount, so the count restarted at 0).
+  // - global scope: the server can't report it reliably (a cut connection forms no outgoing
+  //   messages), so derive it from the edge-count growth since we paused.
+  const scope = state?.scope;
   const buffered = !paused
     ? 0
-    : (baselineRef.current != null && edgeCount != null)
-      ? Math.max(0, edgeCount - baselineRef.current)
-      : (edge.buffered ?? 0);
+    : scope === "session"
+      ? (edge.buffered ?? 0)
+      : (baselineRef.current != null && edgeCount != null)
+        ? Math.max(0, edgeCount - baselineRef.current)
+        : (edge.buffered ?? 0);
 
   return (
     <div className="sync-panel">
